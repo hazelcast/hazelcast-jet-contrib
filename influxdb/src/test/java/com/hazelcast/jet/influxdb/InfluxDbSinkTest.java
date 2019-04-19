@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
 public class InfluxDbSinkTest {
 
     @Test
-    @Ignore
+    @Ignore("Connects to actual database")
     public void test_influxDbsink() {
         JetInstance jet = Jet.newJetInstance();
 
