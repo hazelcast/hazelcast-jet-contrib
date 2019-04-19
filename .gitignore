@@ -1,0 +1,14 @@
+.clover/
+target/
+build/
+.gradle
+.project
+.classpath
+.settings/
+.idea/
+.patch
+.surefire-*
+*.iml
+*.ipr
+*.iws
+.DS_Store

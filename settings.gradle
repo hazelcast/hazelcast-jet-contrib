@@ -1,0 +1,2 @@
+rootProject.name = 'hazelcast-jet-contrib'
+include 'influxdb'
