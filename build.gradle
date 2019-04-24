@@ -16,8 +16,6 @@ allprojects {
     sourceCompatibility = '1.8'
     targetCompatibility = '1.8'
 
-    build.dependsOn check
-
     dependencies {
         compile 'com.hazelcast.jet:hazelcast-jet:3.0'
         testCompile 'log4j:log4j:1.2.17'
