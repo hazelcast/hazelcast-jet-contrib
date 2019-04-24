@@ -23,5 +23,10 @@ allprojects {
         testCompile 'log4j:log4j:1.2.17'
         testCompile 'junit:junit:4.11'
     }
+
+    test {
+        systemProperty "hazelcast.phone.home.enabled" , "false"
+        systemProperty "hazelcast.logging.type", "log4j"
+    }
 }
 
