@@ -26,7 +26,6 @@ allprojects {
 
     test {
         systemProperty "hazelcast.phone.home.enabled" , "false"
-        systemProperty "hazelcast.logging.type", "log4j"
     }
 }
 

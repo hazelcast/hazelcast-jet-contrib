@@ -50,7 +50,7 @@ public final class InfluxDbSinks {
     /**
      * Creates a sink which pushes {@link Point} objects into the specified influxDB database
      */
-    public static Sink<Point> influxDb(String url, String database, String password, String username) {
+    public static Sink<Point> influxDb(String url, String database, String username, String password) {
         return influxDb("influxdb-" + database, () ->
                 InfluxDBFactory.connect(url, username, password)
                         .setDatabase(database)
