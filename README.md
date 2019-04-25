@@ -25,6 +25,10 @@ To build the project, use the following command
 
 A simple Jet sink for InfluxDb for writing measurements.
 
+### [HyperLogLog++](hyperloglog) 
+
+An aggregation to estimate stream cardinality.
+
 ## Contributing
 
 We encourage pull requests and process them promptly.

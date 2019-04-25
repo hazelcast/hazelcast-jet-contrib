@@ -1,2 +1,4 @@
 rootProject.name = 'hazelcast-jet-contrib'
 include 'influxdb'
+include 'hyperloglog'
+
