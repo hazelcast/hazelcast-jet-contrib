@@ -37,7 +37,8 @@ compile group: 'com.hazelcast.jet', name: 'hazelcast-jet-influxdb', version: ${v
 
 ## Usage
 
-Describe the module usage and how it interacts with the rest of the system.
+Describe the module usage and how it interacts with the rest of the system. The
+entry point of the module must be included in this section like `InfluxDbSinks.influxDb()`.
 
 End with a very small example/snippet of getting some data out of the system 
 or using it for a little demo
