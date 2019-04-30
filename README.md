@@ -33,7 +33,7 @@ To contribute:
 
 * see [Contribution Guideline](https://github.com/hazelcast/hazelcast-jet-contrib/blob/master/CONTRIBUTING.md)
 * see [Developing with Git](https://hazelcast.atlassian.net/wiki/display/COM/Developing+with+Git) for our Git process
-* see [Readme Template](https://hazelcast.atlassian.net/wiki/display/COM/Developing+with+Git) for our Git process
+* see [README Template](https://github.com/hazelcast/hazelcast-jet-contrib/blob/master/templates/README.template.md)
 * complete the [Hazelcast Contributor Agreement](https://hazelcast.atlassian.net/wiki/display/COM/Hazelcast+Contributor+Agreement)
 
 Submit your contribution as a pull request on GitHub. 
