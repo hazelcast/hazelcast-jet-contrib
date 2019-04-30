@@ -24,15 +24,15 @@ This is a good place to put Maven and Gradle dependencies.
 Maven:
 ```
 <dependency>
-    <groupId>com.hazelcast.jet</groupId>
-    <artifactId>hazelcast-jet-influxdb</artifactId>
+    <groupId>com.hazelcast.jet.contrib</groupId>
+    <artifactId>influxdb</artifactId>
     <version>${version}</version>
 </dependency>
 ```
 
 Gradle: 
 ```
-compile group: 'com.hazelcast.jet', name: 'hazelcast-jet-influxdb', version: ${version}
+compile group: 'com.hazelcast.jet.contrib', name: 'influxdb', version: ${version}
 ```
 
 ## Usage
