@@ -1,14 +1,15 @@
 # InfluxDb Sink
 
-A simple Jet sink for InfluxDb for writing measurements.
+A Hazelcast Jet sink for InfluxDb which enables Hazelcast Jet pipelines to 
+write data points to InfluxDb.
 
 ## Getting Started
 
 ### Installing
 
-The easiest way to start using InfluxDb Sink is to add it as a dependency to your project.
+The InfluxDb Sink artifacts are published on the Maven repositories. 
 
-The artifacts are published on the Maven repositories. Add the following lines to your pom.xml:
+Add the following lines to your pom.xml to include it as a dependency to your project:
 
 ```
 <dependency>
@@ -27,8 +28,8 @@ compile group: 'com.hazelcast.jet.contrib', name: 'influxdb', version: ${version
 
 The entry point for using the InfluxDb Sink in your pipeline is `InfluxDbSinks.influxDb()`.
 
-Here is a very simple pipeline which reads out some measurements from Hazelcast Jet
-List, maps them to the `Point` instances and writes them to the InfluxDb.
+Here is a very simple pipeline which reads out some measurements from Hazelcast
+List, maps them to `Point` instances and writes them to InfluxDb.
 
 ```java
 Pipeline p = Pipeline.create();
