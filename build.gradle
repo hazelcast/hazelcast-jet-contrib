@@ -1,11 +1,13 @@
-allprojects {
 
+subprojects {
     apply plugin: 'java'
     apply plugin: 'idea'
     apply plugin: 'checkstyle'
+    apply plugin: 'maven-publish'
 
     repositories {
         mavenCentral()
+        mavenLocal()
     }
 
     checkstyle {
@@ -13,8 +15,10 @@ allprojects {
         toolVersion = '8.18'
     }
 
+    group = 'com.hazelcast.jet.contrib'
+
     sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'
+    targetCompatibility = '1.8'                
 
     dependencies {
         compile 'com.hazelcast.jet:hazelcast-jet:3.0'
@@ -23,7 +27,34 @@ allprojects {
     }
 
     test {
-        systemProperty "hazelcast.phone.home.enabled" , "false"
+        systemProperty "hazelcast.phone.home.enabled", "false"
     }
+
+    task sourcesJar(type: Jar) {
+        from sourceSets.main.allJava
+        archiveClassifier = 'sources'
+    }
+
+    task javadocJar(type: Jar) {
+        from javadoc
+        archiveClassifier = 'javadoc'
+    }
+
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+                artifact sourcesJar
+                artifact javadocJar
+            }
+        }
+    }
+
+    javadoc {
+        if(JavaVersion.current().isJava9Compatible()) {
+            options.addBooleanOption('html5', true)
+        }
+    }
+
 }
 
