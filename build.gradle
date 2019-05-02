@@ -1,9 +1,22 @@
+buildscript {
+    dependencies {
+        classpath 'org.hibernate.build.gradle:gradle-maven-publish-auth:2.0.1'
+    }
+    repositories {
+        maven {
+            url "http://repository.jboss.org/nexus/content/groups/public/"
+        }
+        mavenLocal()
+        mavenCentral()
+    }
+}
 
 subprojects {
     apply plugin: 'java'
     apply plugin: 'idea'
     apply plugin: 'checkstyle'
     apply plugin: 'maven-publish'
+    apply plugin: 'maven-publish-auth'
 
     repositories {
         mavenCentral()
@@ -46,6 +59,12 @@ subprojects {
                 from components.java
                 artifact sourcesJar
                 artifact javadocJar
+            }
+        }
+        repositories {
+            maven {
+                name "snapshot-repository"
+                url "https://oss.sonatype.org/content/repositories/snapshots"
             }
         }
     }
