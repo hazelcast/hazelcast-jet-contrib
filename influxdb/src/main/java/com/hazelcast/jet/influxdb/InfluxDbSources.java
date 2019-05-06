@@ -19,7 +19,7 @@ package com.hazelcast.jet.influxdb;
 import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
-import com.hazelcast.jet.pipeline.Sources;
+import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
@@ -28,11 +28,13 @@ import org.influxdb.dto.QueryResult.Result;
 import org.influxdb.dto.QueryResult.Series;
 import org.influxdb.impl.InfluxDBResultMapper;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static com.hazelcast.jet.core.ProcessorMetaSupplier.forceTotalParallelismOne;
-import static com.hazelcast.jet.influxdb.impl.StreamInfluxDbP.supplier;
 import static com.hazelcast.util.Preconditions.checkTrue;
 import static org.influxdb.InfluxDBFactory.connect;
 
@@ -94,15 +96,7 @@ public final class InfluxDbSources {
                     if (result.hasError()) {
                         throw new IllegalStateException("Query returned error response: " + result.getError());
                     }
-                    List<Result> results = result.getResults();
-                    if (results != null) {
-                        results.stream().flatMap(r -> {
-                            if (r.hasError()) {
-                                throw new IllegalStateException("Query returned error response: " + r.getError());
-                            }
-                            return r.getSeries() != null ? r.getSeries().stream() : Stream.empty();
-                        }).forEach(sourceBuffer::add);
-                    }
+                    addResultsToSourceBuffer(result, sourceBuffer);
                     sourceBuffer.close();
                 })
                 .destroyFn(InfluxDB::close)
@@ -201,9 +195,11 @@ public final class InfluxDbSources {
         checkTrue(database != null, "database cannot be null");
         checkTrue(connectionSupplier != null, "connectionSupplier cannot be null");
 
-        return Sources.streamFromProcessor("influxdb-" + database,
-                forceTotalParallelismOne(supplier(query, database, chunkSize, connectionSupplier, null))
-        );
+        return SourceBuilder.stream("influxdb-" + database,
+                ignored -> new InfluxDbStreamingSource<>(query, database, chunkSize, connectionSupplier, null))
+                .<Series>fillBufferFn(InfluxDbStreamingSource::addToBufferWithOutMapping)
+                .destroyFn(InfluxDbStreamingSource::close)
+                .build();
     }
 
     /**
@@ -256,8 +252,79 @@ public final class InfluxDbSources {
         checkTrue(connectionSupplier != null, "username cannot be null");
         checkTrue(clazz != null, "clazz cannot be null");
 
-        return Sources.streamFromProcessor("influxdb-" + database,
-                forceTotalParallelismOne(supplier(query, database, chunkSize, connectionSupplier, clazz))
-        );
+        return SourceBuilder.stream("influxdb-" + database,
+                ignored -> new InfluxDbStreamingSource<>(query, database, chunkSize, connectionSupplier, clazz))
+                .<T>fillBufferFn(InfluxDbStreamingSource::addToBufferWithMapping)
+                .destroyFn(InfluxDbStreamingSource::close)
+                .build();
+    }
+
+    /**
+     * A streaming source which executes a streaming query on InfluxDb and emits
+     * results as they arrive.
+     *
+     * @param <T> emitted item type
+     */
+    private static class InfluxDbStreamingSource<T> {
+
+        private final Class<T> clazz;
+        private final BlockingQueue<QueryResult> queue = new LinkedBlockingQueue<>(10000);
+        private final ArrayList<QueryResult> buffer = new ArrayList<>();
+        private final InfluxDBResultMapper resultMapper;
+        private InfluxDB db;
+        private volatile boolean finished;
+
+        InfluxDbStreamingSource(String query, String database, int chunkSize,
+                                SupplierEx<InfluxDB> connectionSupplier, Class<T> clazz) {
+            this.clazz = clazz;
+            this.resultMapper = clazz != null ? new InfluxDBResultMapper() : null;
+            db = connectionSupplier.get();
+            db.query(new Query(query, database),
+                    chunkSize,
+                    queue::add,
+                    () -> finished = true
+            );
+        }
+
+        void addToBufferWithMapping(SourceBuffer<T> sourceBuffer) {
+            checkTrue(resultMapper != null, "resultMapper cannot be null!");
+            transferTo(result -> {
+                if (!result.hasError()) {
+                    resultMapper.toPOJO(result, clazz).forEach(sourceBuffer::add);
+                }
+            }, sourceBuffer);
+        }
+
+        void addToBufferWithOutMapping(SourceBuffer<Series> sourceBuffer) {
+            transferTo(result -> addResultsToSourceBuffer(result, sourceBuffer), sourceBuffer);
+        }
+
+        private <B> void transferTo(Consumer<QueryResult> consumer, SourceBuffer<B> sourceBuffer) {
+            queue.drainTo(buffer);
+            buffer.forEach(consumer);
+            buffer.clear();
+            if (finished && queue.isEmpty()) {
+                sourceBuffer.close();
+            }
+        }
+
+        void close() {
+            if (db != null) {
+                db.close();
+                db = null;
+            }
+        }
+    }
+
+    private static void addResultsToSourceBuffer(QueryResult result, SourceBuffer<Series> sourceBuffer) {
+        List<Result> results = result.getResults();
+        if (results != null) {
+            results.stream().flatMap(r -> {
+                if (r.hasError()) {
+                    throw new IllegalStateException("Query returned error response: " + r.getError());
+                }
+                return r.getSeries() != null ? r.getSeries().stream() : Stream.empty();
+            }).forEach(sourceBuffer::add);
+        }
     }
 }
