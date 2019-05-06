@@ -4,8 +4,15 @@ dependencies {
     compile 'org.influxdb:influxdb-java:2.15'
     testCompile "org.testcontainers:testcontainers:1.11.2"
     testCompile "org.testcontainers:influxdb:1.11.2"
+    testCompile "com.hazelcast.jet:hazelcast-jet-core:3.0:tests"
+    testCompile "com.hazelcast:hazelcast:3.12:tests"
+    testCompile "com.hazelcast:hazelcast-client:3.12:tests"
+    testCompile "com.hazelcast:hazelcast:3.12"
+    testCompile group: 'javax.cache', name: 'cache-api', version: '1.1.0'
+
 }
 
 test {
     systemProperty "hazelcast.logging.type", "log4j"
 }
+
