@@ -28,6 +28,8 @@ import org.influxdb.dto.QueryResult.Result;
 import org.influxdb.dto.QueryResult.Series;
 import org.influxdb.impl.InfluxDBResultMapper;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -63,8 +65,9 @@ public final class InfluxDbSources {
      * @param password password of the InfluxDb server
      * @return {@link Series} which contains query results
      */
-    public static BatchSource<Series> influxDb(String query, String database, String url, String username,
-                                               String password) {
+    @Nonnull
+    public static BatchSource<Series> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
+                                               @Nonnull String username, @Nonnull String password) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(url != null, "url cannot be null");
         checkTrue(database != null, "database cannot be null");
@@ -83,14 +86,15 @@ public final class InfluxDbSources {
      * @param connectionSupplier supplier which returns {@link InfluxDB} instance
      * @return {@link Series} which contains query results
      */
-    public static BatchSource<Series> influxDb(String query, String database, SupplierEx<InfluxDB> connectionSupplier) {
+    @Nonnull
+    public static BatchSource<Series> influxDb(@Nonnull String query, @Nonnull String database,
+                                               @Nonnull SupplierEx<InfluxDB> connectionSupplier) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(database != null, "database cannot be null");
         checkTrue(connectionSupplier != null, "connectionSupplier cannot be null");
 
         return SourceBuilder
-                .batch("influxdb" + database, context -> connectionSupplier.get()
-                )
+                .batch("influxdb" + database, context -> connectionSupplier.get())
                 .<Series>fillBufferFn((influxDB, sourceBuffer) -> {
                     QueryResult result = influxDB.query(new Query(query, database));
                     if (result.hasError()) {
@@ -117,8 +121,10 @@ public final class InfluxDbSources {
      * @param <T>      type of the POJO class
      * @return <T> emits instances of POJO type
      */
-    public static <T> BatchSource<T> influxDb(String query, String database, String url, String username, String password,
-                                              Class<T> clazz) {
+    @Nonnull
+    public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
+                                              @Nonnull String username, @Nonnull String password,
+                                              @Nonnull Class<T> clazz) {
         return influxDb(query, database, () -> connect(url, username, password).setDatabase(database), clazz);
     }
 
@@ -134,8 +140,9 @@ public final class InfluxDbSources {
      * @param <T>                type of the POJO class
      * @return <T> emits instances of POJO type
      */
-    public static <T> BatchSource<T> influxDb(String query, String database, SupplierEx<InfluxDB> connectionSupplier,
-                                              Class<T> clazz) {
+    @Nonnull
+    public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database,
+                                              @Nonnull SupplierEx<InfluxDB> connectionSupplier, @Nonnull Class<T> clazz) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(connectionSupplier != null, "connectionSupplier cannot be null");
         checkTrue(clazz != null, "clazz cannot be null");
@@ -167,8 +174,9 @@ public final class InfluxDbSources {
      * @param chunkSize the number of {@link QueryResult}s to process in one chunk.
      * @return {@link Series} which contains query results
      */
-    public static StreamSource<Series> streamInfluxDb(String query, String database, String url, String username,
-                                                      String password, int chunkSize) {
+    @Nonnull
+    public static StreamSource<Series> streamInfluxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
+                                                      @Nonnull String username, @Nonnull String password, int chunkSize) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(url != null, "url cannot be null");
         checkTrue(database != null, "database cannot be null");
@@ -189,8 +197,9 @@ public final class InfluxDbSources {
      * @param chunkSize          the number of {@link QueryResult}s to process in one chunk.
      * @return {@link Series} which contains query results
      */
-    public static StreamSource<Series> streamInfluxDb(String query, String database,
-                                                      SupplierEx<InfluxDB> connectionSupplier, int chunkSize) {
+    @Nonnull
+    public static StreamSource<Series> streamInfluxDb(@Nonnull String query, @Nonnull String database,
+                                                      @Nonnull SupplierEx<InfluxDB> connectionSupplier, int chunkSize) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(database != null, "database cannot be null");
         checkTrue(connectionSupplier != null, "connectionSupplier cannot be null");
@@ -217,8 +226,10 @@ public final class InfluxDbSources {
      * @param chunkSize the number of {@link QueryResult}s to process in one chunk.
      * @return <T> emits instances of POJO type
      */
-    public static <T> StreamSource<T> streamInfluxDb(String query, String database, String url, String username,
-                                                     String password, Class<T> clazz, int chunkSize) {
+    @Nonnull
+    public static <T> StreamSource<T> streamInfluxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
+                                                     @Nonnull String username, @Nonnull String password,
+                                                     @Nonnull Class<T> clazz, int chunkSize) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(url != null, "url cannot be null");
         checkTrue(database != null, "database cannot be null");
@@ -244,9 +255,10 @@ public final class InfluxDbSources {
      * @param chunkSize          the number of {@link QueryResult}s to process in one chunk.
      * @return <T> emits instances of POJO type
      */
-    public static <T> StreamSource<T> streamInfluxDb(String query, String database,
-                                                     SupplierEx<InfluxDB> connectionSupplier, Class<T> clazz,
-                                                     int chunkSize) {
+    @Nonnull
+    public static <T> StreamSource<T> streamInfluxDb(@Nonnull String query, @Nonnull String database,
+                                                     @Nonnull SupplierEx<InfluxDB> connectionSupplier,
+                                                     @Nonnull Class<T> clazz, int chunkSize) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(database != null, "database cannot be null");
         checkTrue(connectionSupplier != null, "username cannot be null");
@@ -274,8 +286,8 @@ public final class InfluxDbSources {
         private InfluxDB db;
         private volatile boolean finished;
 
-        InfluxDbStreamingSource(String query, String database, int chunkSize,
-                                SupplierEx<InfluxDB> connectionSupplier, Class<T> clazz) {
+        InfluxDbStreamingSource(@Nonnull String query, @Nonnull String database, int chunkSize,
+                                @Nonnull SupplierEx<InfluxDB> connectionSupplier, @Nullable Class<T> clazz) {
             this.clazz = clazz;
             this.resultMapper = clazz != null ? new InfluxDBResultMapper() : null;
             db = connectionSupplier.get();
@@ -288,6 +300,7 @@ public final class InfluxDbSources {
 
         void addToBufferWithMapping(SourceBuffer<T> sourceBuffer) {
             checkTrue(resultMapper != null, "resultMapper cannot be null!");
+            checkTrue(clazz != null, "clazz cannot be null!");
             transferTo(result -> {
                 if (!result.hasError()) {
                     resultMapper.toPOJO(result, clazz).forEach(sourceBuffer::add);

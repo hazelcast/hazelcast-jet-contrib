@@ -32,10 +32,11 @@ subprojects {
     group = 'com.hazelcast.jet.contrib'
 
     sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'                
+    targetCompatibility = '1.8'
 
     dependencies {
         compile 'com.hazelcast.jet:hazelcast-jet:3.0'
+        compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
         testCompile 'log4j:log4j:1.2.17'
         testCompile 'junit:junit:4.11'
         testCompile 'org.awaitility:awaitility:3.1.6'
