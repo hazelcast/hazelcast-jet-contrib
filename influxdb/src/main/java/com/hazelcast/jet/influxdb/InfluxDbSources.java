@@ -264,7 +264,7 @@ public final class InfluxDbSources {
         checkTrue(connectionSupplier != null, "username cannot be null");
         checkTrue(clazz != null, "clazz cannot be null");
 
-        return SourceBuilder.stream("influxdb-" + database,
+        return SourceBuilder.timestampedStream("influxdb-" + database,
                 ignored -> new InfluxDbStreamingSource<>(query, database, chunkSize, connectionSupplier, clazz))
                 .<T>fillBufferFn(InfluxDbStreamingSource::addToBufferWithMapping)
                 .destroyFn(InfluxDbStreamingSource::close)
@@ -299,8 +299,6 @@ public final class InfluxDbSources {
         }
 
         void addToBufferWithMapping(SourceBuffer<T> sourceBuffer) {
-            checkTrue(resultMapper != null, "resultMapper cannot be null!");
-            checkTrue(clazz != null, "clazz cannot be null!");
             transferTo(result -> {
                 if (!result.hasError()) {
                     resultMapper.toPOJO(result, clazz).forEach(sourceBuffer::add);
@@ -324,7 +322,6 @@ public final class InfluxDbSources {
         void close() {
             if (db != null) {
                 db.close();
-                db = null;
             }
         }
     }
