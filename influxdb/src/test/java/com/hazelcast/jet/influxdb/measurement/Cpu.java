@@ -20,9 +20,12 @@ import org.influxdb.annotation.Column;
 import org.influxdb.annotation.Measurement;
 
 import java.io.Serializable;
+import java.time.Instant;
 
 @Measurement(name = "cpu")
 public class Cpu implements Serializable {
+    @Column(name = "time")
+    public Instant time;
     @Column(name = "host", tag = true)
     public String hostname;
     @Column(name = "load")
@@ -39,7 +42,8 @@ public class Cpu implements Serializable {
     @Override
     public String toString() {
         return "Cpu{" +
-                "hostname='" + hostname + '\'' +
+                "time=" + time +
+                ", hostname='" + hostname + '\'' +
                 ", load=" + load +
                 '}';
     }

@@ -17,7 +17,6 @@
 package com.hazelcast.jet.influxdb;
 
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.Traversers;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.influxdb.measurement.Cpu;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -31,10 +30,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.InfluxDBContainer;
 
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import static com.hazelcast.jet.datamodel.Tuple2.tuple2;
 import static com.hazelcast.jet.influxdb.InfluxDbSources.DEFAULT_CHUNK_SIZE;
+import static java.lang.String.valueOf;
 import static org.junit.Assert.assertEquals;
 
 
@@ -60,8 +62,9 @@ public class InfluxDbSourceTest extends JetTestSupport {
         jet = createJetMember();
     }
 
+
     @Test
-    public void test_batch_influxDbSource() {
+    public void test_stream_influxDbSource_withMeasurementMapper() {
         InfluxDB db = influxdbContainer.getNewInfluxDB();
         fillData(db);
 
@@ -72,9 +75,11 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         DATABASE_NAME,
                         influxdbContainer.getUrl(),
                         USERNAME,
-                        PASSWORD)
-        )
-         .flatMap(series -> Traversers.traverseIterable(series.getValues()))
+                        PASSWORD,
+                        DEFAULT_CHUNK_SIZE,
+                        (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
+         .withTimestamps(tuple2 -> Instant.parse(valueOf(tuple2.f0())).toEpochMilli(), 0)
+         .peek()
          .drainTo(Sinks.list("results"));
 
         jet.newJob(p).join();
@@ -83,7 +88,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void test_batch_influxDbSource_withResultMapper() {
+    public void test_stream_influxDbSource_withPOJOResultMapper() {
         InfluxDB db = influxdbContainer.getNewInfluxDB();
         fillCpuData(db);
 
@@ -95,57 +100,10 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         influxdbContainer.getUrl(),
                         USERNAME,
                         PASSWORD,
-                        Cpu.class)
-        )
-         .drainTo(Sinks.list("results"));
-
-        jet.newJob(p).join();
-
-        assertEquals(VALUE_COUNT, jet.getList("results").size());
-    }
-
-    @Test
-    public void test_stream_influxDbSource() {
-        InfluxDB db = influxdbContainer.getNewInfluxDB();
-        fillData(db);
-
-        Pipeline p = Pipeline.create();
-
-        p.drawFrom(
-                InfluxDbSources.streamInfluxDb("SELECT * FROM test_db..test",
-                        DATABASE_NAME,
-                        influxdbContainer.getUrl(),
-                        USERNAME,
-                        PASSWORD,
-                        DEFAULT_CHUNK_SIZE)
-        )
-         .withoutTimestamps()
-         .flatMap(series -> Traversers.traverseIterable(series.getValues()))
-         .peek()
-         .drainTo(Sinks.list("results"));
-
-        jet.newJob(p).join();
-
-        assertEquals(VALUE_COUNT, jet.getList("results").size());
-    }
-
-    @Test
-    public void test_stream_influxDbSource_withResultMapper() {
-        InfluxDB db = influxdbContainer.getNewInfluxDB();
-        fillCpuData(db);
-
-        Pipeline p = Pipeline.create();
-
-        p.drawFrom(
-                InfluxDbSources.streamInfluxDb("SELECT * FROM test_db..cpu",
-                        DATABASE_NAME,
-                        influxdbContainer.getUrl(),
-                        USERNAME,
-                        PASSWORD,
                         Cpu.class,
-                        DEFAULT_CHUNK_SIZE)
-        )
-         .withoutTimestamps()
+                        DEFAULT_CHUNK_SIZE))
+         .withTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
+         .peek()
          .drainTo(Sinks.list("results"));
 
         jet.newJob(p).join();
@@ -159,7 +117,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
                          influxDB.write(DATABASE_NAME,
                                  "autogen",
                                  Point.measurement("test")
-                                      .time(value, TimeUnit.MILLISECONDS)
+                                      .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
                                       .addField("value", value)
                                       .build()
                          )
