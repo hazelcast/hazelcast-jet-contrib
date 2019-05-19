@@ -28,15 +28,11 @@ compile group: 'com.hazelcast.jet.contrib', name: 'influxdb', version: ${version
 
 #### As a Source
 
-There are two APIs for querying data to be consumed by Hazelcast Jet from InfluxDb.
-
-
-##### Batch Source
-
 InfluxDb batch source (`InfluxDbSources.influxDb()`)  executes the 
-query and retrieves all the results in one go.
+query and emits the results as they arrive.
 
-Following is an example pipeline which queries from InfluxDb and logs the results.
+Following is an example pipeline which queries from InfluxDb, maps the first and
+second column values on the row to a tuple and logs them.
 
 ```java
 Pipeline p = Pipeline.create();
@@ -45,31 +41,10 @@ p.drawFrom(
                 DATABASE_NAME,
                 INFLUXDB_URL,
                 USERNAME,
-                PASSWORD)
-)
- .flatMap(series -> Traversers.traverseIterable(series.getValues()))
- .drainTo(Sinks.logger());
-```
-
-##### Streaming Source
-InfluxDb streaming source (`InfluxDbSources.streamInfluxDb()`) executes
-a streaming query and emits the results as they arrive.
-   
-Following is an example pipeline which streams the query results from InfluxDb 
-and logs the results.
-
-```java
-Pipeline p = Pipeline.create();
-p.drawFrom(
-        InfluxDbSources.streamInfluxDb("SELECT * FROM db..cpu_usages",
-                DATABASE_NAME,
-                INFLUXDB_URL,
-                USERNAME,
                 PASSWORD,
-                CHUNK_SIZE)
+                CHUNK_SIZE,
+                (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
 )
- .withoutTimestamps()
- .flatMap(series -> Traversers.traverseIterable(series.getValues()))
  .drainTo(Sinks.logger());
 ```
 
