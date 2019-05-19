@@ -78,7 +78,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         PASSWORD,
                         DEFAULT_CHUNK_SIZE,
                         (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
-         .withTimestamps(tuple2 -> Instant.parse(valueOf(tuple2.f0())).toEpochMilli(), 0)
+         .addTimestamps(tuple2 -> Instant.parse(valueOf(tuple2.f0())).toEpochMilli(), 0)
          .peek()
          .drainTo(Sinks.list("results"));
 
@@ -102,7 +102,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         PASSWORD,
                         Cpu.class,
                         DEFAULT_CHUNK_SIZE))
-         .withTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
+         .addTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
          .peek()
          .drainTo(Sinks.list("results"));
 
