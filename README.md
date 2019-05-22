@@ -25,9 +25,9 @@ To build the project, use the following command
 
 A simple Jet sink for InfluxDb for writing measurements.
 
-### [HyperLogLog++](hyperloglog) 
+### [Probabilistic Aggregations](probabilistic) 
 
-An aggregation to estimate stream cardinality.
+A collection of probabilistic aggregations such as HyperLogLog.
 
 ## Contributing
 

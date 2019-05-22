@@ -1,8 +1,12 @@
-# HyperLogLog++ Aggregation for Jet 
+# Probabilistic Aggregations for Jet
+Collections of probabilistic aggregations.
+Currently implementation aggregations: HyperLogLog++
+
+## HyperLogLog++ Aggregation for Jet 
 
 Memory efficient cardinality estimator
 
-## Getting Started
+### Getting Started
 HyperLogLog is a probabilistic data structure to estimate cardinality. 
 Translated to plain English it means this: You feed HyperLogLog with items
 and it can tell you how many *unique* items it received. 
@@ -19,29 +23,7 @@ IPs visited your site. Error rate 1-2% is often irrelevant.
 
 You can read more about the data structure at Wikipedia: https://en.wikipedia.org/wiki/HyperLogLog   
 
-
-
-### Installing
-
-The HyperLogLog artifacts are published on the Maven repositories. 
-
-Add the following lines to your pom.xml to include it as a dependency to your project:
-
-```
-<dependency>
-    <groupId>com.hazelcast.jet.contrib</groupId>
-    <artifactId>hyperloglog</artifactId>
-    <version>${version}</version>
-</dependency>
-```
-
-
-Gradle: 
-```
-compile group: 'com.hazelcast.jet.contrib', name: 'hyperloglog', version: ${version}
-```
-
-## Usage
+### Usage
 
 The aggregation is typically used in two stages:
 1. Mapping step to transform your stream entries into 64 bits hashes
@@ -56,6 +38,28 @@ pipeline.drawFrom(Sources.mySource())
                 .aggregate(ProbabilisticAggregations.hyperLogLog()) // actual aggregation
                 .drainTo(Sinks.mySink()); // write cardinality into sink
 ```
+
+
+## Installing
+
+The artifacts are published on the Maven repositories. 
+
+Add the following lines to your pom.xml to include it as a dependency to your project:
+
+```
+<dependency>
+    <groupId>com.hazelcast.jet.contrib</groupId>
+    <artifactId>probabilistic</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+
+
+Gradle: 
+```
+compile group: 'com.hazelcast.jet.contrib', name: 'probabilistic', version: ${version}
+```
+
 
 
 ## Running the tests
