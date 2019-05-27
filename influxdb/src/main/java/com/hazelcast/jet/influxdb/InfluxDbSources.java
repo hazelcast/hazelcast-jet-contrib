@@ -16,24 +16,26 @@
 
 package com.hazelcast.jet.influxdb;
 
-import com.hazelcast.jet.function.QuadFunction;
 import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
+import mapper.MeasurementMapper;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
+import org.influxdb.dto.QueryResult.Result;
+import org.influxdb.dto.QueryResult.Series;
 import org.influxdb.impl.InfluxDBResultMapper;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.hazelcast.util.Preconditions.checkTrue;
 import static java.util.Objects.nonNull;
@@ -44,11 +46,6 @@ import static org.influxdb.InfluxDBFactory.connect;
  */
 public final class InfluxDbSources {
 
-    /**
-     * Default number of {@link QueryResult}s to process in one chunk
-     */
-    public static final int DEFAULT_CHUNK_SIZE = 100;
-
     private InfluxDbSources() {
 
     }
@@ -58,23 +55,21 @@ public final class InfluxDbSources {
      * emits items mapped with user defined mapper function.
      * Authenticates with the server using given credentials.
      *
+     * @param <T>               type of the user object
      * @param query             query to execute on InfluxDb database
      * @param database          name of the database
      * @param url               url of the InfluxDb server
      * @param username          username of the InfluxDb server
      * @param password          password of the InfluxDb server
-     * @param chunkSize         the number of {@link QueryResult}s to process in one chunk.
-     * @param measurementMapper mapper function which takes measurement name, tags set, column names and row
+     * @param measurementMapper mapper function which takes measurement name, tags set, column names and values
      *                          as argument and produces the user object {@link T} which will be emitted from
      *                          this source
-     * @param <T>               type of the user object
      * @return {@link T} mapped user objects
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
-                                               @Nonnull String username, @Nonnull String password, int chunkSize,
-                                               @Nonnull QuadFunction<String, Map<String, String>,
-                                                       List<String>, List<Object>, T> measurementMapper) {
+                                              @Nonnull String username, @Nonnull String password,
+                                              @Nonnull MeasurementMapper<T> measurementMapper) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(url != null, "url cannot be null");
         checkTrue(database != null, "database cannot be null");
@@ -82,8 +77,7 @@ public final class InfluxDbSources {
         checkTrue(password != null, "password cannot be null");
         checkTrue(measurementMapper != null, "measurementMapper cannot be null");
 
-        return influxDb(query, database, () -> connect(url, username, password).setDatabase(database), chunkSize,
-                measurementMapper);
+        return influxDb(query, () -> connect(url, username, password).setDatabase(database), measurementMapper);
     }
 
     /**
@@ -91,28 +85,24 @@ public final class InfluxDbSources {
      * emits items mapped with user defined mapper function.
      * Uses given {@link InfluxDB} instance to interact with the server.
      *
+     * @param <T>                type of the user object
      * @param query              query to execute on InfluxDb database
-     * @param database           name of the database
      * @param connectionSupplier supplier which returns {@link InfluxDB} instance
-     * @param chunkSize          the number of {@link QueryResult}s to process in one chunk.
-     * @param measurementMapper  mapper function which takes measurement name, tags set, column names and row
+     * @param measurementMapper  mapper function which takes measurement name, tags set, column names and values
      *                           as argument and produces the user object {@link T} which will be emitted from
      *                           this source
-     * @param <T>                type of the user object
      * @return {@link T} mapped user objects
      */
     @Nonnull
-    public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database,
-                                              @Nonnull SupplierEx<InfluxDB> connectionSupplier, int chunkSize,
-                                              @Nonnull QuadFunction<String, Map<String, String>, List<String>,
-                                                       List<Object>, T> measurementMapper) {
+    public static <T> BatchSource<T> influxDb(@Nonnull String query,
+                                              @Nonnull SupplierEx<InfluxDB> connectionSupplier,
+                                              @Nonnull MeasurementMapper<T> measurementMapper) {
         checkTrue(query != null, "query cannot be null");
-        checkTrue(database != null, "database cannot be null");
         checkTrue(connectionSupplier != null, "connectionSupplier cannot be null");
         checkTrue(measurementMapper != null, "connectionSupplier cannot be null");
 
-        return SourceBuilder.batch("influxdb-" + database,
-                ignored -> new InfluxDbSource<>(query, database, chunkSize, connectionSupplier, null,
+        return SourceBuilder.batch("influxdb",
+                ignored -> new InfluxDbSource<>(query, connectionSupplier, null,
                         measurementMapper))
                 .<T>fillBufferFn(InfluxDbSource::addToBufferWithMeasurementMapping)
                 .destroyFn(InfluxDbSource::close)
@@ -124,20 +114,19 @@ public final class InfluxDbSources {
      * emits result which are mapped to the provided POJO class type.
      * Authenticates with the server using given credentials.
      *
-     * @param query     query to execute on InfluxDb database
-     * @param database  name of the database
-     * @param url       url of the InfluxDb server
-     * @param username  username of the InfluxDb server
-     * @param password  password of the InfluxDb server
-     * @param clazz     name of the POJO class
-     * @param <T>       type of the POJO class
-     * @param chunkSize the number of {@link QueryResult}s to process in one chunk.
+     * @param query    query to execute on InfluxDb database
+     * @param database name of the database
+     * @param url      url of the InfluxDb server
+     * @param username username of the InfluxDb server
+     * @param password password of the InfluxDb server
+     * @param clazz    name of the POJO class
+     * @param <T>      type of the POJO class
      * @return <T> emits instances of POJO type
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
-                                               @Nonnull String username, @Nonnull String password,
-                                               @Nonnull Class<T> clazz, int chunkSize) {
+                                              @Nonnull String username, @Nonnull String password,
+                                              @Nonnull Class<T> clazz) {
         checkTrue(query != null, "query cannot be null");
         checkTrue(url != null, "url cannot be null");
         checkTrue(database != null, "database cannot be null");
@@ -145,8 +134,7 @@ public final class InfluxDbSources {
         checkTrue(password != null, "password cannot be null");
         checkTrue(clazz != null, "clazz cannot be null");
 
-        return influxDb(query, database, () -> connect(url, username, password).setDatabase(database),
-                clazz, chunkSize);
+        return influxDb(query, () -> connect(url, username, password).setDatabase(database), clazz);
     }
 
     /**
@@ -155,24 +143,21 @@ public final class InfluxDbSources {
      * Uses given {@link InfluxDB} instance to interact with the server.
      *
      * @param query              query to execute on InfluxDb database
-     * @param database           name of the database
      * @param connectionSupplier supplier which returns {@link InfluxDB} instance
      * @param clazz              name of the POJO class
      * @param <T>                type of the POJO class
-     * @param chunkSize          the number of {@link QueryResult}s to process in one chunk.
      * @return <T> emits instances of POJO type
      */
     @Nonnull
-    public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database,
-                                               @Nonnull SupplierEx<InfluxDB> connectionSupplier,
-                                               @Nonnull Class<T> clazz, int chunkSize) {
+    public static <T> BatchSource<T> influxDb(@Nonnull String query,
+                                              @Nonnull SupplierEx<InfluxDB> connectionSupplier,
+                                              @Nonnull Class<T> clazz) {
         checkTrue(query != null, "query cannot be null");
-        checkTrue(database != null, "database cannot be null");
         checkTrue(connectionSupplier != null, "username cannot be null");
         checkTrue(clazz != null, "clazz cannot be null");
 
-        return SourceBuilder.batch("influxdb-" + database,
-                ignored -> new InfluxDbSource<>(query, database, chunkSize, connectionSupplier, clazz, null))
+        return SourceBuilder.batch("influxdb",
+                ignored -> new InfluxDbSource<>(query, connectionSupplier, clazz, null))
                 .<T>fillBufferFn(InfluxDbSource::addToBufferWithPOJOMapping)
                 .destroyFn(InfluxDbSource::close)
                 .build();
@@ -186,24 +171,28 @@ public final class InfluxDbSources {
      */
     private static class InfluxDbSource<T> {
 
+        /**
+         * Default number of {@link QueryResult}s to process in one chunk
+         */
+        private static final int DEFAULT_CHUNK_SIZE = 100;
+
         private final Class<T> clazz;
         private final BlockingQueue<QueryResult> queue = new LinkedBlockingQueue<>(10000);
         private final ArrayList<QueryResult> buffer = new ArrayList<>();
         private final InfluxDBResultMapper resultMapper;
-        private final QuadFunction<String, Map<String, String>, List<String>, List<Object>, T> measurementMapper;
+        private final MeasurementMapper<T> measurementMapper;
         private InfluxDB db;
         private volatile boolean finished;
 
-        InfluxDbSource(@Nonnull String query, @Nonnull String database, int chunkSize,
+        InfluxDbSource(@Nonnull String query,
                        @Nonnull SupplierEx<InfluxDB> connectionSupplier, @Nullable Class<T> clazz,
-                       @Nullable QuadFunction<String, Map<String, String>, List<String>, List<Object>, T>
-                                        measurementMapper) {
+                       @Nullable MeasurementMapper<T> measurementMapper) {
             this.clazz = clazz;
             this.resultMapper = clazz != null ? new InfluxDBResultMapper() : null;
             this.measurementMapper = measurementMapper;
             db = connectionSupplier.get();
-            db.query(new Query(query, database),
-                    chunkSize,
+            db.query(new Query(query),
+                    DEFAULT_CHUNK_SIZE,
                     queue::add,
                     () -> finished = true
             );
@@ -226,20 +215,22 @@ public final class InfluxDbSources {
                     result.getResults()
                           .stream()
                           .filter(internalResult -> nonNull(internalResult) && nonNull(internalResult.getSeries()))
-                          .flatMap(r -> r.getSeries()
-                                         .stream()
-                                         .flatMap(series ->
-                                                 series.getValues()
-                                                       .stream()
-                                                       .map(objects ->
-                                                               measurementMapper.apply(series.getName(), series.getTags(),
-                                                                       series.getColumns(), objects)
-                                                       )
-                                         )
-                          )
+                          .flatMap(expandResultsToRows())
                           .forEach(sourceBuffer::add);
                 }
             }, sourceBuffer);
+        }
+
+        private Function<Result, Stream<? extends T>> expandResultsToRows() {
+            return r -> r.getSeries()
+                         .stream()
+                         .flatMap(expandSeries());
+        }
+
+        private Function<Series, Stream<? extends T>> expandSeries() {
+            return s -> s.getValues()
+                         .stream()
+                         .map(objects -> measurementMapper.apply(s.getName(), s.getTags(), s.getColumns(), objects));
         }
 
         private <B> void transferTo(Consumer<QueryResult> consumer, SourceBuffer<B> sourceBuffer) {
@@ -262,20 +253,20 @@ public final class InfluxDbSources {
 
     private static void throwExceptionIfResultWithErrorOrNull(final QueryResult queryResult) {
         if (queryResult == null) {
-            throw new IllegalStateException("InfluxDB returned null query result");
+            throw new RuntimeException("InfluxDB returned null query result");
         }
         if (queryResult.getResults() == null && "DONE".equals(queryResult.getError())) {
             return;
         }
         if (queryResult.getError() != null) {
-            throw new IllegalStateException("InfluxDB returned an error: " + queryResult.getError());
+            throw new RuntimeException("InfluxDB returned an error: " + queryResult.getError());
         }
         if (queryResult.getResults() == null) {
-            throw new IllegalStateException("InfluxDB returned null query result");
+            throw new RuntimeException("InfluxDB returned null query result");
         }
         queryResult.getResults().forEach(seriesResult -> {
             if (seriesResult.getError() != null) {
-                throw new IllegalStateException("InfluxDB returned an error with Series: " + seriesResult.getError());
+                throw new RuntimeException("InfluxDB returned an error with Series: " + seriesResult.getError());
             }
         });
     }

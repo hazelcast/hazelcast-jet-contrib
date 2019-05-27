@@ -35,7 +35,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 import static com.hazelcast.jet.datamodel.Tuple2.tuple2;
-import static com.hazelcast.jet.influxdb.InfluxDbSources.DEFAULT_CHUNK_SIZE;
 import static java.lang.String.valueOf;
 import static org.junit.Assert.assertEquals;
 
@@ -76,7 +75,6 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         influxdbContainer.getUrl(),
                         USERNAME,
                         PASSWORD,
-                        DEFAULT_CHUNK_SIZE,
                         (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
          .addTimestamps(tuple2 -> Instant.parse(valueOf(tuple2.f0())).toEpochMilli(), 0)
          .peek()
@@ -100,8 +98,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         influxdbContainer.getUrl(),
                         USERNAME,
                         PASSWORD,
-                        Cpu.class,
-                        DEFAULT_CHUNK_SIZE))
+                        Cpu.class))
          .addTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
          .peek()
          .drainTo(Sinks.list("results"));
