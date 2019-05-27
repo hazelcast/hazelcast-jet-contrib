@@ -25,6 +25,10 @@ To build the project, use the following command
 
 A simple Jet sink for InfluxDb for writing measurements.
 
+### [Probabilistic Aggregations](probabilistic) 
+
+A collection of probabilistic aggregations such as HyperLogLog.
+
 ## Contributing
 
 We encourage pull requests and process them promptly.
