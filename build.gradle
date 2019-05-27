@@ -74,6 +74,7 @@ subprojects {
                 name "snapshot-repository"
                 url "https://oss.sonatype.org/content/repositories/snapshots"
             }
+            mavenLocal()
         }
     }
 

@@ -1,0 +1,11 @@
+version = '0.1-SNAPSHOT'
+
+dependencies {
+    compile 'org.elasticsearch.client:elasticsearch-rest-high-level-client:5.6.0'
+    testCompile "org.testcontainers:testcontainers:1.11.2"
+    testCompile "org.testcontainers:elasticsearch:1.11.2"
+}
+
+test {
+    systemProperty "hazelcast.logging.type", "log4j"
+}

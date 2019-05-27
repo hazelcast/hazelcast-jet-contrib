@@ -1,6 +1,7 @@
 .clover/
 target/
 build/
+out/
 .gradle
 .project
 .classpath
