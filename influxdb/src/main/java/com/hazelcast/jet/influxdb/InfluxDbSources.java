@@ -31,14 +31,11 @@ import org.influxdb.impl.InfluxDBResultMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static com.hazelcast.util.Preconditions.checkNotNull;
-import static java.util.Objects.nonNull;
 import static org.influxdb.InfluxDBFactory.connect;
 
 /**
@@ -103,7 +100,7 @@ public final class InfluxDbSources {
         return SourceBuilder.batch("influxdb",
                 ignored -> new InfluxDbSourceContext<>(query, connectionSupplier, null,
                         measurementMapper))
-                .<T>fillBufferFn(InfluxDbSourceContext::addToBufferWithMeasurementMapping)
+                .<T>fillBufferFn(InfluxDbSourceContext::fillBufferWithMeasurementMapping)
                 .destroyFn(InfluxDbSourceContext::close)
                 .build();
     }
@@ -157,7 +154,7 @@ public final class InfluxDbSources {
 
         return SourceBuilder.batch("influxdb",
                 ignored -> new InfluxDbSourceContext<>(query, connectionSupplier, pojoClass, null))
-                .<T>fillBufferFn(InfluxDbSourceContext::addToBufferWithPojoMapping)
+                .<T>fillBufferFn(InfluxDbSourceContext::fillBufferWithPojoMapping)
                 .destroyFn(InfluxDbSourceContext::close)
                 .build();
     }
@@ -174,10 +171,11 @@ public final class InfluxDbSources {
          * Default number of {@link QueryResult}s to process in one chunk
          */
         private static final int DEFAULT_CHUNK_SIZE = 100;
+        private static final int MAX_FILL_ELEMENTS = 100;
 
         private final Class<T> pojoClass;
-        private final BlockingQueue<QueryResult> queue = new LinkedBlockingQueue<>(10000);
-        private final ArrayList<QueryResult> buffer = new ArrayList<>();
+        private final BlockingQueue<QueryResult> queue = new ArrayBlockingQueue<>(10000);
+        private final ArrayList<QueryResult> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
         private final InfluxDBResultMapper resultMapper;
         private final MeasurementMapper<T> measurementMapper;
         private InfluxDB db;
@@ -199,44 +197,34 @@ public final class InfluxDbSources {
             );
         }
 
-        void addToBufferWithPojoMapping(SourceBuffer<T> sourceBuffer) {
-            transferTo(result -> {
+        void fillBufferWithPojoMapping(SourceBuffer<T> sourceBuffer) {
+            queue.drainTo(buffer, MAX_FILL_ELEMENTS);
+            for (QueryResult result : buffer) {
                 throwExceptionIfResultWithErrorOrNull(result);
-                if (!result.hasError()) {
-                    resultMapper.toPOJO(result, pojoClass)
-                                .forEach(sourceBuffer::add);
+                for (T t : resultMapper.toPOJO(result, pojoClass)) {
+                    sourceBuffer.add(t);
                 }
-            }, sourceBuffer);
+            }
+            buffer.clear();
+            if (finished && queue.isEmpty()) {
+                sourceBuffer.close();
+            }
         }
 
-        void addToBufferWithMeasurementMapping(SourceBuffer<T> sourceBuffer) {
-            transferTo(result -> {
+        void fillBufferWithMeasurementMapping(SourceBuffer<T> sourceBuffer) {
+            queue.drainTo(buffer, 100);
+            for (QueryResult result : buffer) {
                 throwExceptionIfResultWithErrorOrNull(result);
-                if (!result.hasError()) {
-                    result.getResults()
-                          .stream()
-                          .filter(internalResult -> nonNull(internalResult) && nonNull(internalResult.getSeries()))
-                          .flatMap(expandResultsToRows())
-                          .forEach(sourceBuffer::add);
+                for (Result internalResult : result.getResults()) {
+                    if (internalResult != null && internalResult.getSeries() != null) {
+                        for (Series s : internalResult.getSeries()) {
+                            for (List<Object> objects : s.getValues()) {
+                                sourceBuffer.add(measurementMapper.apply(s.getName(), s.getTags(), s.getColumns(), objects));
+                            }
+                        }
+                    }
                 }
-            }, sourceBuffer);
-        }
-
-        private Function<Result, Stream<? extends T>> expandResultsToRows() {
-            return r -> r.getSeries()
-                         .stream()
-                         .flatMap(expandSeries());
-        }
-
-        private Function<Series, Stream<? extends T>> expandSeries() {
-            return s -> s.getValues()
-                         .stream()
-                         .map(objects -> measurementMapper.apply(s.getName(), s.getTags(), s.getColumns(), objects));
-        }
-
-        private <B> void transferTo(Consumer<QueryResult> consumer, SourceBuffer<B> sourceBuffer) {
-            queue.drainTo(buffer);
-            buffer.forEach(consumer);
+            }
             buffer.clear();
             if (finished && queue.isEmpty()) {
                 sourceBuffer.close();
@@ -261,12 +249,12 @@ public final class InfluxDbSources {
             throw new RuntimeException("InfluxDB returned an error: " + queryResult.getError());
         }
         if (queryResult.getResults() == null) {
-            throw new RuntimeException("InfluxDB returned null query result");
+            throw new RuntimeException("InfluxDB returned null query results");
         }
-        queryResult.getResults().forEach(seriesResult -> {
+        for (Result seriesResult : queryResult.getResults()) {
             if (seriesResult.getError() != null) {
                 throw new RuntimeException("InfluxDB returned an error with Series: " + seriesResult.getError());
             }
-        });
+        }
     }
 }
