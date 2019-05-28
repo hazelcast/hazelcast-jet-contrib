@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package mapper;
 
 import java.io.Serializable;
@@ -22,9 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A mapper which maps a single measurement row to an user object.
+ * A mapper which maps a single measurement row to a user object.
  *
- * @param <R> returned user object type.
+ * @param <R> type of returned objects
  */
 @FunctionalInterface
 public interface MeasurementMapper<R> extends Serializable {

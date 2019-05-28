@@ -38,7 +38,6 @@ import static com.hazelcast.jet.datamodel.Tuple2.tuple2;
 import static java.lang.String.valueOf;
 import static org.junit.Assert.assertEquals;
 
-
 @RunWith(HazelcastParallelClassRunner.class)
 public class InfluxDbSourceTest extends JetTestSupport {
 
@@ -60,7 +59,6 @@ public class InfluxDbSourceTest extends JetTestSupport {
     public void setup() {
         jet = createJetMember();
     }
-
 
     @Test
     public void test_stream_influxDbSource_withMeasurementMapper() {
