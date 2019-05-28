@@ -212,14 +212,15 @@ public final class InfluxDbSources {
         }
 
         void fillBufferWithMeasurementMapping(SourceBuffer<T> sourceBuffer) {
-            queue.drainTo(buffer, 100);
+            queue.drainTo(buffer, MAX_FILL_ELEMENTS);
             for (QueryResult result : buffer) {
                 throwExceptionIfResultWithErrorOrNull(result);
                 for (Result internalResult : result.getResults()) {
                     if (internalResult != null && internalResult.getSeries() != null) {
                         for (Series s : internalResult.getSeries()) {
                             for (List<Object> objects : s.getValues()) {
-                                sourceBuffer.add(measurementMapper.apply(s.getName(), s.getTags(), s.getColumns(), objects));
+                                sourceBuffer.add(
+                                        measurementMapper.apply(s.getName(), s.getTags(), s.getColumns(), objects));
                             }
                         }
                     }
