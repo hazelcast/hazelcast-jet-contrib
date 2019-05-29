@@ -20,7 +20,6 @@ import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
-import mapper.MeasurementMapper;
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
@@ -51,29 +50,28 @@ public final class InfluxDbSources {
      * emits items mapped with user defined mapper function.
      * Authenticates with the server using given credentials.
      *
-     * @param query             query to execute on InfluxDb database
-     * @param database          name of the database
-     * @param url               url of the InfluxDb server
-     * @param username          username of the InfluxDb server
-     * @param password          password of the InfluxDb server
-     * @param measurementMapper mapper function which takes measurement name, tags set, column names and values
-     *                          as argument and produces the user object {@link T} which will be emitted from
-     *                          this source
-     * @param <T>               type of the user object
+     * @param query                 query to execute on InfluxDb database
+     * @param database              name of the database
+     * @param url                   url of the InfluxDb server
+     * @param username              username of the InfluxDb server
+     * @param password              password of the InfluxDb server
+     * @param measurementProjection a function which takes measurement name, tags set, column names and values
+     *                              as argument and produces the user object {@link T} which will be emitted from
+     *                              this source
+     * @param <T>                   type of the user object
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
-                                              @Nonnull String username, @Nonnull String password,
-                                              @Nonnull MeasurementMapper<T> measurementMapper) {
+                                              @Nonnull String username, String password,
+                                              @Nonnull MeasurementProjection<T> measurementProjection) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(url, "url cannot be null");
         checkNotNull(database, "database cannot be null");
         checkNotNull(username, "username cannot be null");
-        checkNotNull(password, "password cannot be null");
-        checkNotNull(measurementMapper, "measurementMapper cannot be null");
+        checkNotNull(measurementProjection, "measurementMapper cannot be null");
 
-        return influxDb(query, () -> connect(url, username, password).setDatabase(database), measurementMapper);
+        return influxDb(query, () -> connect(url, username, password).setDatabase(database), measurementProjection);
     }
 
     /**
@@ -81,25 +79,25 @@ public final class InfluxDbSources {
      * connection supplier and emits items mapped with the given mapper
      * function.
      *
-     * @param <T>                type of the user object
-     * @param query              query to execute on InfluxDb database
-     * @param connectionSupplier supplier which returns {@link InfluxDB} instance
-     * @param measurementMapper  mapper function which takes measurement name, tags set, column names and values
-     *                           as argument and produces the user object {@link T} which will be emitted from
-     *                           this source
+     * @param <T>                   type of the user object
+     * @param query                 query to execute on InfluxDb database
+     * @param connectionSupplier    supplier which returns {@link InfluxDB} instance
+     * @param measurementProjection mapper function which takes measurement name, tags set, column names and values
+     *                              as argument and produces the user object {@link T} which will be emitted from
+     *                              this source
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(@Nonnull String query,
                                               @Nonnull SupplierEx<InfluxDB> connectionSupplier,
-                                              @Nonnull MeasurementMapper<T> measurementMapper) {
+                                              @Nonnull MeasurementProjection<T> measurementProjection) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(connectionSupplier, "connectionSupplier cannot be null");
-        checkNotNull(measurementMapper, "connectionSupplier cannot be null");
+        checkNotNull(measurementProjection, "connectionSupplier cannot be null");
 
         return SourceBuilder.batch("influxdb",
                 ignored -> new InfluxDbSourceContext<>(query, connectionSupplier, null,
-                        measurementMapper))
+                        measurementProjection))
                 .<T>fillBufferFn(InfluxDbSourceContext::fillBufferWithMeasurementMapping)
                 .destroyFn(InfluxDbSourceContext::close)
                 .build();
@@ -110,24 +108,23 @@ public final class InfluxDbSources {
      * emits result which are mapped to the provided POJO class type.
      * Authenticates with the server using given credentials.
      *
-     * @param query    query to execute on InfluxDb database
-     * @param database name of the database
-     * @param url      url of the InfluxDb server
-     * @param username username of the InfluxDb server
-     * @param password password of the InfluxDb server
-     * @param pojoClass    the POJO class instance
-     * @param <T>      the POJO class
+     * @param query     query to execute on InfluxDb database
+     * @param database  name of the database
+     * @param url       url of the InfluxDb server
+     * @param username  username of the InfluxDb server
+     * @param password  password of the InfluxDb server
+     * @param pojoClass the POJO class instance
+     * @param <T>       the POJO class
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
-                                              @Nonnull String username, @Nonnull String password,
+                                              @Nonnull String username, String password,
                                               @Nonnull Class<T> pojoClass) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(url, "url cannot be null");
         checkNotNull(database, "database cannot be null");
         checkNotNull(username, "username cannot be null");
-        checkNotNull(password, "password cannot be null");
         checkNotNull(pojoClass, "pojoClass cannot be null");
 
         return influxDb(query, () -> connect(url, username, password).setDatabase(database), pojoClass);
@@ -140,8 +137,8 @@ public final class InfluxDbSources {
      *
      * @param query              query to execute on InfluxDb database
      * @param connectionSupplier supplier which returns {@link InfluxDB} instance
-     * @param pojoClass    the POJO class instance
-     * @param <T>      the POJO class
+     * @param pojoClass          the POJO class instance
+     * @param <T>                the POJO class
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
@@ -174,21 +171,21 @@ public final class InfluxDbSources {
         private static final int MAX_FILL_ELEMENTS = 100;
 
         private final Class<T> pojoClass;
-        private final BlockingQueue<QueryResult> queue = new ArrayBlockingQueue<>(10000);
+        private final BlockingQueue<QueryResult> queue = new ArrayBlockingQueue<>(1000);
         private final ArrayList<QueryResult> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
         private final InfluxDBResultMapper resultMapper;
-        private final MeasurementMapper<T> measurementMapper;
+        private final MeasurementProjection<T> measurementProjection;
         private InfluxDB db;
         private volatile boolean finished;
 
         InfluxDbSourceContext(@Nonnull String query,
                               @Nonnull SupplierEx<InfluxDB> connectionSupplier,
                               @Nullable Class<T> pojoClass,
-                              @Nullable MeasurementMapper<T> measurementMapper) {
-            assert pojoClass != null ^ measurementMapper != null;
+                              @Nullable MeasurementProjection<T> measurementProjection) {
+            assert pojoClass != null ^ measurementProjection != null;
             this.pojoClass = pojoClass;
             this.resultMapper = pojoClass != null ? new InfluxDBResultMapper() : null;
-            this.measurementMapper = measurementMapper;
+            this.measurementProjection = measurementProjection;
             db = connectionSupplier.get();
             db.query(new Query(query),
                     DEFAULT_CHUNK_SIZE,
@@ -200,7 +197,10 @@ public final class InfluxDbSources {
         void fillBufferWithPojoMapping(SourceBuffer<T> sourceBuffer) {
             queue.drainTo(buffer, MAX_FILL_ELEMENTS);
             for (QueryResult result : buffer) {
-                throwExceptionIfResultWithErrorOrNull(result);
+                boolean done = throwExceptionIfResultWithErrorOrNull(result);
+                if (done) {
+                    break;
+                }
                 for (T t : resultMapper.toPOJO(result, pojoClass)) {
                     sourceBuffer.add(t);
                 }
@@ -214,13 +214,16 @@ public final class InfluxDbSources {
         void fillBufferWithMeasurementMapping(SourceBuffer<T> sourceBuffer) {
             queue.drainTo(buffer, MAX_FILL_ELEMENTS);
             for (QueryResult result : buffer) {
-                throwExceptionIfResultWithErrorOrNull(result);
+                boolean done = throwExceptionIfResultWithErrorOrNull(result);
+                if (done) {
+                    break;
+                }
                 for (Result internalResult : result.getResults()) {
                     if (internalResult != null && internalResult.getSeries() != null) {
                         for (Series s : internalResult.getSeries()) {
                             for (List<Object> objects : s.getValues()) {
                                 sourceBuffer.add(
-                                        measurementMapper.apply(s.getName(), s.getTags(), s.getColumns(), objects));
+                                        measurementProjection.apply(s.getName(), s.getTags(), s.getColumns(), objects));
                             }
                         }
                     }
@@ -239,12 +242,12 @@ public final class InfluxDbSources {
         }
     }
 
-    private static void throwExceptionIfResultWithErrorOrNull(final QueryResult queryResult) {
+    private static boolean throwExceptionIfResultWithErrorOrNull(final QueryResult queryResult) {
         if (queryResult == null) {
             throw new RuntimeException("InfluxDB returned null query result");
         }
         if (queryResult.getResults() == null && "DONE".equals(queryResult.getError())) {
-            return;
+            return true;
         }
         if (queryResult.getError() != null) {
             throw new RuntimeException("InfluxDB returned an error: " + queryResult.getError());
@@ -257,5 +260,6 @@ public final class InfluxDbSources {
                 throw new RuntimeException("InfluxDB returned an error with Series: " + seriesResult.getError());
             }
         }
+        return false;
     }
 }

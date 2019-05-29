@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package mapper;
+package com.hazelcast.jet.influxdb;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
 /**
- * A mapper which maps a single measurement row to a user object.
+ * A function which maps a single measurement row to a user object.
  *
  * @param <R> type of returned objects
  */
 @FunctionalInterface
-public interface MeasurementMapper<R> extends Serializable {
+public interface MeasurementProjection<R> extends Serializable {
 
     /**
      * @param name        measurement name
