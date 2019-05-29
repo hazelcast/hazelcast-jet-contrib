@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.influxdb;
+package com.hazelcast.jet.contrib.influxdb;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.JetTestSupport;
-import com.hazelcast.jet.influxdb.measurement.Cpu;
+import com.hazelcast.jet.contrib.influxdb.measurement.Cpu;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.test.HazelcastParallelClassRunner;

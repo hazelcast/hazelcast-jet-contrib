@@ -17,4 +17,4 @@
 /**
  * Connectors for Hazelcast Jet to connect to InfluxDb time series database.
  */
-package com.hazelcast.jet.influxdb;
+package com.hazelcast.jet.contrib.influxdb;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.influxdb;
+package com.hazelcast.jet.contrib.influxdb;
 
 import com.hazelcast.jet.IListJet;
 import com.hazelcast.jet.Jet;
