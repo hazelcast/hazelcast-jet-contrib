@@ -15,6 +15,6 @@
  */
 
 /**
- * Contains a sink to use InfluxDb as a sink for Hazelcast Jet
+ * Connectors for Hazelcast Jet to connect to InfluxDb time series database.
  */
 package com.hazelcast.jet.influxdb;

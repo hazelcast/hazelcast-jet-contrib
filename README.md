@@ -21,9 +21,10 @@ To build the project, use the following command
 
 ## List of modules
 
-### [InfluxDb Sink](influxdb) 
+### [InfluxDb Connector](influxdb) 
 
-A simple Jet sink for InfluxDb for writing measurements.
+A Hazelcast Jet Connector for InfluxDb which enables Hazelcast Jet pipelines to 
+read/write data points from/to InfluxDb.
 
 ### [Probabilistic Aggregations](probabilistic) 
 
