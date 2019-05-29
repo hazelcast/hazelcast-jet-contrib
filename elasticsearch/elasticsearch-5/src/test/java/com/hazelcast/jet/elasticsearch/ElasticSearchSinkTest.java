@@ -28,7 +28,6 @@ public class ElasticSearchSinkTest extends ElasticSearchBaseTest {
 
     @Test
     public void test_elasticSearchSink() throws IOException {
-
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(userList))
          .drainTo(elasticSearch(indexName, DEFAULT_USER, DEFAULT_PASS, container.getContainerIpAddress(),
@@ -38,5 +37,4 @@ public class ElasticSearchSinkTest extends ElasticSearchBaseTest {
 
         assertIndexes();
     }
-
 }

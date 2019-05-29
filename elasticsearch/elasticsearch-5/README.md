@@ -7,7 +7,7 @@ from/to ElasticSearch.
 
 ### Installing
 
-The ElasticSearch Connector artifacts are published on the Maven repositories. 
+The ElasticSearch Connector artifacts are published in the Maven repositories.
 
 Add the following lines to your pom.xml to include it as a dependency to your project:
 
@@ -32,10 +32,10 @@ ElasticSearch batch source (`ElasticSearchSources.elasticSearch()`) executes
 the query and retrieves the results using `scrolling`.
 
 Following is an example pipeline which queries ElasticSearch and logs the
-results.
+results:
 
 ```java
-p = Pipeline.create();
+Pipeline p = Pipeline.create();
 
 p.drawFrom(ElasticSearchSources.elasticSearch("sourceName", 
     () -> RestClient.builder(HttpHost.create("hostAddress")).build(),
@@ -54,11 +54,11 @@ p.drawFrom(ElasticSearchSources.elasticSearch("sourceName",
 
 #### As a Sink
 
-ElasticSearch sink (`ElasticSearch.elasticSearch()`) is used to index objects from 
-Hazelcast Jet Pipeline to ElasticSearch . 
+ElasticSearch sink (`ElasticSearchSinks.elasticSearch()`) is used to index objects from
+Hazelcast Jet Pipeline to ElasticSearch.
 
 Here is a very simple pipeline which reads out some users from Hazelcast
-List and indexes them to ElasticSearch.
+List and indexes them to ElasticSearch:
 
 ```java
 Pipeline p = Pipeline.create();
