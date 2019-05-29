@@ -12,6 +12,7 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.hazelcast.jet.aggregate.AggregateOperations.counting;
 import static com.hazelcast.jet.pipeline.WindowDefinition.tumbling;
@@ -77,6 +78,34 @@ public class LocalCollectorTest {
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 assertEquals(GLOBAL_COUNTER.get(), counter.get())
         );
+    }
+
+    @Test
+    public void testLocalCollector_withMissingItems() {
+        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(60);
+
+        AtomicLong counter = new AtomicLong();
+        AtomicReference<Throwable> thrownExceptionRef = new AtomicReference<>();
+        LocalCollector<Long> collector = LocalCollector.<Long>createNew(client1)
+                .consumer(e -> counter.incrementAndGet())
+                .exceptionConsumer(thrownExceptionRef::set)
+                .skipLostItems()
+                .start();
+
+        Pipeline pipeline = Pipeline.create();
+        pipeline.drawFrom(timeboundSource(sourceEmittingNanos))
+                .withIngestionTimestamps()
+                .drainTo(collector.asSink());
+
+        client1.newJob(pipeline).join();
+
+
+        long localCounter = counter.get();
+        long globalCounter = GLOBAL_COUNTER.get();
+        assertTrue("Global counter = " + globalCounter
+                        + ", local counter = " + localCounter,
+                globalCounter >= localCounter);
+        assertNull(thrownExceptionRef.get());
     }
 
     @Test

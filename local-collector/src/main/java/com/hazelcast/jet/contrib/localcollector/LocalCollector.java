@@ -12,6 +12,7 @@ import com.hazelcast.ringbuffer.StaleSequenceException;
 import com.hazelcast.util.StringUtil;
 import com.hazelcast.util.UuidUtil;
 
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -73,10 +74,10 @@ public final class LocalCollector<T> {
         if (offset == RECONNECT_FROM_LATEST) {
             offset = ringbuffer.tailSequence() + 1;
         }
-        registerCallback(offset);
+        registerCallback(offset, 0);
     }
 
-    private void registerCallback(long startingSequence) {
+    private void registerCallback(long startingSequence, long retryNo) {
         ICompletableFuture<ReadResultSet<T>> f = ringbuffer.readManyAsync(startingSequence, 1, 100, null);
         f.andThen(new ExecutionCallback<ReadResultSet<T>>() {
             @Override
@@ -96,18 +97,26 @@ public final class LocalCollector<T> {
                     return;
                 }
                 long nextSequenceToReadFrom = startingSequence + size;
-                registerCallback(nextSequenceToReadFrom);
+                registerCallback(nextSequenceToReadFrom, 0);
             }
 
             @Override
             public void onFailure(Throwable t) {
-                if (t instanceof StaleSequenceException && allowLostItems) {
-                    StaleSequenceException e = (StaleSequenceException) t;
-                    long headSeq = e.getHeadSeq();
-                    // todo: this might never catch-up
-                    // maybe we should increment the head by some margin?
-                    registerCallback(headSeq);
-                    return;
+                if (allowLostItems) {
+                    t = unwrapException(t);
+                    if (t instanceof StaleSequenceException) {
+                        long headSeq = ringbuffer.headSequence();
+                        if (retryNo != 0) {
+                            long tail = ringbuffer.tailSequence();
+                            headSeq += 1 << retryNo;
+                            headSeq = Math.min(headSeq, tail);
+                        }
+                        long newRetry = retryNo + 1;
+                        newRetry = Math.min(newRetry, 16);
+                        registerCallback(headSeq, newRetry);
+                        System.out.println( " ---------- STALE SEQUENCE, RETRY: " + retryNo);
+                        return;
+                    }
                 }
 
                 if (stopped) {
@@ -118,6 +127,13 @@ public final class LocalCollector<T> {
                     exceptionConsumer.accept(t);
                 }
                 stopped = true;
+            }
+
+            private Throwable unwrapException(Throwable t) {
+                if (t instanceof ExecutionException) {
+                    t = t.getCause();
+                }
+                return t;
             }
         });
     }
@@ -162,7 +178,7 @@ public final class LocalCollector<T> {
             return this;
         }
 
-        public LocalCollectorBuilder<T> allowLostItems() {
+        public LocalCollectorBuilder<T> skipLostItems() {
             this.allowLostItems = true;
             return this;
         }
