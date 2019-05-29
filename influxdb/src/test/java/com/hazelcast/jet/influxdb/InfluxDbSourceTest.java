@@ -30,12 +30,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.InfluxDBContainer;
 
-import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 
 import static com.hazelcast.jet.datamodel.Tuple2.tuple2;
-import static java.lang.String.valueOf;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(HazelcastParallelClassRunner.class)
@@ -74,8 +71,6 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         USERNAME,
                         PASSWORD,
                         (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
-         .addTimestamps(tuple2 -> Instant.parse(valueOf(tuple2.f0())).toEpochMilli(), 0)
-         .peek()
          .drainTo(Sinks.list("results"));
 
         jet.newJob(p).join();
@@ -84,7 +79,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void test_stream_influxDbSource_withPOJOResultMapper() {
+    public void test_stream_influxDbSource_withPojoResultMapper() {
         InfluxDB db = influxdbContainer.getNewInfluxDB();
         fillCpuData(db);
 
@@ -98,7 +93,6 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         PASSWORD,
                         Cpu.class))
          .addTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
-         .peek()
          .drainTo(Sinks.list("results"));
 
         jet.newJob(p).join();
@@ -107,30 +101,34 @@ public class InfluxDbSourceTest extends JetTestSupport {
     }
 
     private void fillData(InfluxDB influxDB) {
-        IntStream.range(0, VALUE_COUNT)
-                 .forEach(value ->
-                         influxDB.write(DATABASE_NAME,
-                                 "autogen",
-                                 Point.measurement("test")
-                                      .time(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
-                                      .addField("value", value)
-                                      .build()
-                         )
-                 );
+        influxDB.enableBatch(500, 100, TimeUnit.MICROSECONDS);
+        for (int value = 0; value < VALUE_COUNT; value++) {
+            influxDB.write(DATABASE_NAME,
+                    "autogen",
+                    Point.measurement("test")
+                            .time(value, TimeUnit.MILLISECONDS)
+                            .addField("value", value)
+                            .build()
+            );
+        }
     }
 
     private void fillCpuData(InfluxDB influxDB) {
-        IntStream.range(0, VALUE_COUNT)
-                 .forEach(value -> {
-                             Cpu cpu = new Cpu("localhost", (double) value);
-                             influxDB.write(DATABASE_NAME,
-                                     "autogen",
-                                     Point.measurementByPOJO(cpu.getClass())
-                                          .addFieldsFromPOJO(cpu)
-                                          .build()
-                             );
-                         }
-                 );
+        long lastTime = 0;
+        for (int value = 0; value < VALUE_COUNT; value++) {
+            // loop until the value of currentTimeMillis changes
+            // workaround for https://github.com/influxdata/influxdb-java/issues/586 which prevents us from
+            // assigning the time explicitly. If two items have the same time, the last one wins.
+            while (System.currentTimeMillis() == lastTime) {
+                sleepMillis(1);
+            }
+            Cpu cpu = new Cpu("localhost", (double) value);
+            influxDB.write(DATABASE_NAME,
+                    "autogen",
+                    Point.measurementByPOJO(cpu.getClass())
+                            .addFieldsFromPOJO(cpu)
+                            .build()
+            );
+        }
     }
-
 }

@@ -189,7 +189,13 @@ public final class InfluxDbSources {
             db = connectionSupplier.get();
             db.query(new Query(query),
                     DEFAULT_CHUNK_SIZE,
-                    queue::add,
+                    e -> {
+                        try {
+                            queue.put(e);
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        }
+                    },
                     () -> finished = true
             );
         }
