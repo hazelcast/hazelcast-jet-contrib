@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.influxdb;
+package com.hazelcast.jet.contrib.influxdb;
 
 import java.io.Serializable;
 import java.util.List;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.influxdb.measurement;
+package com.hazelcast.jet.contrib.influxdb.measurement;
 
 import org.influxdb.annotation.Column;
 import org.influxdb.annotation.Measurement;

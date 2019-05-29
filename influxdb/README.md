@@ -65,7 +65,7 @@ p.drawFrom(Sources.list(measurements))
  .drainTo(InfluxDbSinks.influxDb(DB_URL, DATABASE_NAME, USERNAME, PASSWORD));
 ```
 
-Check out `com.hazelcast.jet.influxdb.InfluxDbSinkTest` test class for a more 
+Check out `com.hazelcast.jet.contrib.influxdb.InfluxDbSinkTest` test class for a more 
 complete setup.
 
 ### Running the tests
