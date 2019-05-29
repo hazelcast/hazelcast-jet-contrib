@@ -42,7 +42,6 @@ p.drawFrom(
                 INFLUXDB_URL,
                 USERNAME,
                 PASSWORD,
-                CHUNK_SIZE,
                 (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
 )
  .drainTo(Sinks.logger());
