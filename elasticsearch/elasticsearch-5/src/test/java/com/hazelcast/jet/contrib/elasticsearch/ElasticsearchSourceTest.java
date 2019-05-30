@@ -29,7 +29,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.elasticSearch;
+import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.elasticsearch;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.assertEquals;
@@ -46,7 +46,7 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(userList))
-         .drainTo(elasticSearch(indexName, clientSupplier,
+         .drainTo(ElasticsearchSinks.elasticsearch(indexName, clientSupplier,
                  () -> new BulkRequest().setRefreshPolicy(IMMEDIATE), indexFn(indexName), RestClient::close));
 
         jet.newJob(p).join();
@@ -55,7 +55,7 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
         p = Pipeline.create();
 
-        p.drawFrom(ElasticsearchSources.elasticSearch("users", clientSupplier,
+        p.drawFrom(ElasticsearchSources.elasticsearch("users", clientSupplier,
                 () -> {
                     SearchRequest searchRequest = new SearchRequest("users");
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

@@ -28,7 +28,7 @@ compile group: 'com.hazelcast.jet.contrib', name: 'elasticsearch-7', version: ${
 
 #### As a Source
 
-Elasticsearch batch source (`ElasticsearchSources.elasticSearch()`) executes
+Elasticsearch batch source (`ElasticsearchSources.elasticsearch()`) executes
 the query and retrieves the results using `scrolling`.
 
 Following is an example pipeline which queries Elasticsearch and logs the
@@ -37,7 +37,7 @@ results:
 ```java
 Pipeline p = Pipeline.create();
 
-p.drawFrom(ElasticsearchSources.elasticSearch("sourceName",
+p.drawFrom(ElasticsearchSources.elasticsearch("sourceName",
         () -> new RestHighLevelClient(RestClient.builder(HttpHost.create(hostAddress))),
         () -> {
             SearchRequest searchRequest = new SearchRequest("users");
@@ -55,7 +55,7 @@ p.drawFrom(ElasticsearchSources.elasticSearch("sourceName",
 
 #### As a Sink
 
-Elasticsearch sink (`Elasticsearch.elasticSearch()`) is used to index objects from 
+Elasticsearch sink (`Elasticsearch.elasticsearch()`) is used to index objects from
 Hazelcast Jet Pipeline to Elasticsearch.
 
 Here is a very simple pipeline which reads out some users from Hazelcast
@@ -64,7 +64,7 @@ List and indexes them to Elasticsearch.
 ```java
 Pipeline p = Pipeline.create();
 p.drawFrom(Sources.list(users))
- .drainTo(ElasticsearchSinks.elasticSearch("sinkName",
+ .drainTo(ElasticsearchSinks.elasticsearch("sinkName",
     () -> new RestHighLevelClient(RestClient.builder(HttpHost.create(hostAddress))),
     BulkRequest::new,
     user -> {

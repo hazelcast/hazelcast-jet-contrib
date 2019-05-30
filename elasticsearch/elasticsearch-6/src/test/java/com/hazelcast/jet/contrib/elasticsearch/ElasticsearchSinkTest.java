@@ -25,12 +25,12 @@ import java.io.IOException;
 public class ElasticsearchSinkTest extends ElasticsearchBaseTest {
 
     @Test
-    public void test_elasticSearchSink() throws IOException {
+    public void test_elasticsearchSink() throws IOException {
         String containerAddress = container.getHttpHostAddress();
 
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(userList))
-         .drainTo(ElasticsearchSinks.elasticSearch(indexName, () -> createClient(containerAddress), indexFn(indexName)));
+         .drainTo(ElasticsearchSinks.elasticsearch(indexName, () -> createClient(containerAddress), indexFn(indexName)));
 
         jet.newJob(p).join();
 

@@ -38,7 +38,7 @@ import static com.hazelcast.util.Preconditions.checkNotNull;
 import static org.influxdb.InfluxDBFactory.connect;
 
 /**
- * Contains factory methods for creating InfluxDB sources
+ * Contains factory methods for creating InfluxDB sources.
  */
 public final class InfluxDbSources {
 

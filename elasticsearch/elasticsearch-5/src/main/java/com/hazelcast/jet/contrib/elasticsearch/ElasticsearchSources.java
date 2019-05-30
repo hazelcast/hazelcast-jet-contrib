@@ -43,8 +43,8 @@ public final class ElasticsearchSources {
     }
 
     /**
-     * Creates a source which queries objects from the specified elastic-search
-     * using scrolling.
+     * Creates a source which queries objects using the specified Elasticsearch
+     * client and specified request supplier using scrolling.
      *
      * @param name                  Name of the source
      * @param clientSupplier        Elasticsearch rest client supplier
@@ -54,7 +54,7 @@ public final class ElasticsearchSources {
      * @param destroyFn             called upon completion to release any resource
      * @param <T>                   type of items emitted downstream
      */
-    public static <T> BatchSource<T> elasticSearch(String name,
+    public static <T> BatchSource<T> elasticsearch(String name,
                                                    SupplierEx<RestClient> clientSupplier,
                                                    SupplierEx<SearchRequest> searchRequestSupplier,
                                                    String scrollTimeout,
@@ -73,29 +73,29 @@ public final class ElasticsearchSources {
     }
 
     /**
-     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, String, FunctionEx, ConsumerEx)}.
+     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx, String, FunctionEx, ConsumerEx)}.
      * Uses {@link #DEFAULT_SCROLL_TIMEOUT} for scroll timeout, emits string
      * representation of items using {@link SearchHit#getSourceAsString()} and
      * closes the {@link RestClient} upon completion.
      */
-    public static BatchSource<String> elasticSearch(String name,
+    public static BatchSource<String> elasticsearch(String name,
                                                     SupplierEx<RestClient> clientSupplier,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
-        return elasticSearch(name, clientSupplier, searchRequestSupplier,
+        return elasticsearch(name, clientSupplier, searchRequestSupplier,
                 DEFAULT_SCROLL_TIMEOUT, SearchHit::getSourceAsString, RestClient::close);
     }
 
     /**
-     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx)}.
+     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx)}.
      * Rest client is configured with basic authentication.
      */
-    public static BatchSource<String> elasticSearch(String name,
+    public static BatchSource<String> elasticsearch(String name,
                                                     String username, String password,
                                                     String hostname, int port,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
-        return elasticSearch(name, () -> ElasticsearchSinks.buildClient(username, password, hostname, port), searchRequestSupplier);
+        return elasticsearch(name, () -> ElasticsearchSinks.buildClient(username, password, hostname, port), searchRequestSupplier);
     }
 
     private static final class SearchContext<T> {
