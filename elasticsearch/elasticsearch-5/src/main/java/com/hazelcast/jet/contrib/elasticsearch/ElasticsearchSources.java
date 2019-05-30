@@ -32,6 +32,8 @@ import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
 
+import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.buildClient;
+
 /**
  * Contains factory methods for Elasticsearch sources
  */
@@ -95,7 +97,7 @@ public final class ElasticsearchSources {
                                                     String hostname, int port,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
-        return elasticsearch(name, () -> ElasticsearchSinks.buildClient(username, password, hostname, port), searchRequestSupplier);
+        return elasticsearch(name, () -> buildClient(username, password, hostname, port), searchRequestSupplier);
     }
 
     private static final class SearchContext<T> {

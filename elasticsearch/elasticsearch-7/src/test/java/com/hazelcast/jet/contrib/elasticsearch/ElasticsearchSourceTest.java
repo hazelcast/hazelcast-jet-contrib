@@ -29,7 +29,6 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.elasticsearch;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.assertEquals;

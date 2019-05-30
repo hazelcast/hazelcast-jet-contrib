@@ -32,6 +32,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
@@ -46,11 +47,11 @@ public final class ElasticsearchSources {
 
     /**
      * Creates a source which queries objects using the specified Elasticsearch
-     * client using scrolling.
+     * client and specified request supplier using scrolling.
      *
-     * @param name                  Name of the source
-     * @param clientSupplier        Elasticsearch rest client supplier
-     * @param searchRequestSupplier Search request supplier
+     * @param name                  name of the source
+     * @param clientSupplier        Elasticsearch REST client supplier
+     * @param searchRequestSupplier search request supplier
      * @param scrollTimeout         scroll keep alive time
      * @param hitMapperFn           maps search hits to output items
      * @param optionsFn             obtains a {@link RequestOptions} for each request
@@ -75,15 +76,17 @@ public final class ElasticsearchSources {
     }
 
     /**
-     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx, String, FunctionEx, FunctionEx, ConsumerEx)}.
+     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx,
+     * String, FunctionEx, FunctionEx, ConsumerEx)}.
      * Uses {@link #DEFAULT_SCROLL_TIMEOUT} for scroll timeout and {@link
      * RequestOptions#DEFAULT}, emits string representation of items using
      * {@link SearchHit#getSourceAsString()} and closes the {@link
      * RestHighLevelClient} upon completion.
      */
-    public static BatchSource<String> elasticsearch(String name,
-                                                    SupplierEx<RestHighLevelClient> clientSupplier,
-                                                    SupplierEx<SearchRequest> searchRequestSupplier
+    public static BatchSource<String> elasticsearch(
+            @Nonnull String name,
+            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticsearch(name, clientSupplier, searchRequestSupplier, DEFAULT_SCROLL_TIMEOUT,
                 SearchHit::getSourceAsString, request -> RequestOptions.DEFAULT, RestHighLevelClient::close);
@@ -94,10 +97,13 @@ public final class ElasticsearchSources {
      * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx)}.
      * Rest client is configured with basic authentication.
      */
-    public static BatchSource<String> elasticsearch(String name,
-                                                    String username, String password,
-                                                    String hostname, int port,
-                                                    SupplierEx<SearchRequest> searchRequestSupplier
+    public static BatchSource<String> elasticsearch(
+            @Nonnull String name,
+            @Nonnull String username,
+            @Nullable String password,
+            @Nonnull String hostname,
+            int port,
+            @Nonnull SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticsearch(name, () -> ElasticsearchSinks.buildClient(username, password, hostname, port),
                 searchRequestSupplier);

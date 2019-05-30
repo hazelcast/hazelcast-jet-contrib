@@ -30,6 +30,8 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.IOException;
 
 import static org.apache.http.auth.AuthScope.ANY;
@@ -43,51 +45,58 @@ public final class ElasticsearchSinks {
     }
 
     /**
-     * Creates a sink which indexes objects into the specified elastic-search
-     * using bulk requests.
+     * Creates a sink which indexes objects using the specified Elasticsearch
+     * client and specified bulk request.
      *
-     * @param name                Name of the created sink
-     * @param clientSupplier      Elasticsearch rest client supplier
-     * @param bulkRequestSupplier Bulk request supplier, will be called to obtain a
+     * @param name                name of the created sink
+     * @param clientSupplier      Elasticsearch REST client supplier
+     * @param bulkRequestSupplier bulk request supplier, will be called to obtain a
      *                            new {@link BulkRequest} instance after each call.
-     * @param indexFn             Creates an {@link IndexRequest} for each object
+     * @param indexFn             creates an {@link IndexRequest} for each object
      * @param destroyFn           called upon completion to release any resource
      */
-    public static <T> Sink<T> elasticsearch(String name,
-                                            SupplierEx<RestHighLevelClient> clientSupplier,
-                                            SupplierEx<BulkRequest> bulkRequestSupplier,
-                                            FunctionEx<T, IndexRequest> indexFn,
-                                            ConsumerEx<RestHighLevelClient> destroyFn
+    public static <T> Sink<T> elasticsearch(
+            @Nonnull String name,
+            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull SupplierEx<BulkRequest> bulkRequestSupplier,
+            @Nonnull FunctionEx<T, IndexRequest> indexFn,
+            @Nonnull ConsumerEx<RestHighLevelClient> destroyFn
     ) {
         return SinkBuilder
-                .sinkBuilder("elasticsearch-" + name,
-                        ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier, destroyFn))
+                .sinkBuilder(name, ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier, destroyFn))
                 .<T>receiveFn((bulkContext, item) -> bulkContext.add(indexFn.apply(item)))
                 .flushFn(BulkContext::flush)
                 .destroyFn(BulkContext::close)
+                .preferredLocalParallelism(2)
                 .build();
     }
 
     /**
-     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx, FunctionEx, ConsumerEx)}
-     * Creates a new {@link BulkRequest} with default options for each batch and
-     * closes the {@link RestHighLevelClient} upon completion.
+     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx,
+     * FunctionEx, ConsumerEx)}. Creates a new {@link BulkRequest} with default
+     * options for each batch and closes the {@link RestHighLevelClient} upon
+     * completion. Assumes that the {@code clientSupplier} creates a new client
+     * for each call.
      */
-    public static <T> Sink<T> elasticsearch(String name,
-                                            SupplierEx<RestHighLevelClient> clientSupplier,
-                                            FunctionEx<T, IndexRequest> indexFn
+    public static <T> Sink<T> elasticsearch(
+            @Nonnull String name,
+            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull FunctionEx<T, IndexRequest> indexFn
     ) {
         return elasticsearch(name, clientSupplier, BulkRequest::new, indexFn, RestHighLevelClient::close);
     }
 
     /**
-     * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx, FunctionEx, ConsumerEx)}
+     * Convenience for {@link #elasticsearch(String, SupplierEx, FunctionEx)}
      * Rest client is configured with basic authentication.
      */
-    public static <T> Sink<T> elasticsearch(String name,
-                                            String username, String password,
-                                            String hostname, int port,
-                                            FunctionEx<T, IndexRequest> indexFn
+    public static <T> Sink<T> elasticsearch(
+            @Nonnull String name,
+            @Nonnull String username,
+            @Nullable String password,
+            @Nonnull String hostname,
+            int port,
+            @Nonnull FunctionEx<T, IndexRequest> indexFn
     ) {
         return elasticsearch(name, () -> buildClient(username, password, hostname, port), indexFn);
     }
