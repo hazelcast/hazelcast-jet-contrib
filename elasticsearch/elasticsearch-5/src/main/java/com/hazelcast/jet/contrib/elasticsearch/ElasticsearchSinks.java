@@ -25,9 +25,13 @@ import org.apache.http.HttpHost;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 
@@ -53,19 +57,20 @@ public final class ElasticsearchSinks {
      * @param clientSupplier      Elasticsearch REST client supplier
      * @param bulkRequestSupplier bulk request supplier, will be called to obtain a
      *                            new {@link BulkRequest} instance after each call.
-     * @param indexFn             creates an {@link IndexRequest} for each object
+     * @param requestFn           creates a {@link IndexRequest}, {@link UpdateRequest}
+     *                            or {@link DeleteRequest} for each object
      * @param destroyFn           called upon completion to release any resource
      */
     public static <T> Sink<T> elasticsearch(
             @Nonnull String name,
             @Nonnull SupplierEx<RestClient> clientSupplier,
             @Nonnull SupplierEx<BulkRequest> bulkRequestSupplier,
-            @Nonnull FunctionEx<T, IndexRequest> indexFn,
+            @Nonnull FunctionEx<T, DocWriteRequest> requestFn,
             @Nonnull ConsumerEx<RestClient> destroyFn
     ) {
         return SinkBuilder
                 .sinkBuilder(name, ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier))
-                .<T>receiveFn((bulkContext, item) -> bulkContext.add(indexFn.apply(item)))
+                .<T>receiveFn((bulkContext, item) -> bulkContext.add(requestFn.apply(item)))
                 .flushFn(BulkContext::flush)
                 .destroyFn(b -> destroyFn.accept(b.client))
                 .preferredLocalParallelism(2)
@@ -82,9 +87,9 @@ public final class ElasticsearchSinks {
     public static <T> Sink<T> elasticsearch(
             @Nonnull String name,
             @Nonnull SupplierEx<RestClient> clientSupplier,
-            @Nonnull FunctionEx<T, IndexRequest> indexFn
+            @Nonnull FunctionEx<T, DocWriteRequest> requestFn
     ) {
-        return elasticsearch(name, clientSupplier, BulkRequest::new, indexFn, RestClient::close);
+        return elasticsearch(name, clientSupplier, BulkRequest::new, requestFn, RestClient::close);
     }
 
 
@@ -98,9 +103,9 @@ public final class ElasticsearchSinks {
             @Nullable String password,
             @Nonnull String hostname,
             int port,
-            @Nonnull FunctionEx<T, IndexRequest> indexFn
+            @Nonnull FunctionEx<T, DocWriteRequest> requestFn
     ) {
-        return elasticsearch(name, () -> buildClient(username, password, hostname, port), indexFn);
+        return elasticsearch(name, () -> buildClient(username, password, hostname, port), requestFn);
     }
 
     static RestClient buildClient(String username, String password, String hostname, int port) {
@@ -127,13 +132,15 @@ public final class ElasticsearchSinks {
             this.bulkRequest = bulkRequestSupplier.get();
         }
 
-        private void add(IndexRequest request) {
+        private void add(DocWriteRequest request) {
             bulkRequest.add(request);
         }
 
         private void flush() throws IOException {
             BulkResponse response = highLevelClient.bulk(bulkRequest);
-            // TODO check the response
+            if (response.hasFailures()) {
+                throw new ElasticsearchException(response.buildFailureMessage());
+            }
             bulkRequest = bulkRequestSupplier.get();
         }
     }

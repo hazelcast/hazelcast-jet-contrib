@@ -24,6 +24,7 @@ import org.apache.http.HttpHost;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RestClient;
@@ -100,7 +101,7 @@ public abstract class ElasticsearchBaseTest {
                                  httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)).build();
     }
 
-    static FunctionEx<User, IndexRequest> indexFn(String indexName) {
+    static FunctionEx<User, DocWriteRequest> indexFn(String indexName) {
         return user -> {
             IndexRequest request = new IndexRequest(indexName, "doc", String.valueOf(user.age));
             Map<String, Object> jsonMap = new HashMap<>();

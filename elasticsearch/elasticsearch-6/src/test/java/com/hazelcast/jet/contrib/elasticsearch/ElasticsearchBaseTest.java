@@ -21,6 +21,7 @@ import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
+import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.RestClient;
@@ -80,7 +81,7 @@ public abstract class ElasticsearchBaseTest {
         return new RestHighLevelClient(RestClient.builder(HttpHost.create(containerAddress)));
     }
 
-    static FunctionEx<User, IndexRequest> indexFn(String indexName) {
+    static FunctionEx<User, DocWriteRequest> indexFn(String indexName) {
         return user -> {
             IndexRequest request = new IndexRequest(indexName, "doc", String.valueOf(user.age));
             Map<String, Object> jsonMap = new HashMap<>();
