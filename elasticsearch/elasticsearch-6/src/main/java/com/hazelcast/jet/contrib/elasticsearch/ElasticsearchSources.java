@@ -59,11 +59,11 @@ public final class ElasticsearchSources {
      */
     public static <T> BatchSource<T> elasticsearch(
             @Nonnull String name,
-            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull SupplierEx<? extends RestHighLevelClient> clientSupplier,
             @Nonnull SupplierEx<SearchRequest> searchRequestSupplier,
             @Nullable String scrollTimeout,
             @Nonnull FunctionEx<SearchHit, T> hitMapperFn,
-            @Nonnull ConsumerEx<RestHighLevelClient> destroyFn
+            @Nonnull ConsumerEx<? super RestHighLevelClient> destroyFn
     ) {
         return SourceBuilder
                 .batch(name, ctx -> new SearchContext<>(clientSupplier.get(), scrollTimeout,
@@ -82,7 +82,7 @@ public final class ElasticsearchSources {
      */
     public static BatchSource<String> elasticsearch(
             @Nonnull String name,
-            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull SupplierEx<? extends RestHighLevelClient> clientSupplier,
             @Nonnull SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticsearch(name, clientSupplier, searchRequestSupplier,
@@ -110,12 +110,12 @@ public final class ElasticsearchSources {
         private final RestHighLevelClient client;
         private final String scrollInterval;
         private final FunctionEx<SearchHit, T> hitMapperFn;
-        private final ConsumerEx<RestHighLevelClient> destroyFn;
+        private final ConsumerEx<? super RestHighLevelClient> destroyFn;
 
         private SearchResponse searchResponse;
 
         private SearchContext(RestHighLevelClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
-                              SearchRequest searchRequest, ConsumerEx<RestHighLevelClient> destroyFn) throws IOException {
+                              SearchRequest searchRequest, ConsumerEx<? super RestHighLevelClient> destroyFn) throws IOException {
             this.client = client;
             this.scrollInterval = scrollInterval;
             this.hitMapperFn = hitMapperFn;

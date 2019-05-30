@@ -57,16 +57,16 @@ public final class ElasticsearchSinks {
      * @param clientSupplier      Elasticsearch REST client supplier
      * @param bulkRequestSupplier bulk request supplier, will be called to obtain a
      *                            new {@link BulkRequest} instance after each call.
-     * @param requestFn           creates a {@link IndexRequest}, {@link UpdateRequest}
+     * @param requestFn           creates an {@link IndexRequest}, {@link UpdateRequest}
      *                            or {@link DeleteRequest} for each object
      * @param destroyFn           called upon completion to release any resource
      */
     public static <T> Sink<T> elasticsearch(
             @Nonnull String name,
-            @Nonnull SupplierEx<RestClient> clientSupplier,
+            @Nonnull SupplierEx<? extends RestClient> clientSupplier,
             @Nonnull SupplierEx<BulkRequest> bulkRequestSupplier,
-            @Nonnull FunctionEx<T, DocWriteRequest> requestFn,
-            @Nonnull ConsumerEx<RestClient> destroyFn
+            @Nonnull FunctionEx<? super T, ? extends DocWriteRequest> requestFn,
+            @Nonnull ConsumerEx<? super RestClient> destroyFn
     ) {
         return SinkBuilder
                 .sinkBuilder(name, ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier))
@@ -86,12 +86,11 @@ public final class ElasticsearchSinks {
      */
     public static <T> Sink<T> elasticsearch(
             @Nonnull String name,
-            @Nonnull SupplierEx<RestClient> clientSupplier,
-            @Nonnull FunctionEx<T, DocWriteRequest> requestFn
+            @Nonnull SupplierEx<? extends RestClient> clientSupplier,
+            @Nonnull FunctionEx<? super T, ? extends DocWriteRequest> requestFn
     ) {
         return elasticsearch(name, clientSupplier, BulkRequest::new, requestFn, RestClient::close);
     }
-
 
     /**
      * Convenience for {@link #elasticsearch(String, SupplierEx, FunctionEx)}
@@ -103,7 +102,7 @@ public final class ElasticsearchSinks {
             @Nullable String password,
             @Nonnull String hostname,
             int port,
-            @Nonnull FunctionEx<T, DocWriteRequest> requestFn
+            @Nonnull FunctionEx<? super T, ? extends DocWriteRequest> requestFn
     ) {
         return elasticsearch(name, () -> buildClient(username, password, hostname, port), requestFn);
     }

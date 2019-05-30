@@ -54,18 +54,18 @@ public final class ElasticsearchSources {
      * @param searchRequestSupplier search request supplier
      * @param scrollTimeout         scroll keep alive time
      * @param hitMapperFn           maps search hits to output items
-     * @param optionsFn             obtains a {@link RequestOptions} for each request
+     * @param optionsFn             obtains {@link RequestOptions} for each request
      * @param destroyFn             called upon completion to release any resource
      * @param <T>                   type of items emitted downstream
      */
     public static <T> BatchSource<T> elasticsearch(
             @Nonnull String name,
-            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull SupplierEx<? extends RestHighLevelClient> clientSupplier,
             @Nonnull SupplierEx<SearchRequest> searchRequestSupplier,
             @Nonnull String scrollTimeout,
             @Nonnull FunctionEx<SearchHit, T> hitMapperFn,
             @Nonnull FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
-            @Nonnull ConsumerEx<RestHighLevelClient> destroyFn
+            @Nonnull ConsumerEx<? super RestHighLevelClient> destroyFn
     ) {
         return SourceBuilder
                 .batch(name, ctx -> new SearchContext<>(clientSupplier.get(), scrollTimeout,
@@ -85,7 +85,7 @@ public final class ElasticsearchSources {
      */
     public static BatchSource<String> elasticsearch(
             @Nonnull String name,
-            @Nonnull SupplierEx<RestHighLevelClient> clientSupplier,
+            @Nonnull SupplierEx<? extends RestHighLevelClient> clientSupplier,
             @Nonnull SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticsearch(name, clientSupplier, searchRequestSupplier, DEFAULT_SCROLL_TIMEOUT,
@@ -115,14 +115,14 @@ public final class ElasticsearchSources {
         private final String scrollInterval;
         private final FunctionEx<SearchHit, T> hitMapperFn;
         private final FunctionEx<? super ActionRequest, RequestOptions> optionsFn;
-        private final ConsumerEx<RestHighLevelClient> destroyFn;
+        private final ConsumerEx<? super RestHighLevelClient> destroyFn;
 
         private SearchResponse searchResponse;
 
         private SearchContext(RestHighLevelClient client, String scrollInterval,
                               FunctionEx<SearchHit, T> hitMapperFn, SearchRequest searchRequest,
                               FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
-                              ConsumerEx<RestHighLevelClient> destroyFn
+                              ConsumerEx<? super RestHighLevelClient> destroyFn
         ) throws IOException {
             this.client = client;
             this.scrollInterval = scrollInterval;

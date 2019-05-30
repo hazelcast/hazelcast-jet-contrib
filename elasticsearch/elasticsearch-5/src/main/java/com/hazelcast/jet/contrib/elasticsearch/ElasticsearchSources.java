@@ -30,6 +30,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.buildClient;
@@ -56,12 +57,13 @@ public final class ElasticsearchSources {
      * @param destroyFn             called upon completion to release any resource
      * @param <T>                   type of items emitted downstream
      */
-    public static <T> BatchSource<T> elasticsearch(String name,
-                                                   SupplierEx<RestClient> clientSupplier,
-                                                   SupplierEx<SearchRequest> searchRequestSupplier,
-                                                   String scrollTimeout,
-                                                   FunctionEx<SearchHit, T> hitMapperFn,
-                                                   ConsumerEx<RestClient> destroyFn
+    public static <T> BatchSource<T> elasticsearch(
+            @Nonnull String name,
+            @Nonnull SupplierEx<? extends RestClient> clientSupplier,
+            @Nonnull SupplierEx<SearchRequest> searchRequestSupplier,
+            @Nonnull String scrollTimeout,
+            @Nonnull FunctionEx<SearchHit, T> hitMapperFn,
+            @Nonnull ConsumerEx<? super RestClient> destroyFn
     ) {
         return SourceBuilder
                 .batch(name, ctx -> {
@@ -80,9 +82,10 @@ public final class ElasticsearchSources {
      * representation of items using {@link SearchHit#getSourceAsString()} and
      * closes the {@link RestClient} upon completion.
      */
-    public static BatchSource<String> elasticsearch(String name,
-                                                    SupplierEx<RestClient> clientSupplier,
-                                                    SupplierEx<SearchRequest> searchRequestSupplier
+    public static BatchSource<String> elasticsearch(
+            @Nonnull String name,
+            @Nonnull SupplierEx<? extends RestClient> clientSupplier,
+            @Nonnull SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticsearch(name, clientSupplier, searchRequestSupplier,
                 DEFAULT_SCROLL_TIMEOUT, SearchHit::getSourceAsString, RestClient::close);
@@ -92,10 +95,11 @@ public final class ElasticsearchSources {
      * Convenience for {@link #elasticsearch(String, SupplierEx, SupplierEx)}.
      * Rest client is configured with basic authentication.
      */
-    public static BatchSource<String> elasticsearch(String name,
-                                                    String username, String password,
-                                                    String hostname, int port,
-                                                    SupplierEx<SearchRequest> searchRequestSupplier
+    public static BatchSource<String> elasticsearch(
+            @Nonnull String name,
+            @Nonnull String username, String password,
+            @Nonnull String hostname, int port,
+            @Nonnull SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticsearch(name, () -> buildClient(username, password, hostname, port), searchRequestSupplier);
     }
@@ -106,12 +110,12 @@ public final class ElasticsearchSources {
         private final RestHighLevelClient highLevelClient;
         private final String scrollInterval;
         private final FunctionEx<SearchHit, T> hitMapperFn;
-        private final ConsumerEx<RestClient> destroyFn;
+        private final ConsumerEx<? super RestClient> destroyFn;
 
         private SearchResponse searchResponse;
 
         private SearchContext(RestClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
-                              SearchRequest searchRequest, ConsumerEx<RestClient> destroyFn) throws IOException {
+                              SearchRequest searchRequest, ConsumerEx<? super RestClient> destroyFn) throws IOException {
             this.client = client;
             this.highLevelClient = new RestHighLevelClient(client);
             this.scrollInterval = scrollInterval;
