@@ -114,8 +114,13 @@ public final class ElasticsearchSources {
 
         private SearchResponse searchResponse;
 
-        private SearchContext(RestHighLevelClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
-                              SearchRequest searchRequest, ConsumerEx<? super RestHighLevelClient> destroyFn) throws IOException {
+        private SearchContext(
+                RestHighLevelClient client,
+                String scrollInterval,
+                FunctionEx<SearchHit, T> hitMapperFn,
+                SearchRequest searchRequest,
+                ConsumerEx<? super RestHighLevelClient> destroyFn
+        ) throws IOException {
             this.client = client;
             this.scrollInterval = scrollInterval;
             this.hitMapperFn = hitMapperFn;
