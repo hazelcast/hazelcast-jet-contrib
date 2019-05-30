@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.elasticsearch;
+package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.function.ConsumerEx;
 import com.hazelcast.jet.function.FunctionEx;
@@ -22,18 +22,15 @@ import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
-import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
-
-import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.buildClient;
 
 /**
  * Contains factory methods for Elasticsearch sources
@@ -54,42 +51,40 @@ public final class ElasticsearchSources {
      * @param searchRequestSupplier Search request supplier
      * @param scrollTimeout         scroll keep alive time
      * @param hitMapperFn           maps search hits to output items
-     * @param optionsFn             obtains a {@link RequestOptions} for each request
      * @param destroyFn             called upon completion to release any resource
      * @param <T>                   type of items emitted downstream
      */
     public static <T> BatchSource<T> elasticSearch(String name,
-                                                   SupplierEx<RestHighLevelClient> clientSupplier,
+                                                   SupplierEx<RestClient> clientSupplier,
                                                    SupplierEx<SearchRequest> searchRequestSupplier,
                                                    String scrollTimeout,
                                                    FunctionEx<SearchHit, T> hitMapperFn,
-                                                   FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
-                                                   ConsumerEx<RestHighLevelClient> destroyFn
-
+                                                   ConsumerEx<RestClient> destroyFn
     ) {
         return SourceBuilder
-                .batch(name, ctx -> new SearchContext<>(clientSupplier.get(), scrollTimeout,
-                        hitMapperFn, searchRequestSupplier.get(), optionsFn, destroyFn))
+                .batch(name, ctx -> {
+                    RestClient client = clientSupplier.get();
+                    SearchRequest searchRequest = searchRequestSupplier.get();
+                    return new SearchContext<>(client, scrollTimeout, hitMapperFn, searchRequest, destroyFn);
+                })
                 .<T>fillBufferFn(SearchContext::fillBuffer)
                 .destroyFn(SearchContext::close)
                 .build();
     }
 
     /**
-     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, String, FunctionEx, FunctionEx, ConsumerEx)}.
-     * Uses {@link #DEFAULT_SCROLL_TIMEOUT} for scroll timeout and {@link
-     * RequestOptions#DEFAULT}, emits string representation of items using
-     * {@link SearchHit#getSourceAsString()} and closes the {@link
-     * RestHighLevelClient} upon completion.
+     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, String, FunctionEx, ConsumerEx)}.
+     * Uses {@link #DEFAULT_SCROLL_TIMEOUT} for scroll timeout, emits string
+     * representation of items using {@link SearchHit#getSourceAsString()} and
+     * closes the {@link RestClient} upon completion.
      */
     public static BatchSource<String> elasticSearch(String name,
-                                                    SupplierEx<RestHighLevelClient> clientSupplier,
+                                                    SupplierEx<RestClient> clientSupplier,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
-        return elasticSearch(name, clientSupplier, searchRequestSupplier, DEFAULT_SCROLL_TIMEOUT,
-                SearchHit::getSourceAsString, request -> RequestOptions.DEFAULT, RestHighLevelClient::close);
+        return elasticSearch(name, clientSupplier, searchRequestSupplier,
+                DEFAULT_SCROLL_TIMEOUT, SearchHit::getSourceAsString, RestClient::close);
     }
-
 
     /**
      * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx)}.
@@ -100,33 +95,29 @@ public final class ElasticsearchSources {
                                                     String hostname, int port,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
-        return elasticSearch(name, () -> buildClient(username, password, hostname, port),
-                searchRequestSupplier);
+        return elasticSearch(name, () -> ElasticsearchSinks.buildClient(username, password, hostname, port), searchRequestSupplier);
     }
 
     private static final class SearchContext<T> {
 
-        private final RestHighLevelClient client;
+        private final RestClient client;
+        private final RestHighLevelClient highLevelClient;
         private final String scrollInterval;
         private final FunctionEx<SearchHit, T> hitMapperFn;
-        private final FunctionEx<? super ActionRequest, RequestOptions> optionsFn;
-        private final ConsumerEx<RestHighLevelClient> destroyFn;
+        private final ConsumerEx<RestClient> destroyFn;
 
         private SearchResponse searchResponse;
 
-        private SearchContext(RestHighLevelClient client, String scrollInterval,
-                              FunctionEx<SearchHit, T> hitMapperFn, SearchRequest searchRequest,
-                              FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
-                              ConsumerEx<RestHighLevelClient> destroyFn
-        ) throws IOException {
+        private SearchContext(RestClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
+                              SearchRequest searchRequest, ConsumerEx<RestClient> destroyFn) throws IOException {
             this.client = client;
+            this.highLevelClient = new RestHighLevelClient(client);
             this.scrollInterval = scrollInterval;
             this.hitMapperFn = hitMapperFn;
-            this.optionsFn = optionsFn;
             this.destroyFn = destroyFn;
 
             searchRequest.scroll(scrollInterval);
-            searchResponse = client.search(searchRequest, optionsFn.apply(searchRequest));
+            searchResponse = highLevelClient.search(searchRequest);
         }
 
         private void fillBuffer(SourceBuffer<T> buffer) throws IOException {
@@ -144,13 +135,13 @@ public final class ElasticsearchSources {
 
             SearchScrollRequest scrollRequest = new SearchScrollRequest(searchResponse.getScrollId());
             scrollRequest.scroll(scrollInterval);
-            searchResponse = client.scroll(scrollRequest, optionsFn.apply(scrollRequest));
+            searchResponse = highLevelClient.searchScroll(scrollRequest);
         }
 
         private void clearScroll() throws IOException {
             ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
             clearScrollRequest.addScrollId(searchResponse.getScrollId());
-            client.clearScroll(clearScrollRequest, RequestOptions.DEFAULT);
+            highLevelClient.clearScroll(clearScrollRequest);
         }
 
         private void close() throws IOException {

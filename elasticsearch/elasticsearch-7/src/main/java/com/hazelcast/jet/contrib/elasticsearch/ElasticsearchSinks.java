@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.elasticsearch;
+package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.function.ConsumerEx;
 import com.hazelcast.jet.function.FunctionEx;
@@ -25,8 +25,10 @@ import org.apache.http.HttpHost;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 
@@ -51,38 +53,41 @@ public final class ElasticsearchSinks {
      * @param bulkRequestSupplier Bulk request supplier, will be called to obtain a
      *                            new {@link BulkRequest} instance after each call.
      * @param indexFn             Creates an {@link IndexRequest} for each object
+     * @param optionsFn           obtains a {@link RequestOptions} for each request
      * @param destroyFn           called upon completion to release any resource
      */
     public static <T> Sink<T> elasticSearch(String name,
-                                            SupplierEx<RestClient> clientSupplier,
+                                            SupplierEx<RestHighLevelClient> clientSupplier,
                                             SupplierEx<BulkRequest> bulkRequestSupplier,
                                             FunctionEx<T, IndexRequest> indexFn,
-                                            ConsumerEx<RestClient> destroyFn
+                                            FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
+                                            ConsumerEx<RestHighLevelClient> destroyFn
     ) {
         return SinkBuilder
                 .sinkBuilder("elasticSearch-" + name,
-                        ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier))
+                        ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier, optionsFn, destroyFn))
                 .<T>receiveFn((bulkContext, item) -> bulkContext.add(indexFn.apply(item)))
                 .flushFn(BulkContext::bulk)
-                .destroyFn(b -> destroyFn.accept(b.client))
+                .destroyFn(BulkContext::close)
                 .build();
     }
 
     /**
-     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, FunctionEx, ConsumerEx)}
-     * Creates a new {@link BulkRequest} with default options for each batch and
-     * closes the {@link RestClient} upon completion.
+     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, FunctionEx, FunctionEx, ConsumerEx)}
+     * Uses {@link RequestOptions#DEFAULT}, creates a new {@link BulkRequest}
+     * with default options for each batch and closes the {@link
+     * RestHighLevelClient} upon completion.
      */
     public static <T> Sink<T> elasticSearch(String name,
-                                            SupplierEx<RestClient> clientSupplier,
+                                            SupplierEx<RestHighLevelClient> clientSupplier,
                                             FunctionEx<T, IndexRequest> indexFn
     ) {
-        return elasticSearch(name, clientSupplier, BulkRequest::new, indexFn, RestClient::close);
+        return elasticSearch(name, clientSupplier, BulkRequest::new, indexFn,
+                request -> RequestOptions.DEFAULT, RestHighLevelClient::close);
     }
 
-
     /**
-     * Convenience for {@link #elasticSearch(String, SupplierEx, FunctionEx)}
+     * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, FunctionEx, FunctionEx, ConsumerEx)}
      * Rest client is configured with basic authentication.
      */
     public static <T> Sink<T> elasticSearch(String name,
@@ -93,27 +98,33 @@ public final class ElasticsearchSinks {
         return elasticSearch(name, () -> buildClient(username, password, hostname, port), indexFn);
     }
 
-    static RestClient buildClient(String username, String password, String hostname, int port) {
+    static RestHighLevelClient buildClient(String username, String password, String hostname, int port) {
         CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(ANY, new UsernamePasswordCredentials(username, password));
-
-        return RestClient.builder(new HttpHost(hostname, port))
-                         .setHttpClientConfigCallback(httpClientBuilder ->
-                                 httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)).build();
+        return new RestHighLevelClient(
+                RestClient.builder(new HttpHost(hostname, port))
+                          .setHttpClientConfigCallback(httpClientBuilder ->
+                                  httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider))
+        );
     }
 
     private static final class BulkContext {
 
-        private final RestClient client;
-        private final RestHighLevelClient highLevelClient;
+        private final RestHighLevelClient client;
         private final SupplierEx<BulkRequest> bulkRequestSupplier;
+        private final FunctionEx<? super ActionRequest, RequestOptions> optionsFn;
+        private final ConsumerEx<RestHighLevelClient> destroyFn;
 
         private BulkRequest bulkRequest;
 
-        private BulkContext(RestClient client, SupplierEx<BulkRequest> bulkRequestSupplier) {
+        private BulkContext(RestHighLevelClient client, SupplierEx<BulkRequest> bulkRequestSupplier,
+                            FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
+                            ConsumerEx<RestHighLevelClient> destroyFn) {
             this.client = client;
-            this.highLevelClient = new RestHighLevelClient(client);
             this.bulkRequestSupplier = bulkRequestSupplier;
+            this.optionsFn = optionsFn;
+            this.destroyFn = destroyFn;
+
             this.bulkRequest = bulkRequestSupplier.get();
         }
 
@@ -122,8 +133,12 @@ public final class ElasticsearchSinks {
         }
 
         private void bulk() throws IOException {
-            highLevelClient.bulk(bulkRequest);
+            client.bulk(bulkRequest, optionsFn.apply(bulkRequest));
             bulkRequest = bulkRequestSupplier.get();
+        }
+
+        private void close() {
+            destroyFn.accept(client);
         }
     }
 

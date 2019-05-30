@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.elasticsearch;
+package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
 import com.hazelcast.jet.Jet;

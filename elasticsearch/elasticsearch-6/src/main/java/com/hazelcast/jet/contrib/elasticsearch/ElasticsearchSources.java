@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.elasticsearch;
+package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.function.ConsumerEx;
 import com.hazelcast.jet.function.FunctionEx;
@@ -30,8 +30,6 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
-
-import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.buildClient;
 
 /**
  * Contains factory methods for Elasticsearch sources
@@ -94,7 +92,7 @@ public final class ElasticsearchSources {
                                                     String hostname, int port,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
-        return elasticSearch(name, () -> buildClient(username, password, hostname, port), searchRequestSupplier);
+        return elasticSearch(name, () -> ElasticsearchSinks.buildClient(username, password, hostname, port), searchRequestSupplier);
     }
 
     private static final class SearchContext<T> {

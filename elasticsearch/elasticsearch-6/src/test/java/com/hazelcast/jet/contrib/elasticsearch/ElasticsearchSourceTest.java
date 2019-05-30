@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.elasticsearch;
+package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -28,7 +28,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.elasticSearch;
+import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.elasticSearch;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.assertEquals;
@@ -41,7 +41,7 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(userList))
-         .drainTo(elasticSearch(indexName, () -> createClient(containerAddress),
+         .drainTo(ElasticsearchSinks.elasticSearch(indexName, () -> createClient(containerAddress),
                  () -> new BulkRequest().setRefreshPolicy(IMMEDIATE), indexFn(indexName), RestHighLevelClient::close));
 
         jet.newJob(p).join();

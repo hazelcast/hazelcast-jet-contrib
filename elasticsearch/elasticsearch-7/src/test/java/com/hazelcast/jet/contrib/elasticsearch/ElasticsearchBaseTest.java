@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.elasticsearch;
+package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.MultiGetItemResponse;
+import org.elasticsearch.action.get.MultiGetRequest;
+import org.elasticsearch.action.get.MultiGetResponse;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.After;
@@ -38,31 +38,26 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.http.auth.AuthScope.ANY;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public abstract class ElasticsearchBaseTest {
-
-    static final String DEFAULT_USER = "elastic";
-    static final String DEFAULT_PASS = "changeme";
 
     private static final int OBJECT_COUNT = 20;
 
     @Rule
     public ElasticsearchContainer container =
-            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:5.6.16");
+            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:7.1.0");
     JetInstance jet;
     IListJet<User> userList;
     String indexName = "users";
-    private RestClient client;
-    private RestHighLevelClient highLevelClient;
+    private RestHighLevelClient client;
 
     @Before
     public void setupBase() {
         container.start();
-
-        client = createClient(container.getContainerIpAddress(), mappedPort());
-        highLevelClient = new RestHighLevelClient(client);
+        client = createClient(container.getHttpHostAddress());
 
         jet = Jet.newJetInstance();
 
@@ -79,30 +74,29 @@ public abstract class ElasticsearchBaseTest {
         jet.shutdown();
     }
 
-    int mappedPort() {
-        String hostAddress = container.getHttpHostAddress();
-        return Integer.parseInt(hostAddress.split(":")[1]);
-    }
-
     void assertIndexes() throws IOException {
+        MultiGetRequest multiGetRequest = new MultiGetRequest();
         for (int i = 0; i < OBJECT_COUNT; i++) {
-            GetRequest request = new GetRequest(indexName).id(String.valueOf(i));
-            assertTrue(highLevelClient.exists(request));
+            multiGetRequest.add(new MultiGetRequest.Item(indexName, String.valueOf(i)));
+        }
+        MultiGetResponse multiGetResponse = client.mget(multiGetRequest, RequestOptions.DEFAULT);
+        MultiGetItemResponse[] responses = multiGetResponse.getResponses();
+        assertEquals(OBJECT_COUNT, responses.length);
+        for (int i = 0; i < OBJECT_COUNT; i++) {
+            MultiGetItemResponse itemResponse = responses[i];
+            assertNull(itemResponse.getFailure());
+            assertTrue(itemResponse.getResponse().isExists());
         }
     }
 
-    static RestClient createClient(String containerAddress, int port) {
-        CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(ANY, new UsernamePasswordCredentials(DEFAULT_USER, DEFAULT_PASS));
-
-        return RestClient.builder(new HttpHost(containerAddress, port))
-                         .setHttpClientConfigCallback(httpClientBuilder ->
-                                 httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)).build();
+    static RestHighLevelClient createClient(String containerAddress) {
+        return new RestHighLevelClient(RestClient.builder(HttpHost.create(containerAddress)));
     }
 
     static FunctionEx<User, IndexRequest> indexFn(String indexName) {
         return user -> {
-            IndexRequest request = new IndexRequest(indexName, "doc", String.valueOf(user.age));
+            IndexRequest request = new IndexRequest(indexName);
+            request.id(String.valueOf(user.age));
             Map<String, Object> jsonMap = new HashMap<>();
             jsonMap.put("name", user.name);
             jsonMap.put("age", user.age);
