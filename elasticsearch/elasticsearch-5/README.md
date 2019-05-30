@@ -1,13 +1,13 @@
-# ElasticSearch Connector
+# Elasticsearch Connector
 
-A Hazelcast Jet connector for ElasticSearch (v5.6.x) for querying/indexing objects
-from/to ElasticSearch.
+A Hazelcast Jet connector for Elasticsearch (v5.6.x) for querying/indexing objects
+from/to Elasticsearch.
 
 ## Getting Started
 
 ### Installing
 
-The ElasticSearch Connector artifacts are published in the Maven repositories.
+The Elasticsearch Connector artifacts are published in the Maven repositories.
 
 Add the following lines to your pom.xml to include it as a dependency to your project:
 
@@ -28,16 +28,16 @@ compile group: 'com.hazelcast.jet.contrib', name: 'elasticsearch-5', version: ${
 
 #### As a Source
 
-ElasticSearch batch source (`ElasticSearchSources.elasticSearch()`) executes
+Elasticsearch batch source (`ElasticsearchSources.elasticSearch()`) executes
 the query and retrieves the results using `scrolling`.
 
-Following is an example pipeline which queries ElasticSearch and logs the
+Following is an example pipeline which queries Elasticsearch and logs the
 results:
 
 ```java
 Pipeline p = Pipeline.create();
 
-p.drawFrom(ElasticSearchSources.elasticSearch("sourceName", 
+p.drawFrom(ElasticsearchSources.elasticSearch("sourceName", 
     () -> RestClient.builder(HttpHost.create("hostAddress")).build(),
     () -> {
         SearchRequest searchRequest = new SearchRequest("users");
@@ -54,16 +54,16 @@ p.drawFrom(ElasticSearchSources.elasticSearch("sourceName",
 
 #### As a Sink
 
-ElasticSearch sink (`ElasticSearchSinks.elasticSearch()`) is used to index objects from
-Hazelcast Jet Pipeline to ElasticSearch.
+Elasticsearch sink (`ElasticsearchSinks.elasticSearch()`) is used to index objects from
+Hazelcast Jet Pipeline to Elasticsearch.
 
 Here is a very simple pipeline which reads out some users from Hazelcast
-List and indexes them to ElasticSearch:
+List and indexes them to Elasticsearch:
 
 ```java
 Pipeline p = Pipeline.create();
 p.drawFrom(Sources.list(users))
- .drainTo(ElasticSearchSinks.elasticSearch("sinkName",
+ .drainTo(ElasticsearchSinks.elasticSearch("sinkName",
     () -> RestClient.builder(HttpHost.create("hostAddress")).build(),
     BulkRequest::new,
     user -> {

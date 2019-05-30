@@ -28,12 +28,12 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.elasticsearch.ElasticSearchSinks.elasticSearch;
+import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.elasticSearch;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.assertEquals;
 
-public class ElasticSearchSourceTest extends ElasticSearchBaseTest {
+public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
     @Test
     public void test() throws IOException {
@@ -50,7 +50,7 @@ public class ElasticSearchSourceTest extends ElasticSearchBaseTest {
 
         p = Pipeline.create();
 
-        p.drawFrom(ElasticSearchSources.elasticSearch("users", () -> createClient(containerAddress),
+        p.drawFrom(ElasticsearchSources.elasticSearch("users", () -> createClient(containerAddress),
                 () -> {
                     SearchRequest searchRequest = new SearchRequest("users");
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

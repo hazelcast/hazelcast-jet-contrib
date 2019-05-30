@@ -35,11 +35,11 @@ import java.io.IOException;
 import static org.apache.http.auth.AuthScope.ANY;
 
 /**
- * Contains factory methods for ElasticSearch sinks
+ * Contains factory methods for Elasticsearch sinks.
  */
-public final class ElasticSearchSinks {
+public final class ElasticsearchSinks {
 
-    private ElasticSearchSinks() {
+    private ElasticsearchSinks() {
     }
 
     /**
@@ -47,7 +47,7 @@ public final class ElasticSearchSinks {
      * using bulk requests.
      *
      * @param name                Name of the created sink
-     * @param clientSupplier      ElasticSearch rest client supplier
+     * @param clientSupplier      Elasticsearch rest client supplier
      * @param bulkRequestSupplier Bulk request supplier, will be called to obtain a
      *                            new {@link BulkRequest} instance after each call.
      * @param indexFn             Creates an {@link IndexRequest} for each object
@@ -63,7 +63,7 @@ public final class ElasticSearchSinks {
                 .sinkBuilder("elasticSearch-" + name,
                         ctx -> new BulkContext(clientSupplier.get(), bulkRequestSupplier, destroyFn))
                 .<T>receiveFn((bulkContext, item) -> bulkContext.add(indexFn.apply(item)))
-                .flushFn(BulkContext::bulk)
+                .flushFn(BulkContext::flush)
                 .destroyFn(BulkContext::close)
                 .build();
     }
@@ -123,12 +123,12 @@ public final class ElasticSearchSinks {
             bulkRequest.add(request);
         }
 
-        private void bulk() throws IOException {
+        private void flush() throws IOException {
             client.bulk(bulkRequest);
             bulkRequest = bulkRequestSupplier.get();
         }
 
-        private void close() throws IOException {
+        private void close() {
             destroyFn.accept(client);
         }
     }

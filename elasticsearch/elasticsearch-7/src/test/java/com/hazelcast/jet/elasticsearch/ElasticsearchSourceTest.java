@@ -17,37 +17,34 @@
 package com.hazelcast.jet.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
-import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.Sources;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.elasticsearch.ElasticSearchSinks.elasticSearch;
+import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.elasticSearch;
 import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.assertEquals;
 
-public class ElasticSearchSourceTest extends ElasticSearchBaseTest {
+public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
     @Test
     public void test() throws IOException {
-
-        String containerIpAddress = container.getContainerIpAddress();
-        int port = mappedPort();
-
-        SupplierEx<RestClient> clientSupplier = () -> createClient(containerIpAddress, port);
+        String containerAddress = container.getHttpHostAddress();
 
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(userList))
-         .drainTo(elasticSearch(indexName, clientSupplier,
-                 () -> new BulkRequest().setRefreshPolicy(IMMEDIATE), indexFn(indexName), RestClient::close));
+         .drainTo(elasticSearch(indexName, () -> createClient(containerAddress),
+                 () -> new BulkRequest().setRefreshPolicy(IMMEDIATE), indexFn(indexName),
+                 request -> RequestOptions.DEFAULT, RestHighLevelClient::close));
 
         jet.newJob(p).join();
 
@@ -55,7 +52,7 @@ public class ElasticSearchSourceTest extends ElasticSearchBaseTest {
 
         p = Pipeline.create();
 
-        p.drawFrom(ElasticSearchSources.elasticSearch("users", clientSupplier,
+        p.drawFrom(ElasticsearchSources.elasticSearch("users", () -> createClient(containerAddress),
                 () -> {
                     SearchRequest searchRequest = new SearchRequest("users");
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();

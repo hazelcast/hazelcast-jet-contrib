@@ -34,5 +34,5 @@
     <suppress checks="Javadoc|Name|MagicNumber|VisibilityModifier" files="[\\/]src[\\/]test[\\/]"/>
     <suppress checks="LineLength" files="DecoratorTest.java"/>
 
-    <suppress checks="ParameterNumber" files="ElasticSearchSources.java"/>
+    <suppress checks="ParameterNumber" files="ElasticsearchSources.java"/>
 </suppressions>

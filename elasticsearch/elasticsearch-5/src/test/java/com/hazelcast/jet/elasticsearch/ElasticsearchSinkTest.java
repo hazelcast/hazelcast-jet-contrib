@@ -22,22 +22,19 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.elasticsearch.ElasticSearchSinks.elasticSearch;
+import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.elasticSearch;
 
-public class ElasticSearchSinkTest extends ElasticSearchBaseTest {
+public class ElasticsearchSinkTest extends ElasticsearchBaseTest {
 
     @Test
     public void test_elasticSearchSink() throws IOException {
-
-        String containerAddress = container.getHttpHostAddress();
-
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(userList))
-         .drainTo(elasticSearch(indexName, () -> createClient(containerAddress), indexFn(indexName)));
+         .drainTo(elasticSearch(indexName, DEFAULT_USER, DEFAULT_PASS, container.getContainerIpAddress(),
+                 mappedPort(), indexFn(indexName)));
 
         jet.newJob(p).join();
 
         assertIndexes();
     }
-
 }

@@ -26,21 +26,22 @@ import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.elasticsearch.ElasticSearchSinks.buildClient;
+import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.buildClient;
 
 /**
- * Contains factory methods for ElasticSearch sources
+ * Contains factory methods for Elasticsearch sources
  */
-public final class ElasticSearchSources {
+public final class ElasticsearchSources {
 
     private static final String DEFAULT_SCROLL_TIMEOUT = "60s";
 
-    private ElasticSearchSources() {
+    private ElasticsearchSources() {
     }
 
     /**
@@ -48,7 +49,7 @@ public final class ElasticSearchSources {
      * using scrolling.
      *
      * @param name                  Name of the source
-     * @param clientSupplier        ElasticSearch rest client supplier
+     * @param clientSupplier        Elasticsearch rest client supplier
      * @param searchRequestSupplier Search request supplier
      * @param scrollTimeout         scroll keep alive time
      * @param hitMapperFn           maps search hits to output items
@@ -56,15 +57,18 @@ public final class ElasticSearchSources {
      * @param <T>                   type of items emitted downstream
      */
     public static <T> BatchSource<T> elasticSearch(String name,
-                                                   SupplierEx<RestHighLevelClient> clientSupplier,
+                                                   SupplierEx<RestClient> clientSupplier,
                                                    SupplierEx<SearchRequest> searchRequestSupplier,
                                                    String scrollTimeout,
                                                    FunctionEx<SearchHit, T> hitMapperFn,
-                                                   ConsumerEx<RestHighLevelClient> destroyFn
+                                                   ConsumerEx<RestClient> destroyFn
     ) {
         return SourceBuilder
-                .batch(name, ctx -> new SearchContext<>(clientSupplier.get(), scrollTimeout,
-                        hitMapperFn, searchRequestSupplier.get(), destroyFn))
+                .batch(name, ctx -> {
+                    RestClient client = clientSupplier.get();
+                    SearchRequest searchRequest = searchRequestSupplier.get();
+                    return new SearchContext<>(client, scrollTimeout, hitMapperFn, searchRequest, destroyFn);
+                })
                 .<T>fillBufferFn(SearchContext::fillBuffer)
                 .destroyFn(SearchContext::close)
                 .build();
@@ -74,16 +78,15 @@ public final class ElasticSearchSources {
      * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx, String, FunctionEx, ConsumerEx)}.
      * Uses {@link #DEFAULT_SCROLL_TIMEOUT} for scroll timeout, emits string
      * representation of items using {@link SearchHit#getSourceAsString()} and
-     * closes the {@link RestHighLevelClient} upon completion.
+     * closes the {@link RestClient} upon completion.
      */
     public static BatchSource<String> elasticSearch(String name,
-                                                    SupplierEx<RestHighLevelClient> clientSupplier,
+                                                    SupplierEx<RestClient> clientSupplier,
                                                     SupplierEx<SearchRequest> searchRequestSupplier
     ) {
         return elasticSearch(name, clientSupplier, searchRequestSupplier,
-                DEFAULT_SCROLL_TIMEOUT, SearchHit::getSourceAsString, RestHighLevelClient::close);
+                DEFAULT_SCROLL_TIMEOUT, SearchHit::getSourceAsString, RestClient::close);
     }
-
 
     /**
      * Convenience for {@link #elasticSearch(String, SupplierEx, SupplierEx)}.
@@ -99,22 +102,24 @@ public final class ElasticSearchSources {
 
     private static final class SearchContext<T> {
 
-        private final RestHighLevelClient client;
+        private final RestClient client;
+        private final RestHighLevelClient highLevelClient;
         private final String scrollInterval;
         private final FunctionEx<SearchHit, T> hitMapperFn;
-        private final ConsumerEx<RestHighLevelClient> destroyFn;
+        private final ConsumerEx<RestClient> destroyFn;
 
         private SearchResponse searchResponse;
 
-        private SearchContext(RestHighLevelClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
-                              SearchRequest searchRequest, ConsumerEx<RestHighLevelClient> destroyFn) throws IOException {
+        private SearchContext(RestClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
+                              SearchRequest searchRequest, ConsumerEx<RestClient> destroyFn) throws IOException {
             this.client = client;
+            this.highLevelClient = new RestHighLevelClient(client);
             this.scrollInterval = scrollInterval;
             this.hitMapperFn = hitMapperFn;
             this.destroyFn = destroyFn;
 
             searchRequest.scroll(scrollInterval);
-            searchResponse = client.search(searchRequest);
+            searchResponse = highLevelClient.search(searchRequest);
         }
 
         private void fillBuffer(SourceBuffer<T> buffer) throws IOException {
@@ -132,13 +137,13 @@ public final class ElasticSearchSources {
 
             SearchScrollRequest scrollRequest = new SearchScrollRequest(searchResponse.getScrollId());
             scrollRequest.scroll(scrollInterval);
-            searchResponse = client.searchScroll(scrollRequest);
+            searchResponse = highLevelClient.searchScroll(scrollRequest);
         }
 
         private void clearScroll() throws IOException {
             ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
             clearScrollRequest.addScrollId(searchResponse.getScrollId());
-            client.clearScroll(clearScrollRequest);
+            highLevelClient.clearScroll(clearScrollRequest);
         }
 
         private void close() throws IOException {

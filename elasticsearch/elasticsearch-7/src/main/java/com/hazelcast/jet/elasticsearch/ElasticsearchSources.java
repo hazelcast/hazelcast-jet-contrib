@@ -33,16 +33,16 @@ import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
 
-import static com.hazelcast.jet.elasticsearch.ElasticSearchSinks.buildClient;
+import static com.hazelcast.jet.elasticsearch.ElasticsearchSinks.buildClient;
 
 /**
- * Contains factory methods for ElasticSearch sources
+ * Contains factory methods for Elasticsearch sources
  */
-public final class ElasticSearchSources {
+public final class ElasticsearchSources {
 
     private static final String DEFAULT_SCROLL_TIMEOUT = "60s";
 
-    private ElasticSearchSources() {
+    private ElasticsearchSources() {
     }
 
     /**
@@ -50,7 +50,7 @@ public final class ElasticSearchSources {
      * using scrolling.
      *
      * @param name                  Name of the source
-     * @param clientSupplier        ElasticSearch rest client supplier
+     * @param clientSupplier        Elasticsearch rest client supplier
      * @param searchRequestSupplier Search request supplier
      * @param scrollTimeout         scroll keep alive time
      * @param hitMapperFn           maps search hits to output items
