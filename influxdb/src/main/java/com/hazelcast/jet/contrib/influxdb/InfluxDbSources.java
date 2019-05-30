@@ -62,9 +62,14 @@ public final class InfluxDbSources {
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
-    public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
-                                              @Nonnull String username, String password,
-                                              @Nonnull MeasurementProjection<T> measurementProjection) {
+    public static <T> BatchSource<T> influxDb(
+            @Nonnull String query,
+            @Nonnull String database,
+            @Nonnull String url,
+            @Nonnull String username,
+            @Nullable String password,
+            @Nonnull MeasurementProjection<T> measurementProjection
+    ) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(url, "url cannot be null");
         checkNotNull(database, "database cannot be null");
@@ -88,9 +93,11 @@ public final class InfluxDbSources {
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
-    public static <T> BatchSource<T> influxDb(@Nonnull String query,
-                                              @Nonnull SupplierEx<InfluxDB> connectionSupplier,
-                                              @Nonnull MeasurementProjection<T> measurementProjection) {
+    public static <T> BatchSource<T> influxDb(
+            @Nonnull String query,
+            @Nonnull SupplierEx<InfluxDB> connectionSupplier,
+            @Nonnull MeasurementProjection<T> measurementProjection
+    ) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(connectionSupplier, "connectionSupplier cannot be null");
         checkNotNull(measurementProjection, "connectionSupplier cannot be null");
@@ -118,9 +125,14 @@ public final class InfluxDbSources {
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
-    public static <T> BatchSource<T> influxDb(@Nonnull String query, @Nonnull String database, @Nonnull String url,
-                                              @Nonnull String username, String password,
-                                              @Nonnull Class<T> pojoClass) {
+    public static <T> BatchSource<T> influxDb(
+            @Nonnull String query,
+            @Nonnull String database,
+            @Nonnull String url,
+            @Nonnull String username,
+            String password,
+            @Nonnull Class<T> pojoClass
+    ) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(url, "url cannot be null");
         checkNotNull(database, "database cannot be null");
@@ -142,9 +154,11 @@ public final class InfluxDbSources {
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
     @Nonnull
-    public static <T> BatchSource<T> influxDb(@Nonnull String query,
-                                              @Nonnull SupplierEx<InfluxDB> connectionSupplier,
-                                              @Nonnull Class<T> pojoClass) {
+    public static <T> BatchSource<T> influxDb(
+            @Nonnull String query,
+            @Nonnull SupplierEx<InfluxDB> connectionSupplier,
+            @Nonnull Class<T> pojoClass
+    ) {
         checkNotNull(query, "query cannot be null");
         checkNotNull(connectionSupplier, "username cannot be null");
         checkNotNull(pojoClass, "pojoClass cannot be null");
@@ -178,10 +192,12 @@ public final class InfluxDbSources {
         private InfluxDB db;
         private volatile boolean finished;
 
-        InfluxDbSourceContext(@Nonnull String query,
-                              @Nonnull SupplierEx<InfluxDB> connectionSupplier,
-                              @Nullable Class<T> pojoClass,
-                              @Nullable MeasurementProjection<T> measurementProjection) {
+        InfluxDbSourceContext(
+                @Nonnull String query,
+                @Nonnull SupplierEx<InfluxDB> connectionSupplier,
+                @Nullable Class<T> pojoClass,
+                @Nullable MeasurementProjection<T> measurementProjection
+        ) {
             assert pojoClass != null ^ measurementProjection != null;
             this.pojoClass = pojoClass;
             this.resultMapper = pojoClass != null ? new InfluxDBResultMapper() : null;
