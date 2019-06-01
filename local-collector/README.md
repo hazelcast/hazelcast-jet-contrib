@@ -66,14 +66,14 @@ compile group: 'com.hazelcast.jet.contrib', name: 'local-collector', version: ${
 ```
 
 ### FAQ
-Q: What is a good use-case for this collector? 
+Q: What is a good use-case for this collector?  
 A: Pipelines which process huge rate of incoming data aggregate them in some form and then store
    the aggregation results. If aggregation results is much smaller rate than was the original input.
    
    Imagine a pipeline to detect possible fraud transactions in credit card payment stream. The input is massive:
    all credit card transations. The output will much *much* smaller: Just the fraudulent transactions.
 
-Q: What if the application which submitted Pipeline dies?
+Q: What if the application which submitted Pipeline dies?  
 A: The pipeline will keep running. Local Collector can reconnect to already existing pipeline.
 ```java
         LocalCollector<Long> collector = LocalCollector.<Long>reconnect(jetInstance)
@@ -83,14 +83,14 @@ A: The pipeline will keep running. Local Collector can reconnect to already exis
                 .start();
 ```
 
-Q: How does it work under the hood?
+Q: How does it work under the hood?  
 A: It uses a ringbuffer to store results and then polls it and deliver result to your consumers
 
-Q: How to size the backing ringbuffer?
+Q: How to size the backing ringbuffer?  
 A: Default size is 10,000. This seems to be sufficient unless your pipeline generates 10,000s items / second. If your
 pipeline generates huge amount of items / second then you should probably use another Sink. 
 
-Q: How to make it resiliant against occasional hiccups?
+Q: How to make it resiliant against occasional hiccups?  
 A: Occasional hiccups on a consumer side can cause an issue, because producers might overwrite items stored in ringbuffer
 before the items were consumed. If this is detected then the Local Collector declares an error, notify your
 exceptionConsumer and stops consuming new items. If you can tolerate occasional lost items then you can instruct the
