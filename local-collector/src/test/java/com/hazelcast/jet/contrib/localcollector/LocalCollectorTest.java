@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.hazelcast.jet.contrib.localcollector;
 
 import com.hazelcast.jet.Jet;
@@ -17,7 +33,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.hazelcast.jet.aggregate.AggregateOperations.counting;
 import static com.hazelcast.jet.pipeline.WindowDefinition.tumbling;
 import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class LocalCollectorTest {
     private static final AtomicLong GLOBAL_COUNTER = new AtomicLong();
@@ -99,9 +117,10 @@ public class LocalCollectorTest {
 
         client1.newJob(pipeline).join();
 
-
         long localCounter = counter.get();
         long globalCounter = GLOBAL_COUNTER.get();
+
+//        System.out.println(" -----  Global counter = " + globalCounter + ", local counter = " + localCounter);
         assertTrue("Global counter = " + globalCounter
                         + ", local counter = " + localCounter,
                 globalCounter >= localCounter);
@@ -135,7 +154,7 @@ public class LocalCollectorTest {
 
         ReconnectableSummingConsumer consumer2 = new ReconnectableSummingConsumer();
         LocalCollector<Long> collector2 = LocalCollector.<Long>reconnect(client2)
-                .fromOffset(consumer1.highestOffset + 1)
+                .fromSequence(consumer1.highestOffset + 1)
                 .consumer(consumer2::accept)
                 .name(collectorName)
                 .start();
