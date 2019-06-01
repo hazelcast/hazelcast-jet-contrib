@@ -343,7 +343,7 @@ public final class LocalCollector<T> {
         private final boolean reconnecting;
         private final long shift;
 
-        public RingbufferReadCallback(long startSequence, boolean reconnecting, long shift) {
+        RingbufferReadCallback(long startSequence, boolean reconnecting, long shift) {
             this.startSequence = startSequence;
             this.reconnecting = reconnecting;
             this.shift = shift;

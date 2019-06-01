@@ -26,12 +26,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.hazelcast.jet.aggregate.AggregateOperations.averagingLong;
 import static com.hazelcast.jet.aggregate.AggregateOperations.counting;
 import static com.hazelcast.jet.pipeline.WindowDefinition.tumbling;
 import static org.awaitility.Awaitility.await;
@@ -76,41 +74,6 @@ public class LocalCollectorTest {
     }
 
     @Test
-    public void localCollectorExample() {
-        JetInstance jetInstance = Jet.newJetInstance();
-
-        // create new Local Collector
-        LocalCollector<Double> collector = LocalCollector.<Double>createNew(jetInstance)
-                .consumer(LocalCollectorTest::consumeResultItem)
-                .exceptionConsumer(Throwable::printStackTrace)
-                .start();
-
-        // Simple pipeline calculating average of random numbers in 100ms windows
-        Pipeline pipeline = Pipeline.create();
-        pipeline.drawFrom(createSource())
-                .withIngestionTimestamps()
-                .window(tumbling(1000))
-                .aggregate(averagingLong(e -> e))
-                .map(WindowResult::result)
-                .drainTo(collector.asSink()); // Connect Pipeline with the Local Collector
-
-        // submit Pipeline to Jet
-        jetInstance.newJob(pipeline).join();
-    }
-
-    // this method will be called for each item produced by the Pipeline
-    private static <T> void consumeResultItem(T item) {
-        System.out.println(item);
-    }
-
-    // source generating random integers
-    private StreamSource<Integer> createSource() {
-        return SourceBuilder.stream("mySource", c -> new Random())
-                    .<Integer>fillBufferFn((c, b) -> b.add(c.nextInt()))
-                    .build();
-    }
-
-    @Test
     public void testLocalCollector() {
         long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(15);
 
@@ -137,7 +100,7 @@ public class LocalCollectorTest {
 
     @Test
     public void testLocalCollector_withMissingItems() {
-        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(60);
+        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(10);
 
         AtomicLong counter = new AtomicLong();
         AtomicReference<Throwable> thrownExceptionRef = new AtomicReference<>();
@@ -166,7 +129,7 @@ public class LocalCollectorTest {
 
     @Test
     public void testLocalCollector_withReconnect_withExplicitOffset() throws InterruptedException {
-        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(20);
+        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(15);
         String collectorName = "myCollector";
 
         ReconnectableSummingConsumer consumer1 = new ReconnectableSummingConsumer();
@@ -208,7 +171,7 @@ public class LocalCollectorTest {
 
     @Test
     public void testLocalCollector_withReconnect_withDefaultOffset() throws InterruptedException {
-        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(20);
+        long sourceEmittingNanos = TimeUnit.SECONDS.toNanos(15);
         String collectorName = "myCollector";
 
         AtomicLong counter = new AtomicLong();
