@@ -20,7 +20,6 @@ import com.hazelcast.core.ExecutionCallback;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.core.ICompletableFuture;
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.ringbuffer.ReadResultSet;
@@ -28,13 +27,11 @@ import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.ringbuffer.StaleSequenceException;
 import com.hazelcast.util.StringUtil;
 
-import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static com.hazelcast.ringbuffer.OverflowPolicy.OVERWRITE;
 import static java.lang.Math.min;
 
 /**
@@ -61,7 +58,7 @@ public final class LocalCollector<T> {
     private static final long RECONNECT_FROM_LATEST = -1;
     private static final long RECONNECT_FROM_EARLIEST = -2;
     private static final int MAX_SHIFT_WHEN_CATCHING_UP = 16;
-    private static final int RING_BUFFER_MAX_BATCH_SIZE = 1_000;
+    private static final int RING_BUFFER_READ_MAX_BATCH_SIZE = 1_000;
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
     private final String name;
@@ -173,72 +170,8 @@ public final class LocalCollector<T> {
 
     private void registerCallback(long startSequence, long shift, boolean reconnecting) {
         ICompletableFuture<ReadResultSet<T>> f = ringbuffer.readManyAsync(startSequence, 1,
-                RING_BUFFER_MAX_BATCH_SIZE, null);
-        f.andThen(new ExecutionCallback<ReadResultSet<T>>() {
-            @Override
-            public void onResponse(ReadResultSet<T> response) {
-                int size = response.size();
-                long currentSequence = startSequence;
-                for (int i = 0; i < size; i++) {
-                    T item = response.get(i);
-                    if (stopped) {
-                        return;
-                    }
-                    consumer.accept(currentSequence, item);
-                    currentSequence++;
-                }
-                if (stopped) {
-                    ringbuffer.destroy();
-                    return;
-                }
-                long nextSequenceToReadFrom = startSequence + size;
-                registerCallback(nextSequenceToReadFrom, 0, false);
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-                if (stopped) {
-                    return;
-                }
-                if (allowLostItems || reconnecting) {
-                    t = unwrapException(t);
-                    if (t instanceof StaleSequenceException) {
-                        catchUp(reconnecting);
-                        return;
-                    }
-                }
-
-                if (exceptionConsumer != null) {
-                    exceptionConsumer.accept(t);
-                }
-                stopped = true;
-            }
-
-            private void catchUp(boolean reconnecting) {
-                long startSequence = startingSequence();
-                long nextShift = min(shift + 1, MAX_SHIFT_WHEN_CATCHING_UP);
-                registerCallback(startSequence, nextShift, reconnecting);
-            }
-
-            private long startingSequence() {
-                long startSequence = ringbuffer.headSequence();
-                if (shift == 0) {
-                    return startSequence;
-                }
-
-                startSequence += (1 << shift);
-                long currentTail = ringbuffer.tailSequence();
-                startSequence = min(startSequence, currentTail);
-                return startSequence;
-            }
-
-            private Throwable unwrapException(Throwable t) {
-                if (t instanceof ExecutionException) {
-                    t = t.getCause();
-                }
-                return t;
-            }
-        });
+                RING_BUFFER_READ_MAX_BATCH_SIZE, null);
+        f.andThen(new RingbufferReadCallback(startSequence, reconnecting, shift));
     }
 
     /**
@@ -405,36 +338,79 @@ public final class LocalCollector<T> {
         }
     }
 
-    private static final class RingBufferWriter<T> {
-        private final Ringbuffer<T> ringbuffer;
-        private final ArrayList<T> buffer;
+    private class RingbufferReadCallback implements ExecutionCallback<ReadResultSet<T>> {
+        private final long startSequence;
+        private final boolean reconnecting;
+        private final long shift;
 
-        private RingBufferWriter(Ringbuffer<T> ringbuffer) {
-            this.ringbuffer = ringbuffer;
-            this.buffer = new ArrayList<>();
+        public RingbufferReadCallback(long startSequence, boolean reconnecting, long shift) {
+            this.startSequence = startSequence;
+            this.reconnecting = reconnecting;
+            this.shift = shift;
         }
 
-        private void receive(T item) {
-            buffer.add(item);
-            if (buffer.size() == RING_BUFFER_MAX_BATCH_SIZE) {
-                writeAndFlush();
+        @Override
+        public void onResponse(ReadResultSet<T> response) {
+            int size = response.size();
+            long currentSequence = startSequence;
+            for (int i = 0; i < size; i++) {
+                T item = response.get(i);
+                if (stopped) {
+                    return;
+                }
+                consumer.accept(currentSequence, item);
+                currentSequence++;
             }
-        }
-
-        private void writeAndFlush() {
-            if (buffer.isEmpty()) {
+            if (stopped) {
+                ringbuffer.destroy();
                 return;
             }
-            ICompletableFuture<Long> f = ringbuffer.addAllAsync(buffer, OVERWRITE);
-            try {
-                f.get();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw ExceptionUtil.rethrow(e);
-            } catch (ExecutionException e) {
-                throw ExceptionUtil.rethrow(e);
+            long nextSequenceToReadFrom = startSequence + size;
+            registerCallback(nextSequenceToReadFrom, 0, false);
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+            if (stopped) {
+                return;
             }
-            buffer.clear();
+            if (allowLostItems || reconnecting) {
+                t = unwrapException(t);
+                if (t instanceof StaleSequenceException) {
+                    catchUp(reconnecting);
+                    return;
+                }
+            }
+
+            if (exceptionConsumer != null) {
+                exceptionConsumer.accept(t);
+            }
+            stopped = true;
+        }
+
+        private void catchUp(boolean reconnecting) {
+            long startSequence = startingSequence();
+            long nextShift = min(shift + 1, MAX_SHIFT_WHEN_CATCHING_UP);
+            registerCallback(startSequence, nextShift, reconnecting);
+        }
+
+        private long startingSequence() {
+            long startSequence = ringbuffer.headSequence();
+            if (shift == 0) {
+                return startSequence;
+            }
+
+            startSequence += (1 << shift);
+            long currentTail = ringbuffer.tailSequence();
+            startSequence = min(startSequence, currentTail);
+            return startSequence;
+        }
+
+        private Throwable unwrapException(Throwable t) {
+            if (t instanceof ExecutionException) {
+                t = t.getCause();
+            }
+            return t;
         }
     }
 }

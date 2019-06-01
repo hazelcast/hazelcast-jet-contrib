@@ -25,9 +25,14 @@ To build the project, use the following command
 
 A simple Jet sink for InfluxDb for writing measurements.
 
+### [Local Collector Sink](local-collector) 
+
+Convenience for simple consumption of processing Pipeline results.
+
 ### [Probabilistic Aggregations](probabilistic) 
 
 A collection of probabilistic aggregations such as HyperLogLog.
+
 
 ## Contributing
 
