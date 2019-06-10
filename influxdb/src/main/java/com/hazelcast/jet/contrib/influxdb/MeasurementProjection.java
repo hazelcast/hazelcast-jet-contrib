@@ -33,7 +33,7 @@ public interface MeasurementProjection<R> extends Serializable {
      * @param tags        tag set for the measurement
      * @param columnNames list of column names
      * @param values      list of values
-     * @return <R> user object.
+     * @return <R> return object type
      */
     R apply(String name, Map<String, String> tags, List<String> columnNames, List<Object> values);
 

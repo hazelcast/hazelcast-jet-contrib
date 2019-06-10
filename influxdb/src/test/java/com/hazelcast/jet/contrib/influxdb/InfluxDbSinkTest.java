@@ -60,7 +60,7 @@ public class InfluxDbSinkTest {
     }
 
     @Test
-    public void test_influxDbsink() {
+    public void test_influxDbSink() {
         IListJet<Integer> measurements = jet.getList("mem_usage");
         for (int i = 0; i < VALUE_COUNT; i++) {
             measurements.add(i);
@@ -80,7 +80,6 @@ public class InfluxDbSinkTest {
          .drainTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), DATABASE_NAME, USERNAME, PASSWORD));
 
         jet.newJob(p).join();
-
 
         List<Result> results = db.query(new Query("SELECT * FROM mem_usage")).getResults();
         assertEquals(1, results.size());
