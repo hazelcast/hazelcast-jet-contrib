@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
- * Contains factory methods for Elasticsearch sources
+ * Contains factory methods for Elasticsearch sources.
  */
 public final class ElasticsearchSources {
 
@@ -47,13 +47,13 @@ public final class ElasticsearchSources {
 
     /**
      * Creates a source which queries objects using the specified Elasticsearch
-     * client and specified request supplier using scrolling.
+     * client and the specified request supplier using scrolling method.
      *
      * @param name                  name of the source
      * @param clientSupplier        Elasticsearch REST client supplier
      * @param searchRequestSupplier search request supplier
      * @param scrollTimeout         scroll keep alive time
-     * @param hitMapperFn           maps search hits to output items
+     * @param mapHitFn              maps search hits to output items
      * @param optionsFn             obtains {@link RequestOptions} for each request
      * @param destroyFn             called upon completion to release any resource
      * @param <T>                   type of items emitted downstream
@@ -63,13 +63,13 @@ public final class ElasticsearchSources {
             @Nonnull SupplierEx<? extends RestHighLevelClient> clientSupplier,
             @Nonnull SupplierEx<SearchRequest> searchRequestSupplier,
             @Nonnull String scrollTimeout,
-            @Nonnull FunctionEx<SearchHit, T> hitMapperFn,
+            @Nonnull FunctionEx<SearchHit, T> mapHitFn,
             @Nonnull FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
             @Nonnull ConsumerEx<? super RestHighLevelClient> destroyFn
     ) {
         return SourceBuilder
                 .batch(name, ctx -> new SearchContext<>(clientSupplier.get(), scrollTimeout,
-                        hitMapperFn, searchRequestSupplier.get(), optionsFn, destroyFn))
+                        mapHitFn, searchRequestSupplier.get(), optionsFn, destroyFn))
                 .<T>fillBufferFn(SearchContext::fillBuffer)
                 .destroyFn(SearchContext::close)
                 .build();
@@ -113,20 +113,20 @@ public final class ElasticsearchSources {
 
         private final RestHighLevelClient client;
         private final String scrollInterval;
-        private final FunctionEx<SearchHit, T> hitMapperFn;
+        private final FunctionEx<SearchHit, T> mapHitFn;
         private final FunctionEx<? super ActionRequest, RequestOptions> optionsFn;
         private final ConsumerEx<? super RestHighLevelClient> destroyFn;
 
         private SearchResponse searchResponse;
 
         private SearchContext(RestHighLevelClient client, String scrollInterval,
-                              FunctionEx<SearchHit, T> hitMapperFn, SearchRequest searchRequest,
+                              FunctionEx<SearchHit, T> mapHitFn, SearchRequest searchRequest,
                               FunctionEx<? super ActionRequest, RequestOptions> optionsFn,
                               ConsumerEx<? super RestHighLevelClient> destroyFn
         ) throws IOException {
             this.client = client;
             this.scrollInterval = scrollInterval;
-            this.hitMapperFn = hitMapperFn;
+            this.mapHitFn = mapHitFn;
             this.optionsFn = optionsFn;
             this.destroyFn = destroyFn;
 
@@ -141,7 +141,7 @@ public final class ElasticsearchSources {
                 return;
             }
             for (SearchHit hit : hits) {
-                T item = hitMapperFn.apply(hit);
+                T item = mapHitFn.apply(hit);
                 if (item != null) {
                     buffer.add(item);
                 }

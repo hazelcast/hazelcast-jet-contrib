@@ -42,7 +42,7 @@ import java.io.IOException;
 import static org.apache.http.auth.AuthScope.ANY;
 
 /**
- * Contains factory methods for Elasticsearch sinks
+ * Contains factory methods for Elasticsearch sinks.
  */
 public final class ElasticsearchSinks {
 
@@ -51,7 +51,7 @@ public final class ElasticsearchSinks {
 
     /**
      * Creates a sink which indexes objects using the specified Elasticsearch
-     * client and specified bulk request.
+     * client and the specified bulk request.
      *
      * @param name                name of the created sink
      * @param clientSupplier      Elasticsearch REST client supplier

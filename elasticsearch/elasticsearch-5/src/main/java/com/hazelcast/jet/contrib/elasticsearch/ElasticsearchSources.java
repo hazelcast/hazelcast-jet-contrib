@@ -36,7 +36,7 @@ import java.io.IOException;
 import static com.hazelcast.jet.contrib.elasticsearch.ElasticsearchSinks.buildClient;
 
 /**
- * Contains factory methods for Elasticsearch sources
+ * Contains factory methods for Elasticsearch sources.
  */
 public final class ElasticsearchSources {
 
@@ -47,13 +47,13 @@ public final class ElasticsearchSources {
 
     /**
      * Creates a source which queries objects using the specified Elasticsearch
-     * client and specified request supplier using scrolling.
+     * client and the specified request supplier using scrolling method.
      *
      * @param name                  Name of the source
      * @param clientSupplier        Elasticsearch rest client supplier
      * @param searchRequestSupplier Search request supplier
      * @param scrollTimeout         scroll keep alive time
-     * @param hitMapperFn           maps search hits to output items
+     * @param mapHitFn              maps search hits to output items
      * @param destroyFn             called upon completion to release any resource
      * @param <T>                   type of items emitted downstream
      */
@@ -62,14 +62,14 @@ public final class ElasticsearchSources {
             @Nonnull SupplierEx<? extends RestClient> clientSupplier,
             @Nonnull SupplierEx<SearchRequest> searchRequestSupplier,
             @Nonnull String scrollTimeout,
-            @Nonnull FunctionEx<SearchHit, T> hitMapperFn,
+            @Nonnull FunctionEx<SearchHit, T> mapHitFn,
             @Nonnull ConsumerEx<? super RestClient> destroyFn
     ) {
         return SourceBuilder
                 .batch(name, ctx -> {
                     RestClient client = clientSupplier.get();
                     SearchRequest searchRequest = searchRequestSupplier.get();
-                    return new SearchContext<>(client, scrollTimeout, hitMapperFn, searchRequest, destroyFn);
+                    return new SearchContext<>(client, scrollTimeout, mapHitFn, searchRequest, destroyFn);
                 })
                 .<T>fillBufferFn(SearchContext::fillBuffer)
                 .destroyFn(SearchContext::close)
@@ -109,17 +109,17 @@ public final class ElasticsearchSources {
         private final RestClient client;
         private final RestHighLevelClient highLevelClient;
         private final String scrollInterval;
-        private final FunctionEx<SearchHit, T> hitMapperFn;
+        private final FunctionEx<SearchHit, T> mapHitFn;
         private final ConsumerEx<? super RestClient> destroyFn;
 
         private SearchResponse searchResponse;
 
-        private SearchContext(RestClient client, String scrollInterval, FunctionEx<SearchHit, T> hitMapperFn,
+        private SearchContext(RestClient client, String scrollInterval, FunctionEx<SearchHit, T> mapHitFn,
                               SearchRequest searchRequest, ConsumerEx<? super RestClient> destroyFn) throws IOException {
             this.client = client;
             this.highLevelClient = new RestHighLevelClient(client);
             this.scrollInterval = scrollInterval;
-            this.hitMapperFn = hitMapperFn;
+            this.mapHitFn = mapHitFn;
             this.destroyFn = destroyFn;
 
             searchRequest.scroll(scrollInterval);
@@ -133,7 +133,7 @@ public final class ElasticsearchSources {
                 return;
             }
             for (SearchHit hit : hits) {
-                T item = hitMapperFn.apply(hit);
+                T item = mapHitFn.apply(hit);
                 if (item != null) {
                     buffer.add(item);
                 }
