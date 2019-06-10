@@ -13,3 +13,4 @@ out/
 *.ipr
 *.iws
 .DS_Store
+*/out/
