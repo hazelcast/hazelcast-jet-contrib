@@ -17,17 +17,15 @@
 package com.hazelcast.jet.contrib.mongodb;
 
 import com.hazelcast.jet.IListJet;
+import com.hazelcast.jet.Job;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import org.bson.Document;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -36,7 +34,7 @@ import static org.junit.Assert.assertNull;
 public class MongoDBSourceTest extends AbstractMongoDBTest {
 
     @Test
-    public void test() {
+    public void testBatch() {
 
         IListJet<Document> list = jet.getList("list");
 
@@ -67,29 +65,32 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
     @Test
     @Ignore
     public void testStream() throws Exception {
-        List<Document> documents = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            documents.add(new Document("key", i).append("val", i));
-        }
+        IListJet<Document> list = jet.getList("list");
 
-        MongoCollection<Document> col = collection();
-        new Thread(() -> {
-            col.watch().forEach((Consumer<? super ChangeStreamDocument<Document>>) csd -> {
-                System.out.println("qwe" + csd);
-            });
-        }).start();
+        String connectionString = mongoContainer.connectionString();
 
-        col.insertMany(documents);
+        Pipeline p = Pipeline.create();
+        p.drawFrom(MongoDBSources.streamMongodb(SOURCE_NAME, connectionString, DB_NAME, COL_NAME, null, null))
+         .withNativeTimestamps(0)
+         .drainTo(Sinks.list(list));
 
+        Job job = jet.newJob(p);
 
-        while (true) {
-            System.out.println("asd delete");
-            col.deleteOne(new Document("_id", 1234));
-            Thread.sleep(2000);
-            System.out.println("asd insert");
-            col.insertOne(new Document("a", "a").append("_id", 1234));
-        }
+        collection().insertOne(new Document("key", "val"));
 
+        assertTrueEventually(() -> {
+            assertEquals(1, list.size());
+            assertEquals("val", list.get(0).get("key"));
+        });
+
+        collection().insertOne(new Document("foo", "bar"));
+
+        assertTrueEventually(() -> {
+            assertEquals(2, list.size());
+            assertEquals("bar", list.get(1).get("foo"));
+        });
+
+        job.cancel();
 
     }
 

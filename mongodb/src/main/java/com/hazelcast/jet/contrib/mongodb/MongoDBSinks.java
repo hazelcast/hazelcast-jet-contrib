@@ -33,7 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Contains factory methods for MongoDB sinks
+ * Contains factory methods for MongoDB sinks.
  */
 public final class MongoDBSinks {
 
@@ -41,6 +41,9 @@ public final class MongoDBSinks {
     }
 
     /**
+     * Creates a sink which adds objects to the specified collection using the
+     * specified MongoDB client.
+     *
      * @param name               name of the created sink
      * @param connectionSupplier MongoDB client supplier
      * @param databaseFn         creates/obtains a database using the given client

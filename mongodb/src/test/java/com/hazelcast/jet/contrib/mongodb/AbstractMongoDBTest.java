@@ -16,8 +16,8 @@
 
 package com.hazelcast.jet.contrib.mongodb;
 
-import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import org.bson.Document;
@@ -25,7 +25,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 
-public abstract class AbstractMongoDBTest {
+public abstract class AbstractMongoDBTest extends JetTestSupport {
 
     static final String SOURCE_NAME = "source";
     static final String SINK_NAME = "sink";
@@ -43,16 +43,15 @@ public abstract class AbstractMongoDBTest {
         mongoContainer.initializeReplicaSet();
         mongo = mongoContainer.newMongoClient();
 
-        jet = Jet.newJetInstance();
+        jet = createJetMember();
     }
 
-    public MongoCollection<Document> collection() {
+    MongoCollection<Document> collection() {
         return mongo.getDatabase(DB_NAME).getCollection(COL_NAME);
     }
 
     @After
     public void tearDown() {
-        jet.shutdown();
         mongo.close();
     }
 
