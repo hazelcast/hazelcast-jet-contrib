@@ -17,8 +17,8 @@
 package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
-import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -41,7 +41,7 @@ import java.util.Map;
 import static org.apache.http.auth.AuthScope.ANY;
 import static org.junit.Assert.assertTrue;
 
-public abstract class ElasticsearchBaseTest {
+public abstract class ElasticsearchBaseTest extends JetTestSupport {
 
     static final String DEFAULT_USER = "elastic";
     static final String DEFAULT_PASS = "changeme";
@@ -51,9 +51,11 @@ public abstract class ElasticsearchBaseTest {
     @Rule
     public ElasticsearchContainer container =
             new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:5.6.16");
+
     JetInstance jet;
     IListJet<User> userList;
     String indexName = "users";
+
     private RestClient client;
     private RestHighLevelClient highLevelClient;
 
@@ -64,7 +66,7 @@ public abstract class ElasticsearchBaseTest {
         client = createClient(container.getContainerIpAddress(), mappedPort());
         highLevelClient = new RestHighLevelClient(client);
 
-        jet = Jet.newJetInstance();
+        jet = createJetMember();
 
         userList = jet.getList("userList");
         for (int i = 0; i < OBJECT_COUNT; i++) {
@@ -76,7 +78,6 @@ public abstract class ElasticsearchBaseTest {
     public void cleanupBase() throws IOException {
         container.stop();
         client.close();
-        jet.shutdown();
     }
 
     int mappedPort() {
@@ -96,8 +97,8 @@ public abstract class ElasticsearchBaseTest {
         credentialsProvider.setCredentials(ANY, new UsernamePasswordCredentials(DEFAULT_USER, DEFAULT_PASS));
 
         return RestClient.builder(new HttpHost(containerAddress, port))
-                         .setHttpClientConfigCallback(httpClientBuilder ->
-                                 httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)).build();
+                .setHttpClientConfigCallback(httpClientBuilder ->
+                        httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)).build();
     }
 
     static FunctionEx<User, IndexRequest> indexFn(String indexName) {

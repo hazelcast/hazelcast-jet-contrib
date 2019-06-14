@@ -37,7 +37,6 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
     @Test
     public void test() throws IOException {
-
         String containerIpAddress = container.getContainerIpAddress();
         int port = mappedPort();
 
