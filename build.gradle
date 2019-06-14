@@ -34,9 +34,12 @@ subprojects {
     sourceCompatibility = '1.8'
     targetCompatibility = '1.8'
 
+    ext {
+        jetVersion = '3.0'
+        hazelcastVersion = '3.12'
+    }
+    
     dependencies {
-        def jetVersion = '3.0'
-        def hazelcastVersion = '3.12'
         compile group: 'com.hazelcast.jet', name: 'hazelcast-jet', version: jetVersion
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
         testCompile "com.hazelcast.jet:hazelcast-jet-core:" + jetVersion + ":tests"
