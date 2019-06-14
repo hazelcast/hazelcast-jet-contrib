@@ -17,8 +17,8 @@
 package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
-import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.get.MultiGetItemResponse;
@@ -42,7 +42,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-public abstract class ElasticsearchBaseTest {
+public abstract class ElasticsearchBaseTest extends JetTestSupport {
 
     private static final int OBJECT_COUNT = 20;
 
@@ -59,7 +59,7 @@ public abstract class ElasticsearchBaseTest {
         container.start();
         client = createClient(container.getHttpHostAddress());
 
-        jet = Jet.newJetInstance();
+        jet = createJetMember();
 
         userList = jet.getList("userList");
         for (int i = 0; i < OBJECT_COUNT; i++) {
