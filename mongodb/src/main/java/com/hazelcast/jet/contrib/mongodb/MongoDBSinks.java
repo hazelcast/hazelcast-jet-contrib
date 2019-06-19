@@ -16,20 +16,16 @@
 
 package com.hazelcast.jet.contrib.mongodb;
 
-import com.hazelcast.jet.function.ConsumerEx;
-import com.hazelcast.jet.function.FunctionEx;
 import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.InsertManyOptions;
 import org.bson.Document;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -41,41 +37,56 @@ public final class MongoDBSinks {
     }
 
     /**
-     * Creates a sink which adds objects to the specified collection using the
-     * specified MongoDB client.
+     * Returns a builder object that offers a step-by-step fluent API to build
+     * a custom MongoDB {@link Sink} for the Pipeline API.
+     * <p>
+     * The sink inserts the items it receives to specified collection using
+     * {@link MongoCollection#insertMany(List, InsertManyOptions)}.
      *
-     * @param name               name of the created sink
+     * <p>
+     * These are the callback functions you can provide to implement the sink's
+     * behavior:
+     * <ol><li>
+     *     {@code connectionSupplier} supplies MongoDb client. It will be called
+     *     once for each worker thread. This component is required.
+     * </li><li>
+     *     {@code databaseFn} creates/obtains a database using the given client.
+     *     It will be called once for each worker thread. This component is
+     *     required.
+     * </li><li>
+     *     {@code collectionFn} creates/obtains a collection in the given
+     *     database. It will be called once for each worker thread. This
+     *     component is required.
+     * </li><li>
+     *     {@code destroyFn} destroys the client. It will be called upon
+     *     completion to release any resource. This component is optional.
+     * </li><li>
+     *     {@code ordered} sets {@link InsertManyOptions#ordered(boolean)}.
+     *     Defaults to {@code true}.
+     * </li><li>
+     *     {@code bypassValidation} sets {@link
+     *     InsertManyOptions#bypassDocumentValidation(Boolean)}. Defaults to
+     *     {@code false}.
+     * </li><li>
+     *     {@code preferredLocalParallelism} sets the local parallelism of the
+     *     sink. See {@link SinkBuilder#preferredLocalParallelism(int)} for more
+     *     information. Defaults to {@code 2}.
+     * </li></ol>
+     *
+     * @param name               name of the sink
      * @param connectionSupplier MongoDB client supplier
-     * @param databaseFn         creates/obtains a database using the given client
-     * @param collectionFn       creates/obtains a collection in the given database
-     * @param destroyFn          called upon completion to release any resource
-     * @param ordered            sets the option of {@link InsertManyOptions#ordered(boolean)}
-     * @param bypassValidation   sets the option of {@link InsertManyOptions#bypassDocumentValidation(Boolean)}
+     * @param <T>                type of the items the sink accepts
      */
-    public static <T> Sink<T> mongodb(
+    public static <T> MongoDBSinkBuilder<T> builder(
             @Nonnull String name,
-            @Nonnull SupplierEx<MongoClient> connectionSupplier,
-            @Nonnull FunctionEx<MongoClient, MongoDatabase> databaseFn,
-            @Nonnull FunctionEx<MongoDatabase, MongoCollection<T>> collectionFn,
-            @Nonnull ConsumerEx<MongoClient> destroyFn,
-            boolean ordered,
-            boolean bypassValidation
+            @Nonnull SupplierEx<MongoClient> connectionSupplier
     ) {
-        return SinkBuilder
-                .sinkBuilder(name, ctx -> {
-                    MongoClient client = connectionSupplier.get();
-                    MongoCollection<T> collection = collectionFn.apply(databaseFn.apply(client));
-                    return new MongoSinkContext<>(client, collection, destroyFn, ordered, bypassValidation);
-                })
-                .<T>receiveFn(MongoSinkContext::addDocument)
-                .flushFn(MongoSinkContext::flush)
-                .destroyFn(MongoSinkContext::close)
-                .build();
+        return new MongoDBSinkBuilder<>(name, connectionSupplier);
     }
 
+
     /**
-     * Convenience for {@link #mongodb(String, SupplierEx, FunctionEx,
-     * FunctionEx, ConsumerEx, boolean, boolean)}.
+     * Convenience for {@link #builder(String, SupplierEx)}.
      */
     public static Sink<Document> mongodb(
             @Nonnull String name,
@@ -83,50 +94,13 @@ public final class MongoDBSinks {
             @Nonnull String database,
             @Nonnull String collection
     ) {
-        return mongodb(name,
-                () -> MongoClients.create(connectionString),
-                client -> client.getDatabase(database),
-                db -> db.getCollection(collection),
-                MongoClient::close, true, false);
+        return MongoDBSinks
+                .<Document>builder(name, () -> MongoClients.create(connectionString))
+                .databaseFn(client -> client.getDatabase(database))
+                .collectionFn(db -> db.getCollection(collection))
+                .destroyFn(MongoClient::close)
+                .build();
     }
 
-    private static class MongoSinkContext<T> {
 
-        final MongoClient client;
-        final MongoCollection<T> collection;
-        final ConsumerEx<MongoClient> destroyFn;
-        final InsertManyOptions insertManyOptions;
-
-        List<T> documents;
-
-        MongoSinkContext(
-                MongoClient client,
-                MongoCollection<T> collection,
-                ConsumerEx<MongoClient> destroyFn,
-                boolean ordered,
-                boolean bypassValidation
-        ) {
-            this.client = client;
-            this.collection = collection;
-            this.destroyFn = destroyFn;
-            this.insertManyOptions = new InsertManyOptions()
-                    .ordered(ordered)
-                    .bypassDocumentValidation(bypassValidation);
-
-            documents = new ArrayList<>();
-        }
-
-        void addDocument(T document) {
-            documents.add(document);
-        }
-
-        void flush() {
-            collection.insertMany(documents, insertManyOptions);
-            documents = new ArrayList<>();
-        }
-
-        void close() {
-            destroyFn.accept(client);
-        }
-    }
 }
