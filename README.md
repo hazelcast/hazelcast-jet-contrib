@@ -35,6 +35,11 @@ A collection of probabilistic aggregations such as HyperLogLog.
 A Hazelcast Jet connector for Elasticsearch for querying/indexing objects
 from/to Elasticsearch.
 
+### [MongoDB Connector](mongodb) 
+
+A Hazelcast Jet connector for MongoDB for querying/inserting objects
+from/to MongoDB.
+
 
 ## Contributing
 

@@ -21,7 +21,6 @@ import com.hazelcast.jet.Job;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import org.bson.Document;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -63,31 +62,47 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
     }
 
     @Test
-    @Ignore
-    public void testStream() throws Exception {
+    public void testStream() {
         IListJet<Document> list = jet.getList("list");
 
         String connectionString = mongoContainer.connectionString();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(MongoDBSources.streamMongodb(SOURCE_NAME, connectionString, DB_NAME, COL_NAME, null, null))
+        p.drawFrom(
+                MongoDBSources.streamMongodb(
+                        SOURCE_NAME,
+                        connectionString,
+                        DB_NAME,
+                        COL_NAME,
+                        new Document("fullDocument.val", new Document("$gte", 10))
+                                .append("operationType", "insert"),
+                        new Document("fullDocument.val", 1).append("_id", 1)
+                )
+        )
          .withNativeTimestamps(0)
          .drainTo(Sinks.list(list));
 
         Job job = jet.newJob(p);
 
-        collection().insertOne(new Document("key", "val"));
+
+        collection().insertOne(new Document("val", 1));
+        collection().insertOne(new Document("val", 10).append("foo", "bar"));
 
         assertTrueEventually(() -> {
             assertEquals(1, list.size());
-            assertEquals("val", list.get(0).get("key"));
+            Document document = list.get(0);
+            assertEquals(10, document.get("val"));
+            assertNull(document.get("foo"));
         });
 
-        collection().insertOne(new Document("foo", "bar"));
+        collection().insertOne(new Document("val", 2));
+        collection().insertOne(new Document("val", 20).append("foo", "bar"));
 
         assertTrueEventually(() -> {
             assertEquals(2, list.size());
-            assertEquals("bar", list.get(1).get("foo"));
+            Document document = list.get(1);
+            assertEquals(20, document.get("val"));
+            assertNull(document.get("foo"));
         });
 
         job.cancel();
