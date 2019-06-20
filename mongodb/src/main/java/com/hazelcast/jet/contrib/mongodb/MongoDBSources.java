@@ -16,22 +16,15 @@
 
 package com.hazelcast.jet.contrib.mongodb;
 
-import com.hazelcast.jet.function.ConsumerEx;
 import com.hazelcast.jet.function.FunctionEx;
 import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
-import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.mongodb.client.ChangeStreamIterable;
-import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoCursor;
-import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.changestream.ChangeStreamDocument;
-import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
@@ -50,43 +43,57 @@ public final class MongoDBSources {
     private MongoDBSources() {
     }
 
-
     /**
-     * @param name               name of the created source
+     * Returns a builder object that offers a step-by-step fluent API to build
+     * a custom MongoDB {@link BatchSource} or {@link StreamSource} for the
+     * Pipeline API.
+     * <p>
+     * These are the callback functions you can provide to implement the
+     * source's behavior:
+     * <ol><li>
+     *     {@code connectionSupplier} supplies MongoDb client. It will be called
+     *     once for each worker thread. This component is required.
+     * </li><li>
+     *     {@code databaseFn} creates/obtains a database using the given client.
+     *     It will be called once for each worker thread. This component is
+     *     required.
+     * </li><li>
+     *     {@code collectionFn} creates/obtains a collection in the given
+     *     database. It will be called once for each worker thread. This
+     *     component is required.
+     * </li><li>
+     *     {@code destroyFn} destroys the client. It will be called upon
+     *     completion to release any resource. This component is optional.
+     * </li></ol>
+     * <p>
+     * To create a MongoDB {@link BatchSource} use
+     * {@link MongoDBSourceBuilder#batch(FunctionEx, FunctionEx)} by providing
+     * a {@code searchFn} which will query the collection and a {@code mapFn}
+     * which will transform the queried items to the desired output items.
+     *
+     * To create a MongoDB {@link StreamSource} use
+     * {@link MongoDBSourceBuilder#stream(FunctionEx, FunctionEx)} by providing
+     * a {@code searchFn} which will watch the changes in the collection and a
+     * {@code mapFn} which will transform the changes to the desired output
+     * items.
+     *
+     * If the {@code mapFn} returns a {@code null}, the item will be filtered
+     * out.
+     *
+     * @param name               name of the sink
      * @param connectionSupplier MongoDB client supplier
-     * @param databaseFn         creates/obtains a database using the given client
-     * @param collectionFn       creates/obtains a collection in the given database
-     * @param searchFn           queries the collection and returns a {@link FindIterable}
-     * @param mapper             maps queried documents to output items. If the function
-     *                           returns a {@code null} for a document, that document will
-     *                           be filtered out.
-     * @param destroyFn          called upon completion to release any resource
-     * @param <T>                type of queried document
-     * @param <U>                type of emitted item
+     * @param <T>                type of the queried item
      */
-    public static <T, U> BatchSource<U> mongodb(
+    public static <T> MongoDBSourceBuilder<T> builder(
             @Nonnull String name,
-            @Nonnull SupplierEx<? extends MongoClient> connectionSupplier,
-            @Nonnull FunctionEx<? super MongoClient, ? extends MongoDatabase> databaseFn,
-            @Nonnull FunctionEx<? super MongoDatabase, ? extends MongoCollection<? extends T>> collectionFn,
-            @Nonnull FunctionEx<? super MongoCollection<? extends T>, ? extends FindIterable<? extends T>> searchFn,
-            @Nonnull FunctionEx<? super T, U> mapper,
-            @Nonnull ConsumerEx<? super MongoClient> destroyFn
+            @Nonnull SupplierEx<MongoClient> connectionSupplier
     ) {
-        return SourceBuilder
-                .batch(name, ctx -> {
-                    MongoClient client = connectionSupplier.get();
-                    MongoCollection<? extends T> collection = collectionFn.apply(databaseFn.apply(client));
-                    return new MongoSourceContext<>(client, collection, searchFn, mapper, destroyFn);
-                })
-                .<U>fillBufferFn(MongoSourceContext::fillBuffer)
-                .destroyFn(MongoSourceContext::close)
-                .build();
+        return new MongoDBSourceBuilder<>(name, connectionSupplier);
     }
 
     /**
-     * Convenience for {@link #mongodb(String, SupplierEx, FunctionEx,
-     * FunctionEx, FunctionEx, FunctionEx, ConsumerEx)}
+     * Convenience for {@link #builder(String, SupplierEx)} as a {@link
+     * BatchSource}.
      */
     public static BatchSource<Document> mongodb(
             @Nonnull String name,
@@ -96,52 +103,17 @@ public final class MongoDBSources {
             @Nullable Document filter,
             @Nullable Document projection
     ) {
-        return mongodb(name,
-                () -> MongoClients.create(connectionString),
-                client -> client.getDatabase(database),
-                db -> db.getCollection(collection),
-                col -> col.find().filter(filter).projection(projection),
-                identity(),
-                MongoClient::close);
+        return MongoDBSources
+                .<Document>builder(name, () -> MongoClients.create(connectionString))
+                .databaseFn(client -> client.getDatabase(database))
+                .collectionFn(db -> db.getCollection(collection))
+                .destroyFn(MongoClient::close)
+                .batch(col -> col.find().filter(filter).projection(projection), identity());
     }
 
     /**
-     * @param name               name of the created source
-     * @param connectionSupplier MongoDB client supplier
-     * @param databaseFn         creates/obtains a database using the given client
-     * @param collectionFn       creates/obtains a collection in the given database
-     * @param searchFn           queries the collection and returns a {@link ChangeStreamIterable}
-     * @param mapper             maps queried change stream documents to output items. If the
-     *                           function returns a {@code null} for a change document, that
-     *                           change document will be filtered out.
-     * @param destroyFn          called upon completion to release any resource
-     * @param <T>                type of queried document
-     * @param <U>                type of emitted item
-     */
-    public static <T, U> StreamSource<U> streamMongodb(
-            @Nonnull String name,
-            @Nonnull SupplierEx<? extends MongoClient> connectionSupplier,
-            @Nonnull FunctionEx<? super MongoClient, ? extends MongoDatabase> databaseFn,
-            @Nonnull FunctionEx<? super MongoDatabase, ? extends MongoCollection<? extends T>> collectionFn,
-            @Nonnull FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>>
-                    searchFn,
-            @Nonnull FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapper,
-            @Nonnull ConsumerEx<? super MongoClient> destroyFn
-    ) {
-        return SourceBuilder
-                .timestampedStream(name, ctx -> {
-                    MongoClient client = connectionSupplier.get();
-                    MongoCollection<? extends T> collection = collectionFn.apply(databaseFn.apply(client));
-                    return new MongoStreamSourceContext<>(client, collection, searchFn, mapper, destroyFn);
-                })
-                .<U>fillBufferFn(MongoStreamSourceContext::fillBuffer)
-                .destroyFn(MongoStreamSourceContext::close)
-                .build();
-    }
-
-    /**
-     * Convenience for {@link #streamMongodb(String, SupplierEx, FunctionEx,
-     * FunctionEx, FunctionEx, FunctionEx, ConsumerEx)}
+     * Convenience for {@link #builder(String, SupplierEx)} as a {@link
+     * StreamSource}.
      */
     public static StreamSource<Document> streamMongodb(
             @Nonnull String name,
@@ -151,111 +123,29 @@ public final class MongoDBSources {
             @Nullable Document filter,
             @Nullable Document projection
     ) {
-        return streamMongodb(name,
-                () -> MongoClients.create(connectionString),
-                client -> client.getDatabase(database),
-                db -> db.getCollection(collection),
-                col -> {
-                    List<Bson> aggregates = new ArrayList<>();
-                    if (filter != null) {
-                        aggregates.add(Aggregates.match(filter));
-                    }
-                    if (projection != null) {
-                        aggregates.add(Aggregates.project(projection));
-                    }
-                    ChangeStreamIterable<? extends Document> watch;
-                    if (aggregates.isEmpty()) {
-                        watch = col.watch();
-                    } else {
-                        watch = col.watch(aggregates);
-                    }
-                    return watch;
-                },
-                ChangeStreamDocument::getFullDocument,
-                MongoClient::close);
-    }
-
-    private static class MongoSourceContext<T, U> {
-
-        private static final int BATCH_SIZE = 500;
-
-        final MongoClient client;
-        final FunctionEx<? super T, U> mapper;
-        final ConsumerEx<? super MongoClient> destroyFn;
-
-        final MongoCursor<? extends T> cursor;
-
-        MongoSourceContext(
-                MongoClient client,
-                MongoCollection<? extends T> collection,
-                FunctionEx<? super MongoCollection<? extends T>, ? extends FindIterable<? extends T>> searchFn,
-                FunctionEx<? super T, U> mapper,
-                ConsumerEx<? super MongoClient> destroyFn
-        ) {
-            this.client = client;
-            this.mapper = mapper;
-            this.destroyFn = destroyFn;
-
-            cursor = searchFn.apply(collection).iterator();
-        }
-
-        void fillBuffer(SourceBuilder.SourceBuffer<U> buffer) {
-            for (int i = 0; i < BATCH_SIZE; i++) {
-                if (cursor.hasNext()) {
-                    buffer.add(mapper.apply(cursor.next()));
-                } else {
-                    buffer.close();
-                }
-            }
-        }
-
-        void close() {
-            cursor.close();
-            destroyFn.accept(client);
-        }
-    }
-
-    private static class MongoStreamSourceContext<T, U> {
-
-        final MongoClient client;
-        final FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapper;
-        final ConsumerEx<? super MongoClient> destroyFn;
-
-        MongoCursor<? extends ChangeStreamDocument<? extends T>> cursor;
-
-        MongoStreamSourceContext(
-                MongoClient client,
-                MongoCollection<? extends T> collection,
-                FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>> searchFn,
-                FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapper,
-                ConsumerEx<? super MongoClient> destroyFn
-        ) {
-            this.client = client;
-            this.mapper = mapper;
-            this.destroyFn = destroyFn;
-
-            cursor = searchFn.apply(collection).iterator();
-        }
-
-        void fillBuffer(SourceBuilder.TimestampedSourceBuffer<U> buffer) {
-            ChangeStreamDocument<? extends T> changeStreamDocument = cursor.tryNext();
-            if (changeStreamDocument != null) {
-                long clusterTime = clusterTime(changeStreamDocument);
-                U item = mapper.apply(changeStreamDocument);
-                if (item != null) {
-                    buffer.add(item, clusterTime);
-                }
-            }
-        }
-
-        long clusterTime(ChangeStreamDocument<? extends T> changeStreamDocument) {
-            BsonTimestamp clusterTime = changeStreamDocument.getClusterTime();
-            return clusterTime == null ? System.currentTimeMillis() : clusterTime.getValue();
-        }
-
-        void close() {
-            cursor.close();
-            destroyFn.accept(client);
-        }
+        return MongoDBSources
+                .<Document>builder(name, () -> MongoClients.create(connectionString))
+                .databaseFn(client -> client.getDatabase(database))
+                .collectionFn(db -> db.getCollection(collection))
+                .destroyFn(MongoClient::close)
+                .stream(
+                        col -> {
+                            List<Bson> aggregates = new ArrayList<>();
+                            if (filter != null) {
+                                aggregates.add(Aggregates.match(filter));
+                            }
+                            if (projection != null) {
+                                aggregates.add(Aggregates.project(projection));
+                            }
+                            ChangeStreamIterable<? extends Document> watch;
+                            if (aggregates.isEmpty()) {
+                                watch = col.watch();
+                            } else {
+                                watch = col.watch(aggregates);
+                            }
+                            return watch;
+                        },
+                        ChangeStreamDocument::getFullDocument
+                );
     }
 }

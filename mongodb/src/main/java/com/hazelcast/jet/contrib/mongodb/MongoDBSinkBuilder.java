@@ -102,7 +102,7 @@ public final class MongoDBSinkBuilder<T> {
 
     /**
      * @param bypassValidation sets {@link
-     *                          InsertManyOptions#bypassDocumentValidation(Boolean)}.
+     *                         InsertManyOptions#bypassDocumentValidation(Boolean)}.
      */
     public MongoDBSinkBuilder<T> bypassValidation(boolean bypassValidation) {
         this.bypassValidation = bypassValidation;
