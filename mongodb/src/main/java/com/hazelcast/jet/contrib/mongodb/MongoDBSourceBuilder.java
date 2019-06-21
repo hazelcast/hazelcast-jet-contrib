@@ -100,12 +100,12 @@ public class MongoDBSourceBuilder<T> {
      */
     public <U> BatchSource<U> batch(
             @Nonnull FunctionEx<? super MongoCollection<? extends T>, ? extends FindIterable<? extends T>> searchFn,
-            @Nonnull FunctionEx<? super T, U> mapper
+            @Nonnull FunctionEx<? super T, U> mapFn
     ) {
         checkNull();
 
         checkSerializable(searchFn, "searchFn");
-        checkSerializable(mapper, "mapper");
+        checkSerializable(mapFn, "mapFn");
 
         SupplierEx<? extends MongoClient> localConnectionSupplier = connectionSupplier;
         FunctionEx<? super MongoClient, ? extends MongoDatabase> localDatabaseFn = databaseFn;
@@ -116,7 +116,7 @@ public class MongoDBSourceBuilder<T> {
                 .batch(name, ctx -> {
                     MongoClient client = localConnectionSupplier.get();
                     MongoCollection<? extends T> collection = localCollectionFn.apply(localDatabaseFn.apply(client));
-                    return new BatchContext<>(client, collection, searchFn, mapper, localDestroyFn);
+                    return new BatchContext<>(client, collection, searchFn, mapFn, localDestroyFn);
                 })
                 .<U>fillBufferFn(BatchContext::fillBuffer)
                 .destroyFn(BatchContext::close)
@@ -130,12 +130,12 @@ public class MongoDBSourceBuilder<T> {
     public <U> StreamSource<U> stream(
             @Nonnull FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>>
                     searchFn,
-            @Nonnull FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapper
+            @Nonnull FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
     ) {
         checkNull();
 
         checkSerializable(searchFn, "searchFn");
-        checkSerializable(mapper, "mapper");
+        checkSerializable(mapFn, "mapFn");
 
         SupplierEx<? extends MongoClient> localConnectionSupplier = connectionSupplier;
         FunctionEx<? super MongoClient, ? extends MongoDatabase> localDatabaseFn = databaseFn;
@@ -146,7 +146,7 @@ public class MongoDBSourceBuilder<T> {
                 .timestampedStream(name, ctx -> {
                     MongoClient client = localConnectionSupplier.get();
                     MongoCollection<? extends T> collection = localCollectionFn.apply(localDatabaseFn.apply(client));
-                    return new StreamContext<>(client, collection, searchFn, mapper, localDestroyFn);
+                    return new StreamContext<>(client, collection, searchFn, mapFn, localDestroyFn);
                 })
                 .<U>fillBufferFn(StreamContext::fillBuffer)
                 .destroyFn(StreamContext::close)
@@ -165,7 +165,7 @@ public class MongoDBSourceBuilder<T> {
         private static final int BATCH_SIZE = 500;
 
         final MongoClient client;
-        final FunctionEx<? super T, U> mapper;
+        final FunctionEx<? super T, U> mapFn;
         final ConsumerEx<? super MongoClient> destroyFn;
 
         final MongoCursor<? extends T> cursor;
@@ -174,11 +174,11 @@ public class MongoDBSourceBuilder<T> {
                 MongoClient client,
                 MongoCollection<? extends T> collection,
                 FunctionEx<? super MongoCollection<? extends T>, ? extends FindIterable<? extends T>> searchFn,
-                FunctionEx<? super T, U> mapper,
+                FunctionEx<? super T, U> mapFn,
                 ConsumerEx<? super MongoClient> destroyFn
         ) {
             this.client = client;
-            this.mapper = mapper;
+            this.mapFn = mapFn;
             this.destroyFn = destroyFn;
 
             cursor = searchFn.apply(collection).iterator();
@@ -187,7 +187,7 @@ public class MongoDBSourceBuilder<T> {
         void fillBuffer(SourceBuilder.SourceBuffer<U> buffer) {
             for (int i = 0; i < BATCH_SIZE; i++) {
                 if (cursor.hasNext()) {
-                    U item = mapper.apply(cursor.next());
+                    U item = mapFn.apply(cursor.next());
                     if (item != null) {
                         buffer.add(item);
                     }
@@ -206,7 +206,7 @@ public class MongoDBSourceBuilder<T> {
     private static class StreamContext<T, U> {
 
         final MongoClient client;
-        final FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapper;
+        final FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn;
         final ConsumerEx<? super MongoClient> destroyFn;
 
         MongoCursor<? extends ChangeStreamDocument<? extends T>> cursor;
@@ -215,11 +215,11 @@ public class MongoDBSourceBuilder<T> {
                 MongoClient client,
                 MongoCollection<? extends T> collection,
                 FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>> searchFn,
-                FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapper,
+                FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn,
                 ConsumerEx<? super MongoClient> destroyFn
         ) {
             this.client = client;
-            this.mapper = mapper;
+            this.mapFn = mapFn;
             this.destroyFn = destroyFn;
 
             cursor = searchFn.apply(collection).iterator();
@@ -229,7 +229,7 @@ public class MongoDBSourceBuilder<T> {
             ChangeStreamDocument<? extends T> changeStreamDocument = cursor.tryNext();
             if (changeStreamDocument != null) {
                 long clusterTime = clusterTime(changeStreamDocument);
-                U item = mapper.apply(changeStreamDocument);
+                U item = mapFn.apply(changeStreamDocument);
                 if (item != null) {
                     buffer.add(item, clusterTime);
                 }
