@@ -17,8 +17,8 @@
 package com.hazelcast.jet.contrib.influxdb;
 
 import com.hazelcast.jet.IListJet;
-import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sources;
 import org.influxdb.InfluxDB;
@@ -26,7 +26,6 @@ import org.influxdb.dto.Point;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult.Result;
 import org.influxdb.dto.QueryResult.Series;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -37,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
 
-public class InfluxDbSinkTest {
+public class InfluxDbSinkTest extends JetTestSupport {
 
     private static final String DATABASE_NAME = "test";
     private static final String USERNAME = "root";
@@ -56,7 +55,7 @@ public class InfluxDbSinkTest {
 
     @Before
     public void setup() {
-        jet = Jet.newJetInstance();
+        jet = createJetMember();
     }
 
     @Test
@@ -88,10 +87,5 @@ public class InfluxDbSinkTest {
         Series series = seriesList.get(0);
         assertEquals(SERIES, series.getName());
         assertEquals(VALUE_COUNT, series.getValues().size());
-    }
-
-    @After
-    public void after() {
-        jet.shutdown();
     }
 }

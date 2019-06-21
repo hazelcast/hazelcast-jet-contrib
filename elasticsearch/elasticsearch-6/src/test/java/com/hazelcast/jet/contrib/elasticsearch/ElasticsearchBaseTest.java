@@ -17,8 +17,8 @@
 package com.hazelcast.jet.contrib.elasticsearch;
 
 import com.hazelcast.jet.IListJet;
-import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.get.GetRequest;
@@ -37,24 +37,25 @@ import java.util.Map;
 
 import static org.junit.Assert.assertTrue;
 
-public abstract class ElasticsearchBaseTest {
+public abstract class ElasticsearchBaseTest extends JetTestSupport {
 
     private static final int OBJECT_COUNT = 20;
 
     @Rule
     public ElasticsearchContainer container =
             new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:6.8.0");
+
     JetInstance jet;
     IListJet<User> userList;
     String indexName = "users";
     private RestHighLevelClient client;
 
     @Before
-    public void setupBase() {
+    public void setup() {
         container.start();
         client = createClient(container.getHttpHostAddress());
 
-        jet = Jet.newJetInstance();
+        jet = createJetMember();
 
         userList = jet.getList("userList");
         for (int i = 0; i < OBJECT_COUNT; i++) {
@@ -63,10 +64,9 @@ public abstract class ElasticsearchBaseTest {
     }
 
     @After
-    public void cleanupBase() throws IOException {
+    public void cleanup() throws IOException {
         container.stop();
         client.close();
-        jet.shutdown();
     }
 
     void assertIndexes() throws IOException {
