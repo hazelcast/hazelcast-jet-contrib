@@ -45,7 +45,6 @@ public class MongoDBSinkTest extends AbstractMongoDBTest {
 
         MongoCollection<Document> collection = collection();
         assertEquals(100, collection.countDocuments());
-        assertEquals(0, collection.find().first().get("key"));
     }
 
 
