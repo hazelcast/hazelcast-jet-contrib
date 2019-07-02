@@ -1,4 +1,4 @@
-version = '0.1-SNAPSHOT'
+description = 'A Hazelcast Jet connector for Elasticsearch (v5.6.x) for querying/indexing objects from/to Elasticsearch.'
 
 dependencies {
     compile 'org.elasticsearch.client:elasticsearch-rest-high-level-client:5.6.0'
