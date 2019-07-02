@@ -1,4 +1,4 @@
-version = '0.1-SNAPSHOT'
+description = 'A Hazelcast Jet connector for InfluxDb which enables Hazelcast Jet pipelines to read/write data points from/to InfluxDb.'
 
 dependencies {
     compile 'org.influxdb:influxdb-java:2.15'

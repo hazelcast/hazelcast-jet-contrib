@@ -1,9 +1,12 @@
 buildscript {
     dependencies {
         classpath 'org.hibernate.build.gradle:gradle-maven-publish-auth:2.0.1'
+        classpath 'net.researchgate:gradle-release:2.8.1'
+
     }
     repositories {
         mavenCentral()
+        jcenter()
     }
 }
 
@@ -16,6 +19,8 @@ subprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'maven-publish-auth'
     apply plugin: "maven"
+    apply plugin: 'signing'
+    apply plugin: 'net.researchgate.release'
 
     repositories {
         mavenCentral()
@@ -70,12 +75,54 @@ subprojects {
                 from components.java
                 artifact sourcesJar
                 artifact javadocJar
+                pom {
+                    name = project.name
+                    description = project.description
+                    url = 'https://github.com/hazelcast/hazelcast-jet-contrib'
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id = 'eminn'
+                            name = 'Emin Demirci'
+                            email = 'emin@hazelcast.com'
+                        }
+                        developer {
+                            id = 'cangencer'
+                            name = 'Can Gencer'
+                            email = 'can@hazelcast.com'
+                        }
+                        developer {
+                            id = 'gurbuzali'
+                            name = 'Ali Gurbuz'
+                            email = 'ali@hazelcast.com'
+                        }
+                        developer {
+                            id = 'jerrinot'
+                            name = 'Jaromir Hamala'
+                            email = 'jaromir@hazelcast.com'
+                        }
+                    }
+                    scm {
+                        connection = 'scm:git:git://github.com/hazelcast/hazelcast-jet-contrib.git'
+                        developerConnection = 'scm:git:ssh://git@github.com:hazelcast/hazelcast-jet-contrib.git'
+                        url = 'https://github.com/hazelcast/hazelcast-jet-contrib'
+                    }
+                }
             }
         }
         repositories {
             maven {
-                name "snapshot-repository"
-                url "https://oss.sonatype.org/content/repositories/snapshots"
+                def snapshotsRepoName = "snapshot-repository"
+                def snapshotsRepoUrl = "https://oss.sonatype.org/content/repositories/snapshots"
+                def releasesRepoName = "release-repository"
+                def releasesRepoUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+                name = version.endsWith('SNAPSHOT') ? snapshotsRepoName : releasesRepoName
+                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
             }
             mavenLocal()
         }
@@ -88,7 +135,39 @@ subprojects {
         options.addStringOption('Xdoclint:none', '-quiet')
     }
 
+    signing {
+        sign publishing.publications.mavenJava
+    }
+
     build.dependsOn javadoc
+
+    release {
+        failOnCommitNeeded = true
+        failOnPublishNeeded = true
+        failOnSnapshotDependencies = true
+        failOnUnversionedFiles = true
+        failOnUpdateNeeded = true
+        revertOnFail = true
+        preCommitText = ''
+        preTagCommitMessage = ''
+        tagCommitMessage = ''
+        newVersionCommitMessage = ''
+        tagTemplate = '${name}-${version}'
+        pushReleaseVersionBranch = false
+        scmAdapters = [
+                net.researchgate.release.GitAdapter
+        ]
+
+        git {
+            requireBranch = 'master'
+            pushToRemote = 'origin'
+            pushToBranchPrefix = ''
+            commitVersionFileOnly = false
+            signTag = false
+        }
+    }
+
+    afterReleaseBuild.dependsOn publish
 
 }
 
