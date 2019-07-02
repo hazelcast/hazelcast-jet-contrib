@@ -33,8 +33,8 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        jetVersion = '3.0'
-        hazelcastVersion = '3.12'
+        jetVersion = '3.1'
+        hazelcastVersion = '3.12.1'
     }
     
     dependencies {
