@@ -17,11 +17,14 @@
 package com.hazelcast.jet.contrib.influxdb;
 
 import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import org.influxdb.InfluxDB;
 import org.influxdb.InfluxDBFactory;
 import org.influxdb.dto.Point;
+
+import static org.influxdb.BatchOptions.DEFAULTS;
 
 /**
  * Contains factory methods for InfluxDB sinks
@@ -53,8 +56,10 @@ public final class InfluxDbSinks {
     public static Sink<Point> influxDb(String url, String database, String username, String password) {
         return influxDb("influxdb-" + database, () ->
                 InfluxDBFactory.connect(url, username, password)
-                        .setDatabase(database)
-                        .enableBatch()
+                               .setDatabase(database)
+                               .enableBatch(
+                                       DEFAULTS.exceptionHandler((points, throwable) -> ExceptionUtil.rethrow(throwable))
+                               )
         );
     }
 }
