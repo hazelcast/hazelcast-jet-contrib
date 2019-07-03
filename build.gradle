@@ -41,7 +41,7 @@ subprojects {
         jetVersion = '3.1'
         hazelcastVersion = '3.12.1'
     }
-    
+
     dependencies {
         compile group: 'com.hazelcast.jet', name: 'hazelcast-jet', version: jetVersion
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
@@ -137,6 +137,12 @@ subprojects {
 
     signing {
         sign publishing.publications.mavenJava
+    }
+
+    tasks.withType(Sign) {
+        onlyIf {
+            !it.project.version.endsWith('SNAPSHOT')
+        }
     }
 
     build.dependsOn javadoc
