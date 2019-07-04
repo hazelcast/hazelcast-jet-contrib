@@ -29,6 +29,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.InfluxDBContainer;
+import org.testcontainers.containers.Network;
 
 import java.util.concurrent.TimeUnit;
 
@@ -48,7 +49,8 @@ public class InfluxDbSourceTest extends JetTestSupport {
             .withAuthEnabled(true)
             .withDatabase(DATABASE_NAME)
             .withUsername(USERNAME)
-            .withPassword(PASSWORD);
+            .withPassword(PASSWORD)
+            .withNetwork(Network.newNetwork());
 
     private JetInstance jet;
 

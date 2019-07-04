@@ -31,6 +31,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.testcontainers.containers.InfluxDBContainer;
+import org.testcontainers.containers.Network;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -51,7 +52,8 @@ public class InfluxDbSinkTest extends JetTestSupport {
             .withAuthEnabled(true)
             .withDatabase(DATABASE_NAME)
             .withUsername(USERNAME)
-            .withPassword(PASSWORD);
+            .withPassword(PASSWORD)
+            .withNetwork(Network.newNetwork());
 
     @Rule
     public ExpectedException expected = ExpectedException.none();
