@@ -95,7 +95,7 @@ public final class MongoDBSources {
      * Convenience for {@link #builder(String, SupplierEx)} as a {@link
      * BatchSource}.
      */
-    public static BatchSource<Document> mongodb(
+    public static BatchSource<Document> batch(
             @Nonnull String name,
             @Nonnull String connectionString,
             @Nonnull String database,
@@ -115,7 +115,7 @@ public final class MongoDBSources {
      * Convenience for {@link #builder(String, SupplierEx)} as a {@link
      * StreamSource}.
      */
-    public static StreamSource<Document> streamMongodb(
+    public static StreamSource<Document> stream(
             @Nonnull String name,
             @Nonnull String connectionString,
             @Nonnull String database,

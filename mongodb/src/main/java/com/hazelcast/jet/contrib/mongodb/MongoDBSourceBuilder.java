@@ -102,7 +102,9 @@ public class MongoDBSourceBuilder<T> {
             @Nonnull FunctionEx<? super MongoCollection<? extends T>, ? extends FindIterable<? extends T>> searchFn,
             @Nonnull FunctionEx<? super T, U> mapFn
     ) {
-        checkNull();
+        checkNotNull(connectionSupplier, "connectionSupplier must be set");
+        checkNotNull(databaseFn, "databaseFn must be set");
+        checkNotNull(collectionFn, "collectionFn must be set");
 
         checkSerializable(searchFn, "searchFn");
         checkSerializable(mapFn, "mapFn");
@@ -124,15 +126,17 @@ public class MongoDBSourceBuilder<T> {
     }
 
     /**
-     * Creates and returns the MongoDB {@link StreamSource} with the components
-     * you supplied to this builder.
+     * Creates and returns the MongoDB {@link StreamSource} which watches the
+     * collection supplied to this builder.
      */
     public <U> StreamSource<U> stream(
             @Nonnull FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>>
                     searchFn,
             @Nonnull FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
     ) {
-        checkNull();
+        checkNotNull(connectionSupplier, "connectionSupplier must be set");
+        checkNotNull(databaseFn, "databaseFn must be set");
+        checkNotNull(collectionFn, "collectionFn must be set");
 
         checkSerializable(searchFn, "searchFn");
         checkSerializable(mapFn, "mapFn");
@@ -146,7 +150,7 @@ public class MongoDBSourceBuilder<T> {
                 .timestampedStream(name, ctx -> {
                     MongoClient client = localConnectionSupplier.get();
                     MongoCollection<? extends T> collection = localCollectionFn.apply(localDatabaseFn.apply(client));
-                    return new StreamContext<>(client, collection, searchFn, mapFn, localDestroyFn);
+                    return new StreamContext<>(client, searchFn.apply(collection).iterator(), mapFn, localDestroyFn);
                 })
                 .<U>fillBufferFn(StreamContext::fillBuffer)
                 .destroyFn(StreamContext::close)
@@ -154,10 +158,63 @@ public class MongoDBSourceBuilder<T> {
 
     }
 
-    private void checkNull() {
+    /**
+     * Creates and returns the MongoDB {@link StreamSource} which watches all
+     * collections in the database supplied to this builder.
+     */
+    public <U> StreamSource<U> streamDatabase(
+            @Nonnull FunctionEx<? super MongoDatabase, ? extends ChangeStreamIterable<? extends T>>
+                    searchFn,
+            @Nonnull FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
+    ) {
         checkNotNull(connectionSupplier, "connectionSupplier must be set");
         checkNotNull(databaseFn, "databaseFn must be set");
-        checkNotNull(collectionFn, "collectionFn must be set");
+
+        checkSerializable(searchFn, "searchFn");
+        checkSerializable(mapFn, "mapFn");
+
+        SupplierEx<? extends MongoClient> localConnectionSupplier = connectionSupplier;
+        FunctionEx<? super MongoClient, ? extends MongoDatabase> localDatabaseFn = databaseFn;
+        ConsumerEx<? super MongoClient> localDestroyFn = destroyFn;
+
+        return SourceBuilder
+                .timestampedStream(name, ctx -> {
+                    MongoClient client = localConnectionSupplier.get();
+                    MongoDatabase database = localDatabaseFn.apply(client);
+                    return new StreamContext<>(client, searchFn.apply(database).iterator(), mapFn, localDestroyFn);
+                })
+                .<U>fillBufferFn(StreamContext::fillBuffer)
+                .destroyFn(StreamContext::close)
+                .build();
+
+    }
+
+    /**
+     * Creates and returns the MongoDB {@link StreamSource} which watches all
+     * collections accross all databases.
+     */
+    public <U> StreamSource<U> streamAll(
+            @Nonnull FunctionEx<? super MongoClient, ? extends ChangeStreamIterable<? extends T>>
+                    searchFn,
+            @Nonnull FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
+    ) {
+        checkNotNull(connectionSupplier, "connectionSupplier must be set");
+
+        checkSerializable(searchFn, "searchFn");
+        checkSerializable(mapFn, "mapFn");
+
+        SupplierEx<? extends MongoClient> localConnectionSupplier = connectionSupplier;
+        ConsumerEx<? super MongoClient> localDestroyFn = destroyFn;
+
+        return SourceBuilder
+                .timestampedStream(name, ctx -> {
+                    MongoClient client = localConnectionSupplier.get();
+                    return new StreamContext<>(client, searchFn.apply(client).iterator(), mapFn, localDestroyFn);
+                })
+                .<U>fillBufferFn(StreamContext::fillBuffer)
+                .destroyFn(StreamContext::close)
+                .build();
+
     }
 
     private static class BatchContext<T, U> {
@@ -213,8 +270,7 @@ public class MongoDBSourceBuilder<T> {
 
         StreamContext(
                 MongoClient client,
-                MongoCollection<? extends T> collection,
-                FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>> searchFn,
+                MongoCursor<? extends ChangeStreamDocument<? extends T>> cursor,
                 FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn,
                 ConsumerEx<? super MongoClient> destroyFn
         ) {
@@ -222,7 +278,7 @@ public class MongoDBSourceBuilder<T> {
             this.mapFn = mapFn;
             this.destroyFn = destroyFn;
 
-            cursor = searchFn.apply(collection).iterator();
+            this.cursor = cursor;
         }
 
         void fillBuffer(SourceBuilder.TimestampedSourceBuffer<U> buffer) {

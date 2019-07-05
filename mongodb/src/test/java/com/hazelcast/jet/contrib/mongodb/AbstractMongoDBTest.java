@@ -47,7 +47,15 @@ public abstract class AbstractMongoDBTest extends JetTestSupport {
     }
 
     MongoCollection<Document> collection() {
-        return mongo.getDatabase(DB_NAME).getCollection(COL_NAME);
+        return collection(DB_NAME, COL_NAME);
+    }
+
+    MongoCollection<Document> collection(String collectionName) {
+        return collection(DB_NAME, collectionName);
+    }
+
+    MongoCollection<Document> collection(String databaseName, String collectionName) {
+        return mongo.getDatabase(databaseName).getCollection(collectionName);
     }
 
     @After

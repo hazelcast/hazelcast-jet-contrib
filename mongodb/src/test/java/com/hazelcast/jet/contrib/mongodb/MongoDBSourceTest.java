@@ -20,7 +20,13 @@ import com.hazelcast.jet.IListJet;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
+import com.hazelcast.jet.pipeline.StreamSource;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Aggregates;
 import org.bson.Document;
+import org.bson.conversions.Bson;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -47,7 +53,7 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
         String connectionString = mongoContainer.connectionString();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(MongoDBSources.mongodb(SOURCE_NAME, connectionString, DB_NAME, COL_NAME,
+        p.drawFrom(MongoDBSources.batch(SOURCE_NAME, connectionString, DB_NAME, COL_NAME,
                 new Document("val", new Document("$gte", 10)),
                 new Document("val", 1).append("_id", 0)))
          .drainTo(Sinks.list(list));
@@ -69,7 +75,7 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
         Pipeline p = Pipeline.create();
         p.drawFrom(
-                MongoDBSources.streamMongodb(
+                MongoDBSources.stream(
                         SOURCE_NAME,
                         connectionString,
                         DB_NAME,
@@ -103,6 +109,134 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
             Document document = list.get(1);
             assertEquals(20, document.get("val"));
             assertNull(document.get("foo"));
+        });
+
+        job.cancel();
+
+    }
+
+    @Test
+    public void testStream_whenWatchDatabase() {
+        IListJet<Document> list = jet.getList("list");
+
+        String connectionString = mongoContainer.connectionString();
+
+        StreamSource<Document> source = MongoDBSources
+                .builder(SOURCE_NAME, () -> MongoClients.create(connectionString))
+                .databaseFn(client -> client.getDatabase(DB_NAME))
+                .destroyFn(MongoClient::close)
+                .streamDatabase(db -> {
+                            List<Bson> aggregates = new ArrayList<>();
+                            aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
+                                    .append("operationType", "insert")));
+
+                            aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
+                            return db.watch(aggregates);
+                        },
+                        csd -> (Document) csd.getFullDocument()
+                );
+
+        Pipeline p = Pipeline.create();
+        p.drawFrom(source)
+         .withNativeTimestamps(0)
+         .drainTo(Sinks.list(list));
+
+        Job job = jet.newJob(p);
+
+        MongoCollection<Document> col1 = collection("col1");
+        MongoCollection<Document> col2 = collection("col2");
+
+        col1.insertOne(new Document("val", 1));
+        col1.insertOne(new Document("val", 10).append("foo", "bar"));
+
+        col2.insertOne(new Document("val", 1));
+        col2.insertOne(new Document("val", 10).append("foo", "bar"));
+
+        assertTrueEventually(() -> {
+            assertEquals(2, list.size());
+            list.forEach(document -> {
+                assertEquals(10, document.get("val"));
+                assertNull(document.get("foo"));
+            });
+        });
+
+        col1.insertOne(new Document("val", 2));
+        col1.insertOne(new Document("val", 20).append("foo", "bar"));
+
+        col2.insertOne(new Document("val", 2));
+        col2.insertOne(new Document("val", 20).append("foo", "bar"));
+
+        assertTrueEventually(() -> {
+            assertEquals(4, list.size());
+            list.stream().skip(2).forEach(document -> {
+                assertEquals(20, document.get("val"));
+                assertNull(document.get("foo"));
+            });
+        });
+
+        job.cancel();
+
+    }
+
+    @Test
+    public void testStream_whenWatchAll() {
+        IListJet<Document> list = jet.getList("list");
+
+        String connectionString = mongoContainer.connectionString();
+
+        StreamSource<Document> source = MongoDBSources
+                .builder(SOURCE_NAME, () -> MongoClients.create(connectionString))
+                .destroyFn(MongoClient::close)
+                .streamAll(client -> {
+                            List<Bson> aggregates = new ArrayList<>();
+                            aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
+                                    .append("operationType", "insert")));
+
+                            aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
+                            return client.watch(aggregates);
+                        },
+                        csd -> (Document) csd.getFullDocument()
+                );
+
+        Pipeline p = Pipeline.create();
+        p.drawFrom(source)
+         .withNativeTimestamps(0)
+         .drainTo(Sinks.list(list));
+
+        Job job = jet.newJob(p);
+
+        MongoCollection<Document> col1 = collection("db1", "col1");
+        MongoCollection<Document> col2 = collection("db1", "col2");
+        MongoCollection<Document> col3 = collection("db2", "col3");
+
+        col1.insertOne(new Document("val", 1));
+        col1.insertOne(new Document("val", 10).append("foo", "bar"));
+        col2.insertOne(new Document("val", 1));
+        col2.insertOne(new Document("val", 10).append("foo", "bar"));
+        col3.insertOne(new Document("val", 1));
+        col3.insertOne(new Document("val", 10).append("foo", "bar"));
+
+        assertTrueEventually(() -> {
+            assertEquals(3, list.size());
+            list.forEach(document -> {
+                assertEquals(10, document.get("val"));
+                assertNull(document.get("foo"));
+            });
+        });
+
+        col1.insertOne(new Document("val", 2));
+        col1.insertOne(new Document("val", 20).append("foo", "bar"));
+        col2.insertOne(new Document("val", 2));
+        col2.insertOne(new Document("val", 20).append("foo", "bar"));
+        col2.insertOne(new Document("val", 2));
+        col2.insertOne(new Document("val", 20).append("foo", "bar"));
+
+        assertTrueEventually(() -> {
+            assertEquals(6, list.size());
+            list.stream().skip(3).forEach(document -> {
+                assertEquals(20, document.get("val"));
+                assertNull(document.get("foo"));
+            });
         });
 
         job.cancel();
