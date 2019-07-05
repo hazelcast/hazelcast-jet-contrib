@@ -21,6 +21,7 @@ subprojects {
     apply plugin: "maven"
     apply plugin: 'signing'
     apply plugin: 'net.researchgate.release'
+    apply plugin: 'jacoco'
 
     repositories {
         mavenCentral()
@@ -57,6 +58,10 @@ subprojects {
     test {
         systemProperty "hazelcast.phone.home.enabled", "false"
         systemProperty "hazelcast.logging.type", "log4j"
+
+        minHeapSize = "1g"
+        maxHeapSize = "1g"
+
     }
 
     task sourcesJar(type: Jar) {
@@ -144,9 +149,15 @@ subprojects {
             !it.project.version.endsWith('SNAPSHOT')
         }
     }
+    
+    tasks.withType(Test) {
+        maxParallelForks = 4
+    }
+
 
     build.dependsOn javadoc
-
+    test.finalizedBy jacocoTestReport
+    
     release {
         failOnCommitNeeded = true
         failOnPublishNeeded = true

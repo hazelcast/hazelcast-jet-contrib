@@ -31,6 +31,7 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
+import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 
 import java.io.IOException;
@@ -50,7 +51,8 @@ public abstract class ElasticsearchBaseTest extends JetTestSupport {
 
     @Rule
     public ElasticsearchContainer container =
-            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:5.6.16");
+            new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:5.6.16")
+            .withNetwork(Network.newNetwork());
 
     JetInstance jet;
     IListJet<User> userList;
