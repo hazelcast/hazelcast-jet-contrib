@@ -2,6 +2,23 @@
 
 One Paragraph of module description goes here
 
+## Connector Attributes (Optional for non-connector extensions)
+
+### Source Attributes
+|  Atrribute  | Value |
+|:-----------:|-------|
+| Has Source  |  Yes  |
+| Batch       |   No  |
+| Stream      |  Yes  |
+| Distributed |   No  |
+
+### Sink Attributes
+|  Atrribute  | Value |
+|:-----------:|-------|
+| Has Sink    |  Yes  |
+| Distributed |   No  |
+
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local
@@ -43,6 +60,10 @@ entry point of the module must be included in this section like `InfluxDbSinks.i
 End with a very small example/snippet of getting some data out of the system 
 or using it for a little demo
 
+## Fault-Tolerance
+Describe F-T behavior, give information about whether the source is replayable, 
+talk about checkpointing and transactional reads. For sinks describe idempotence 
+and/or transactional writes.
 
 ## Running the tests
 
