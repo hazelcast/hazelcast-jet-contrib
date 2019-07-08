@@ -17,26 +17,89 @@
 package com.hazelcast.jet.contrib.mongodb;
 
 import com.hazelcast.jet.IListJet;
+import com.hazelcast.jet.JetException;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class MongoDBSourceTest extends AbstractMongoDBTest {
+
+
+    @Test
+    public void testBatch_whenServerNotAvailable() {
+        String connectionString = mongoContainer.connectionString();
+        mongoContainer.close();
+
+        IListJet<Document> list = jet.getList("list");
+
+        BatchSource<Document> source = MongoDBSources
+                .<Document>builder(SOURCE_NAME, () -> mongoClient(connectionString, 3))
+                .databaseFn(client -> client.getDatabase(DB_NAME))
+                .collectionFn(db -> db.getCollection(COL_NAME))
+                .destroyFn(MongoClient::close)
+                .batch(MongoCollection::find, doc -> doc);
+
+        Pipeline p = Pipeline.create();
+        p.drawFrom(source)
+         .drainTo(Sinks.list(list));
+
+        try {
+            jet.newJob(p).join();
+            fail();
+        } catch (CompletionException e) {
+            assertTrue(e.getCause() instanceof JetException);
+        }
+    }
+
+    @Test
+    public void testStream_whenServerNotAvailable() {
+        String connectionString = mongoContainer.connectionString();
+        mongoContainer.close();
+
+        IListJet<Document> list = jet.getList("list");
+
+        StreamSource<? extends Document> source = MongoDBSources
+                .<Document>builder(SOURCE_NAME, () -> mongoClient(connectionString, 3))
+                .databaseFn(client -> client.getDatabase(DB_NAME))
+                .collectionFn(db -> db.getCollection(COL_NAME))
+                .destroyFn(MongoClient::close)
+                .stream(MongoCollection::watch, ChangeStreamDocument::getFullDocument);
+
+        Pipeline p = Pipeline.create();
+        p.drawFrom(source)
+         .withNativeTimestamps(0)
+         .drainTo(Sinks.list(list));
+
+        try {
+            jet.newJob(p).join();
+            fail();
+        } catch (CompletionException e) {
+            assertTrue(e.getCause() instanceof JetException);
+        }
+    }
 
     @Test
     public void testBatch() {
@@ -241,6 +304,18 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
         job.cancel();
 
+    }
+
+    static MongoClient mongoClient(String connectionString, int connectionTimeoutSeconds) {
+        MongoClientSettings settings = MongoClientSettings
+                .builder()
+                .applyConnectionString(new ConnectionString(connectionString))
+                .applyToClusterSettings(b -> {
+                    b.serverSelectionTimeout(connectionTimeoutSeconds, SECONDS);
+                })
+                .build();
+
+        return MongoClients.create(settings);
     }
 
 

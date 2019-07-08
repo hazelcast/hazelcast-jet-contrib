@@ -17,13 +17,22 @@
 package com.hazelcast.jet.contrib.mongodb;
 
 import com.hazelcast.jet.IListJet;
+import com.hazelcast.jet.JetException;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.Sources;
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import org.bson.Document;
+import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.concurrent.CompletionException;
+
+import static com.hazelcast.jet.contrib.mongodb.MongoDBSourceTest.mongoClient;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class MongoDBSinkTest extends AbstractMongoDBTest {
 
@@ -45,6 +54,37 @@ public class MongoDBSinkTest extends AbstractMongoDBTest {
 
         MongoCollection<Document> collection = collection();
         assertEquals(100, collection.countDocuments());
+    }
+
+    @Test
+    public void test_whenServerNotAvailable() {
+        String connectionString = mongoContainer.connectionString();
+        mongoContainer.close();
+
+        IListJet<Integer> list = jet.getList("list");
+        for (int i = 0; i < 100; i++) {
+            list.add(i);
+        }
+
+        Sink<Document> sink = MongoDBSinks
+                .<Document>builder(SINK_NAME, () -> mongoClient(connectionString, 3))
+                .databaseFn(client -> client.getDatabase(DB_NAME))
+                .collectionFn(db -> db.getCollection(COL_NAME))
+                .destroyFn(MongoClient::close)
+                .build();
+
+
+        Pipeline p = Pipeline.create();
+        p.drawFrom(Sources.list(list))
+         .map(i -> new Document("key", i))
+         .drainTo(sink);
+
+        try {
+            jet.newJob(p).join();
+            fail();
+        } catch (CompletionException e) {
+            assertTrue(e.getCause() instanceof JetException);
+        }
     }
 
 
