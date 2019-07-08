@@ -2,6 +2,18 @@
 
 One Paragraph of module description goes here
 
+## Connector Attributes (Optional for non-connector extensions)
+
+|  Atrribute  | Value |
+|:-----------:|-------|
+| Bounded     |   No  |
+| Unbounded   |  Yes  |
+| Source      |  Yes  |
+| Sink        |  Yes  |
+| Replayable  |  Yes  |
+| Distributed |   No  |
+
+
 ## Getting Started
 
 These instructions will get you a copy of the project up and running on your local
