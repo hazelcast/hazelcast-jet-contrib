@@ -24,7 +24,6 @@ import com.hazelcast.jet.pipeline.Sources;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import org.bson.Document;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.concurrent.CompletionException;
