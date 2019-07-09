@@ -3,6 +3,22 @@
 A Hazelcast Jet connector for InfluxDb which enables Hazelcast Jet pipelines to 
 read/write data points from/to InfluxDb.
 
+## Connector Attributes
+
+### Source Attributes
+|  Atrribute  | Value |
+|:-----------:|-------|
+| Has Source  |  Yes  |
+| Batch       |  Yes  |
+| Stream      |  No   |
+| Distributed |  No   |
+
+### Sink Attributes
+|  Atrribute  | Value |
+|:-----------:|-------|
+| Has Sink    |  Yes  |
+| Distributed |  Yes  |
+
 ## Getting Started
 
 ### Installing

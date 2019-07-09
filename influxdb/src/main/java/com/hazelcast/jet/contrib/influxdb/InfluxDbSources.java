@@ -50,6 +50,20 @@ public final class InfluxDbSources {
      * emits items mapped with user defined mapper function.
      * Authenticates with the server using given credentials.
      *
+     * Example pipeline which reads records from InfluxDb, maps the first two
+     * columns to a tuple and logs them can be seen below: <pre>{@code
+     *     Pipeline p = Pipeline.create();
+     *     p.drawFrom(
+     *             InfluxDbSources.influxDb("SELECT * FROM db..cpu_usages",
+     *                     DATABASE_NAME,
+     *                     INFLUXDB_URL,
+     *                     USERNAME,
+     *                     PASSWORD,
+     *                     (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
+     *     )
+     *      .drainTo(Sinks.logger());
+     * }</pre>
+     *
      * @param query                 query to execute on InfluxDb database
      * @param database              name of the database
      * @param url                   url of the InfluxDb server
@@ -84,6 +98,17 @@ public final class InfluxDbSources {
      * connection supplier and emits items mapped with the given mapper
      * function.
      *
+     * Example pipeline which reads records from InfluxDb, maps the first two
+     * columns to a tuple and logs them can be seen below: <pre>{@code
+     *     Pipeline p = Pipeline.create();
+     *     p.drawFrom(
+     *             InfluxDbSources.influxDb("SELECT * FROM db..cpu_usages",
+     *                     () -> InfluxDBFactory.connect(url, username, password).setDatabase(database)
+     *                     (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
+     *     )
+     *      .drainTo(Sinks.logger());
+     * }</pre>
+     *
      * @param <T>                   type of the user object
      * @param query                 query to execute on InfluxDb database
      * @param connectionSupplier    supplier which returns {@link InfluxDB} instance
@@ -114,6 +139,20 @@ public final class InfluxDbSources {
      * Creates a source that executes a query on given database and
      * emits result which are mapped to the provided POJO class type.
      * Authenticates with the server using given credentials.
+     *
+     * Example pipeline which reads records from InfluxDb, maps them
+     * to the provided POJO and logs them can be seen below: <pre>{@code
+     *     Pipeline p = Pipeline.create();
+     *     p.drawFrom(
+     *             InfluxDbSources.influxDb("SELECT * FROM db..cpu",
+     *                         DATABASE_NAME,
+     *                         INFLUXDB_URL,
+     *                         USERNAME,
+     *                         PASSWORD,
+     *                         Cpu.class)
+     *       )
+     *      .drainTo(Sinks.logger());
+     * }</pre>
      *
      * @param query     query to execute on InfluxDb database
      * @param database  name of the database
@@ -146,6 +185,17 @@ public final class InfluxDbSources {
      * Creates a source that connects to InfluxDB database using the given
      * connection supplier and emits items which are mapped to the provided
      * POJO class type.
+     *
+     * Example pipeline which reads records from InfluxDb, maps them
+     * to the provided POJO and logs them can be seen below: <pre>{@code
+     *     Pipeline p = Pipeline.create();
+     *     p.drawFrom(
+     *             InfluxDbSources.influxDb("SELECT * FROM db..cpu",
+     *                       () -> InfluxDBFactory.connect(url, username, password).setDatabase(database)
+     *                       Cpu.class)
+     *       )
+     *      .drainTo(Sinks.logger());
+     * }</pre>
      *
      * @param query              query to execute on InfluxDb database
      * @param connectionSupplier supplier which returns {@link InfluxDB} instance
