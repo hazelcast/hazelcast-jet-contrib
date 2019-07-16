@@ -1,4 +1,5 @@
 rootProject.name = 'hazelcast-jet-contrib'
+include 'http'
 include 'influxdb'
 include 'redis'
 include 'probabilistic'
