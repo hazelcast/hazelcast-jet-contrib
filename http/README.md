@@ -1,6 +1,6 @@
-# HTTP Listener Source
+# HTTP(S) Listener Source
 
-A Hazelcast Jet source for listening HTTP requests which contains JSON payload.
+A Hazelcast Jet source for listening HTTP(S) requests which contains JSON payload.
 
 ## Connector Attributes
 
@@ -22,7 +22,7 @@ A Hazelcast Jet source for listening HTTP requests which contains JSON payload.
 
 ### Installing
 
-The HTTP Listener Source artifacts are published on the Maven repositories. 
+The HTTP(S) Listener Source artifacts are published on the Maven repositories. 
 
 Add the following lines to your pom.xml to include it as a dependency to your project:
 
@@ -41,27 +41,67 @@ compile group: 'com.hazelcast.jet.contrib', name: 'http', version: ${version}
 
 ### Usage
 
-#### As a Source
+#### HTTP Source
 
-HTTP Listener Source (`HttpServerSource.httpServer()`) creates HTTP server on 
+HTTP Listener Source (`HttpListenerSource.httpListener()`) creates HTTP listener on 
 the same host with the Hazelcast Jet instance on user configured port offset. 
 
 Imagine if we have a running Hazelcast Jet member running on `localhost:5701`,
 if we submit following pipeline which listens for HTTP messages with port offset `100`,
-the actual port of the HTTP server will be `5801` (base port(`5701`) + port offset(`100`)).
+the actual port of the HTTP listener will be `5801` (base port(`5701`) + port offset(`100`)).
 Then it maps the JSON messages to JSON objects, filters them based 
 on its id property and logs them to standard output.
 
 ```java
 Pipeline p = Pipeline.create();
-p.drawFrom(HttpServerSource.httpsServer(100))
+p.drawFrom(HttpListenerSources.httpListener(100))
  .withoutTimestamps()
  .map(JsonValue::asObject)
- .filter(object -> object.get("id").asInt() >= 80)
+ .filter(employee -> employee.get("age").asInt() > 40)
  .drainTo(Sinks.logger());
 ```
 
+#### HTTPS Source
 
+HTTPS Listener Source (`HttpListenerSource.httpsListener()`) creates HTTP listener on 
+the same host with the Hazelcast Jet instance on user configured port offset. 
+
+Imagine if we have a running Hazelcast Jet member running on `localhost:5701`,
+if we submit following pipeline which listens for HTTPS messages with port offset `100`,
+the actual port of the HTTPS listener will be `5801` (base port(`5701`) + port offset(`100`)).
+Then it maps the JSON messages to JSON objects, filters them based 
+on its id property and logs them to standard output.
+
+```java
+SupplierEx<SSLContext> contextSupplier = () -> {
+    // Initialize the SSLContext from key store and trust stores
+    // This uses mock key and trust stores, replace them with your key
+    // and trust store files along with their passwords.
+    SSLContext context = SSLContext.getInstance("TLS");
+    KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+    KeyStore ks = KeyStore.getInstance("JKS");
+    char[] password = "123456".toCharArray();
+    File ksFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.keyStore);
+    ks.load(new FileInputStream(ksFile), password);
+    kmf.init(ks, password);
+
+    TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    KeyStore ts = KeyStore.getInstance("JKS");
+    File tsFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
+    ts.load(new FileInputStream(tsFile), password);
+    tmf.init(ts);
+
+    context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+    return context;
+};
+
+Pipeline p = Pipeline.create();
+p.drawFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier))
+ .withoutTimestamps()
+ .map(JsonValue::asObject)
+ .filter(employee -> employee.get("age").asInt() > 40)
+ .drainTo(Sinks.logger());
+```
 
 ### Running the tests
 

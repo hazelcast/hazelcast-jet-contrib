@@ -24,6 +24,7 @@ import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ssl.TestKeyStoreUtil;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -46,16 +47,18 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.security.KeyStore;
 
+import static com.hazelcast.jet.core.TestUtil.executeAndPeel;
 import static com.hazelcast.jet.pipeline.test.AssertionSinks.assertCollectedEventually;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertEquals;
 
-public class HttpServerSourceTest extends JetTestSupport {
+public class HttpListenerSourceTest extends JetTestSupport {
 
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
 
     @Test
-    public void testHttpIngestion() throws IOException {
+    public void testHttpIngestion() throws Throwable {
         JetInstance jet = createJetMember();
         JetInstance jet2 = createJetMember();
 
@@ -66,7 +69,7 @@ public class HttpServerSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
 
-        p.drawFrom(HttpServerSource.httpServer(portOffset))
+        p.drawFrom(HttpListenerSources.httpListener(portOffset))
          .withoutTimestamps()
          .map(JsonValue::asObject)
          .filter(object -> object.get("id").asInt() >= 80)
@@ -78,10 +81,13 @@ public class HttpServerSourceTest extends JetTestSupport {
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
         postUsers(httpClient, 100, httpEndpoint);
+
+        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
+        executeAndPeel(job);
     }
 
     @Test
-    public void testHttpsIngestion() throws Exception {
+    public void testHttpsIngestion() throws Throwable {
         SupplierEx<SSLContext> contextSupplier = () -> {
             SSLContext context = SSLContext.getInstance("TLS");
             KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -111,7 +117,7 @@ public class HttpServerSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
 
-        p.drawFrom(HttpServerSource.httpsServer(portOffset, contextSupplier))
+        p.drawFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier))
          .withoutTimestamps()
          .map(JsonValue::asObject)
          .filter(object -> object.get("id").asInt() >= 80)
@@ -128,6 +134,9 @@ public class HttpServerSourceTest extends JetTestSupport {
                                                     .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
                                                     .build();
         postUsers(httpClient, 100, httpsEndpoint);
+
+        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
+        executeAndPeel(job);
     }
 
     private void postUsers(CloseableHttpClient httpClient, int count, String uri) throws IOException {
