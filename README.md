@@ -38,8 +38,8 @@ from/to Elasticsearch.
 
 ## Snapshot Releases
 
-To access snapshot builds add the following `dependency` an`d `repository` declarations
-to `dependencies` and `repositories sections in your pom.xml respectively.
+To access snapshot builds add the following `dependency` and `repository` declarations
+to `dependencies` and `repositories` sections in your `pom.xml` respectively.
               
 ```xml
 <dependency>
