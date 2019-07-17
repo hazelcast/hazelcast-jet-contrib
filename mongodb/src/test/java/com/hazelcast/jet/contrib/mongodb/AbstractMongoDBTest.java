@@ -20,6 +20,9 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoCursor;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.junit.After;
 import org.junit.Before;
@@ -37,11 +40,21 @@ public abstract class AbstractMongoDBTest extends JetTestSupport {
 
     MongoClient mongo;
     JetInstance jet;
+    BsonTimestamp startAtOperationTime;
+
 
     @Before
     public void setUp() {
         mongoContainer.initializeReplicaSet();
         mongo = mongoContainer.newMongoClient();
+
+        // workaround to obtain a timestamp before starting the test
+        // If you pass a timestamp which is not in the oplog, mongodb throws exception
+        MongoCollection<Document> collection = collection("START_AT_OPERATION");
+        MongoCursor<ChangeStreamDocument<Document>> cursor = collection.watch().iterator();
+        collection.insertOne(new Document("key", "val"));
+        startAtOperationTime = cursor.next().getClusterTime();
+        cursor.close();
 
         jet = createJetMember();
     }

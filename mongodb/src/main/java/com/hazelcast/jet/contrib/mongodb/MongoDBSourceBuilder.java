@@ -33,6 +33,7 @@ import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
@@ -256,14 +257,16 @@ public final class MongoDBSourceBuilder<T> {
             FunctionEx<? super MongoDatabase, ? extends MongoCollection<? extends T>> collectionFn,
             ConsumerEx<? super MongoClient> destroyFn,
             FunctionEx<? super MongoCollection<? extends T>, ? extends ChangeStreamIterable<? extends T>> searchFn,
-            FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
+            FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn,
+            FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
+
     ) {
         return () -> {
             MongoClient client = connectionSupplier.get();
             MongoDatabase database = databaseFn.apply(client);
             MongoCollection<? extends T> collection = collectionFn.apply(database);
             ChangeStreamIterable<? extends T> changeStreamIterable = searchFn.apply(collection);
-            return new StreamContext<>(client, changeStreamIterable, mapFn, destroyFn);
+            return new StreamContext<>(client, changeStreamIterable, mapFn, destroyFn, startAtOperationTimeFn);
         };
     }
 
@@ -272,13 +275,14 @@ public final class MongoDBSourceBuilder<T> {
             FunctionEx<? super MongoClient, ? extends MongoDatabase> databaseFn,
             ConsumerEx<? super MongoClient> destroyFn,
             FunctionEx<? super MongoDatabase, ? extends ChangeStreamIterable<? extends T>> searchFn,
-            FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
+            FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn,
+            FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
     ) {
         return () -> {
             MongoClient client = connectionSupplier.get();
             MongoDatabase database = databaseFn.apply(client);
             ChangeStreamIterable<? extends T> changeStreamIterable = searchFn.apply(database);
-            return new StreamContext<>(client, changeStreamIterable, mapFn, destroyFn);
+            return new StreamContext<>(client, changeStreamIterable, mapFn, destroyFn, startAtOperationTimeFn);
         };
     }
 
@@ -286,12 +290,13 @@ public final class MongoDBSourceBuilder<T> {
             SupplierEx<? extends MongoClient> connectionSupplier,
             ConsumerEx<? super MongoClient> destroyFn,
             FunctionEx<? super MongoClient, ? extends ChangeStreamIterable<? extends T>> searchFn,
-            FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn
+            FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn,
+            FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
     ) {
         return () -> {
             MongoClient client = connectionSupplier.get();
             ChangeStreamIterable<? extends T> changeStreamIterable = searchFn.apply(client);
-            return new StreamContext<>(client, changeStreamIterable, mapFn, destroyFn);
+            return new StreamContext<>(client, changeStreamIterable, mapFn, destroyFn, startAtOperationTimeFn);
         };
     }
 
@@ -437,6 +442,7 @@ public final class MongoDBSourceBuilder<T> {
     private abstract class StreamBase<T, U> extends Base<T> {
 
         FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn;
+        FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn;
 
         private StreamBase() {
         }
@@ -445,7 +451,6 @@ public final class MongoDBSourceBuilder<T> {
          * @param mapFn   transforms the change stream document to the desired
          *                output object
          * @param <U_NEW> type of the emitted objects
-         * @return
          */
         @Nonnull
         @SuppressWarnings("unchecked")
@@ -456,6 +461,21 @@ public final class MongoDBSourceBuilder<T> {
             StreamBase<T, U_NEW> newThis = (StreamBase<T, U_NEW>) this;
             newThis.mapFn = mapFn;
             return newThis;
+        }
+
+        /**
+         * @param startAtOperationTimeFn obtains an operation time to start the
+         *                               stream from. If the function is {@code
+         *                               null} or returns {@code null} the
+         *                               stream will start from the latest.
+         */
+        @Nonnull
+        public StreamBase<T, U> startAtOperationTimeFn(
+                @Nullable FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
+        ) {
+            checkSerializable(startAtOperationTimeFn, "startAtOperationTimeFn");
+            this.startAtOperationTimeFn = startAtOperationTimeFn;
+            return this;
         }
 
         @Nonnull
@@ -527,6 +547,13 @@ public final class MongoDBSourceBuilder<T> {
             return (StreamAll<T, U>) super.destroyFn(destroyFn);
         }
 
+        @Override @Nonnull
+        public StreamAll<T, U> startAtOperationTimeFn(
+                @Nullable FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
+        ) {
+            return (StreamAll<T, U>) super.startAtOperationTimeFn(startAtOperationTimeFn);
+        }
+
         /**
          * Creates and returns the MongoDB {@link StreamSource} which watches
          * all collections across all databases.
@@ -537,7 +564,7 @@ public final class MongoDBSourceBuilder<T> {
             checkNotNull(searchFn, "searchFn must be set");
             checkNotNull(mapFn, "mapFn must be set");
 
-            return build(contextFn(connectionSupplier, destroyFn, searchFn, mapFn));
+            return build(contextFn(connectionSupplier, destroyFn, searchFn, mapFn, startAtOperationTimeFn));
         }
     }
 
@@ -598,6 +625,13 @@ public final class MongoDBSourceBuilder<T> {
             return (StreamDatabase<T, U>) super.destroyFn(destroyFn);
         }
 
+        @Override @Nonnull
+        public StreamDatabase<T, U> startAtOperationTimeFn(
+                @Nullable FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
+        ) {
+            return (StreamDatabase<T, U>) super.startAtOperationTimeFn(startAtOperationTimeFn);
+        }
+
         /**
          * Creates and returns the MongoDB {@link StreamSource} which watches
          * all collections in the given database.
@@ -609,7 +643,7 @@ public final class MongoDBSourceBuilder<T> {
             checkNotNull(searchFn, "searchFn must be set");
             checkNotNull(mapFn, "mapFn must be set");
 
-            return build(contextFn(connectionSupplier, databaseFn, destroyFn, searchFn, mapFn));
+            return build(contextFn(connectionSupplier, databaseFn, destroyFn, searchFn, mapFn, startAtOperationTimeFn));
         }
     }
 
@@ -668,6 +702,13 @@ public final class MongoDBSourceBuilder<T> {
             return (Stream<T, U>) super.destroyFn(destroyFn);
         }
 
+        @Override @Nonnull
+        public Stream<T, U> startAtOperationTimeFn(
+                @Nullable FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
+        ) {
+            return (Stream<T, U>) super.startAtOperationTimeFn(startAtOperationTimeFn);
+        }
+
         /**
          * Creates and returns the MongoDB {@link StreamSource} which watches
          * the given collection.
@@ -682,7 +723,7 @@ public final class MongoDBSourceBuilder<T> {
 
             SupplierEx<StreamContext<T, U>> contextFn = contextFn(connectionSupplier, databaseFn,
                     (FunctionEx<? super MongoDatabase, ? extends MongoCollection<? extends T>>) collectionFn, destroyFn,
-                    searchFn, mapFn);
+                    searchFn, mapFn, startAtOperationTimeFn);
 
             return build(contextFn);
         }
@@ -735,6 +776,7 @@ public final class MongoDBSourceBuilder<T> {
         final FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn;
         final ConsumerEx<? super MongoClient> destroyFn;
         final ChangeStreamIterable<? extends T> changeStreamIterable;
+        final BsonTimestamp timestamp;
 
         BsonDocument resumeToken;
         MongoCursor<? extends ChangeStreamDocument<? extends T>> cursor;
@@ -743,18 +785,23 @@ public final class MongoDBSourceBuilder<T> {
                 MongoClient client,
                 ChangeStreamIterable<? extends T> changeStreamIterable,
                 FunctionEx<? super ChangeStreamDocument<? extends T>, U> mapFn,
-                ConsumerEx<? super MongoClient> destroyFn
+                ConsumerEx<? super MongoClient> destroyFn,
+                FunctionEx<? super MongoClient, ? extends BsonTimestamp> startAtOperationTimeFn
         ) {
             this.client = client;
             this.changeStreamIterable = changeStreamIterable;
             this.mapFn = mapFn;
             this.destroyFn = destroyFn;
+
+            this.timestamp = startAtOperationTimeFn == null ? null : startAtOperationTimeFn.apply(client);
         }
 
         void fillBuffer(SourceBuilder.TimestampedSourceBuffer<U> buffer) {
             if (cursor == null) {
                 if (resumeToken != null) {
                     changeStreamIterable.resumeAfter(resumeToken);
+                } else if (timestamp != null) {
+                    changeStreamIterable.startAtOperationTime(timestamp);
                 }
                 cursor = changeStreamIterable.batchSize(BATCH_SIZE).iterator();
             }
