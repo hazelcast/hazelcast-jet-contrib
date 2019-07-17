@@ -76,6 +76,11 @@ JDBC database with Jet's fault tolerance.
 A Spring Boot Starter for Hazelcast Jet which auto-configures Hazelcast
 Jet if found on the classpath.
 
+### [HTTP(S) Listener Source](http) 
+
+A Hazelcast Jet source for listening HTTP(S) requests which contains JSON payload.
+
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and 
