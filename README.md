@@ -41,6 +41,33 @@ A Hazelcast Jet connector for MongoDB for querying/inserting objects
 from/to MongoDB.
 
 
+## Snapshot Releases
+
+To access snapshot builds add the following `dependency` and `repository` declarations
+to `dependencies` and `repositories` sections in your `pom.xml` respectively.
+              
+```xml
+<dependency>
+  <groupId>com.hazelcast.jet.contrib</groupId>
+  <artifactId>${module.name}</artifactId>
+  <version>${module.version}</version>
+</dependency>
+```
+
+```xml
+<repository>
+    <id>sonatype-snapshots</id>
+    <name>Sonatype Snapshot Repository</name>
+    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    <releases>
+        <enabled>false</enabled>
+    </releases>
+    <snapshots>
+        <enabled>true</enabled>
+    </snapshots>
+</repository>
+````
+
 ## Contributing
 
 We encourage pull requests and process them promptly.

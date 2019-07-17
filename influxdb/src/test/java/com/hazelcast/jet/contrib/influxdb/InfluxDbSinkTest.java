@@ -29,10 +29,13 @@ import org.influxdb.dto.QueryResult.Series;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.testcontainers.containers.InfluxDBContainer;
+import org.testcontainers.containers.Network;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import static org.junit.Assert.assertEquals;
 
@@ -49,7 +52,11 @@ public class InfluxDbSinkTest extends JetTestSupport {
             .withAuthEnabled(true)
             .withDatabase(DATABASE_NAME)
             .withUsername(USERNAME)
-            .withPassword(PASSWORD);
+            .withPassword(PASSWORD)
+            .withNetwork(Network.newNetwork());
+
+    @Rule
+    public ExpectedException expected = ExpectedException.none();
 
     private JetInstance jet;
 
@@ -87,5 +94,24 @@ public class InfluxDbSinkTest extends JetTestSupport {
         Series series = seriesList.get(0);
         assertEquals(SERIES, series.getName());
         assertEquals(VALUE_COUNT, series.getValues().size());
+    }
+
+    @Test
+    public void test_influxDbSink_nonExistingDb() {
+        IListJet<Integer> measurements = jet.getList("mem_usage");
+        IntStream.range(0, VALUE_COUNT).forEach(measurements::add);
+        influxdbContainer.getNewInfluxDB();
+
+        Pipeline p = Pipeline.create();
+        int startTime = 0;
+        p.drawFrom(Sources.list(measurements))
+         .map(index -> Point.measurement("mem_usage")
+                            .time(startTime + index, TimeUnit.MILLISECONDS)
+                            .addField("value", index)
+                            .build())
+         .drainTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), "non-existing", USERNAME, PASSWORD));
+
+        expected.expectMessage("database not found: \"non-existing\"");
+        jet.newJob(p).join();
     }
 }

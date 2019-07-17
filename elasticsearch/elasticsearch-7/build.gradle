@@ -1,5 +1,3 @@
-version = '0.1-SNAPSHOT'
-
 dependencies {
     compile 'org.elasticsearch.client:elasticsearch-rest-high-level-client:7.0.0'
     testCompile "org.testcontainers:elasticsearch:1.11.2"
