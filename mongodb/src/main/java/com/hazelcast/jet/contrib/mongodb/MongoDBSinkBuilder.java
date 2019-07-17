@@ -38,7 +38,6 @@ import static com.hazelcast.util.Preconditions.checkNotNull;
  * See {@link MongoDBSinks#builder(String, SupplierEx)}
  *
  * @param <T> type of the items the sink will accept
- * @since 3.2
  */
 public final class MongoDBSinkBuilder<T> {
 

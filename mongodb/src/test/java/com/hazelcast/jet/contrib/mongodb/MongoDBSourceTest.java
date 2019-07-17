@@ -16,11 +16,17 @@
 
 package com.hazelcast.jet.contrib.mongodb;
 
+import com.hazelcast.core.ISet;
 import com.hazelcast.jet.IListJet;
 import com.hazelcast.jet.JetException;
+import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.config.JobConfig;
+import com.hazelcast.jet.config.ProcessingGuarantee;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.Sink;
+import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.mongodb.ConnectionString;
@@ -36,8 +42,10 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.function.FunctionEx.identity;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -49,18 +57,73 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
 
     @Test
+    public void testStream_whenServerDown() {
+        JetInstance serverToShutdown = createJetMember();
+
+        String connectionString = mongoContainer.connectionString();
+        int itemCount = 40_000;
+
+        Sink<Integer> setSink = SinkBuilder
+                .sinkBuilder("set", c -> c.jetInstance().getHazelcastInstance().getSet("set"))
+                .<Integer>receiveFn(Set::add)
+                .build();
+
+        Pipeline p = Pipeline.create();
+        p.drawFrom(
+                MongoDBSources.stream(
+                        SOURCE_NAME,
+                        connectionString,
+                        DB_NAME,
+                        COL_NAME,
+                        null,
+                        null
+                )
+        )
+         .withNativeTimestamps(0)
+         .map(doc -> doc.getInteger("key"))
+         .drainTo(setSink);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setProcessingGuarantee(ProcessingGuarantee.EXACTLY_ONCE)
+                 .setSnapshotIntervalMillis(2000);
+        Job job = jet.newJob(p, jobConfig);
+        ISet<Integer> set = jet.getHazelcastInstance().getSet("set");
+
+        sleepSeconds(1);
+
+        spawn(() -> {
+            for (int i = 0; i < itemCount; i++) {
+                collection().insertOne(new Document("key", i));
+            }
+        });
+
+        sleepSeconds(5);
+
+        serverToShutdown.shutdown();
+
+        assertTrueEventually(() -> {
+            assertEquals(itemCount, set.size());
+        });
+
+        job.cancel();
+
+    }
+
+    @Test
     public void testBatch_whenServerNotAvailable() {
         String connectionString = mongoContainer.connectionString();
         mongoContainer.close();
 
         IListJet<Document> list = jet.getList("list");
 
-        BatchSource<Document> source = MongoDBSources
-                .<Document>builder(SOURCE_NAME, () -> mongoClient(connectionString, 3))
+        BatchSource<Document> source = MongoDBSourceBuilder
+                .batch(SOURCE_NAME, () -> mongoClient(connectionString, 3))
                 .databaseFn(client -> client.getDatabase(DB_NAME))
                 .collectionFn(db -> db.getCollection(COL_NAME))
                 .destroyFn(MongoClient::close)
-                .batch(MongoCollection::find, doc -> doc);
+                .searchFn(MongoCollection::find)
+                .mapFn(identity())
+                .build();
 
         Pipeline p = Pipeline.create();
         p.drawFrom(source)
@@ -81,12 +144,14 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
         IListJet<Document> list = jet.getList("list");
 
-        StreamSource<? extends Document> source = MongoDBSources
-                .<Document>builder(SOURCE_NAME, () -> mongoClient(connectionString, 3))
+        StreamSource<? extends Document> source = MongoDBSourceBuilder
+                .stream(SOURCE_NAME, () -> mongoClient(connectionString, 3))
                 .databaseFn(client -> client.getDatabase(DB_NAME))
                 .collectionFn(db -> db.getCollection(COL_NAME))
                 .destroyFn(MongoClient::close)
-                .stream(MongoCollection::watch, ChangeStreamDocument::getFullDocument);
+                .searchFn(MongoCollection::watch)
+                .mapFn(ChangeStreamDocument::getFullDocument)
+                .build();
 
         Pipeline p = Pipeline.create();
         p.drawFrom(source)
@@ -184,20 +249,21 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
         String connectionString = mongoContainer.connectionString();
 
-        StreamSource<Document> source = MongoDBSources
-                .builder(SOURCE_NAME, () -> MongoClients.create(connectionString))
+        StreamSource<? extends Document> source = MongoDBSourceBuilder
+                .streamDatabase(SOURCE_NAME, () -> MongoClients.create(connectionString))
                 .databaseFn(client -> client.getDatabase(DB_NAME))
                 .destroyFn(MongoClient::close)
-                .streamDatabase(db -> {
-                            List<Bson> aggregates = new ArrayList<>();
-                            aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
-                                    .append("operationType", "insert")));
+                .searchFn(db -> {
+                    List<Bson> aggregates = new ArrayList<>();
+                    aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
+                            .append("operationType", "insert")));
 
-                            aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
-                            return db.watch(aggregates);
-                        },
-                        csd -> (Document) csd.getFullDocument()
-                );
+                    aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
+                    return db.watch(aggregates);
+                })
+                .mapFn(ChangeStreamDocument::getFullDocument)
+                .build();
+
 
         Pipeline p = Pipeline.create();
         p.drawFrom(source)
@@ -247,19 +313,19 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
         String connectionString = mongoContainer.connectionString();
 
-        StreamSource<Document> source = MongoDBSources
-                .builder(SOURCE_NAME, () -> MongoClients.create(connectionString))
+        StreamSource<? extends Document> source = MongoDBSourceBuilder
+                .streamAll(SOURCE_NAME, () -> MongoClients.create(connectionString))
                 .destroyFn(MongoClient::close)
-                .streamAll(client -> {
-                            List<Bson> aggregates = new ArrayList<>();
-                            aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
-                                    .append("operationType", "insert")));
+                .searchFn(client -> {
+                    List<Bson> aggregates = new ArrayList<>();
+                    aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
+                            .append("operationType", "insert")));
 
-                            aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
-                            return client.watch(aggregates);
-                        },
-                        csd -> (Document) csd.getFullDocument()
-                );
+                    aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
+                    return client.watch(aggregates);
+                })
+                .mapFn(ChangeStreamDocument::getFullDocument)
+                .build();
 
         Pipeline p = Pipeline.create();
         p.drawFrom(source)

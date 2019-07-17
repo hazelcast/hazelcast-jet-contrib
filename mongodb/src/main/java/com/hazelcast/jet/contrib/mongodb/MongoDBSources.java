@@ -16,8 +16,6 @@
 
 package com.hazelcast.jet.contrib.mongodb;
 
-import com.hazelcast.jet.function.FunctionEx;
-import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.mongodb.client.ChangeStreamIterable;
@@ -36,7 +34,9 @@ import java.util.List;
 import static com.hazelcast.jet.function.FunctionEx.identity;
 
 /**
- * Contains factory methods for MongoDB sources
+ * Contains factory methods for MongoDB sources.
+ * <p>
+ * See {@link MongoDBSourceBuilder} for creating custom MongoDB sources.
  */
 public final class MongoDBSources {
 
@@ -44,57 +44,39 @@ public final class MongoDBSources {
     }
 
     /**
-     * Returns a builder object that offers a step-by-step fluent API to build
-     * a custom MongoDB {@link BatchSource} or {@link StreamSource} for the
-     * Pipeline API.
+     * Returns a MongoDB batch source which queries the collection using given
+     * {@code filter} and applies the given {@code projection} on the documents.
      * <p>
-     * These are the callback functions you can provide to implement the
-     * source's behavior:
-     * <ol><li>
-     *     {@code connectionSupplier} supplies MongoDb client. It will be called
-     *     once for each worker thread. This component is required.
-     * </li><li>
-     *     {@code databaseFn} creates/obtains a database using the given client.
-     *     It will be called once for each worker thread. This component is
-     *     required.
-     * </li><li>
-     *     {@code collectionFn} creates/obtains a collection in the given
-     *     database. It will be called once for each worker thread. This
-     *     component is required.
-     * </li><li>
-     *     {@code destroyFn} destroys the client. It will be called upon
-     *     completion to release any resource. This component is optional.
-     * </li></ol>
+     * See {@link MongoDBSourceBuilder} for creating custom MongoDB sources.
      * <p>
-     * To create a MongoDB {@link BatchSource} use
-     * {@link MongoDBSourceBuilder#batch(FunctionEx, FunctionEx)} by providing
-     * a {@code searchFn} which will query the collection and a {@code mapFn}
-     * which will transform the queried items to the desired output items.
+     * Here's an example which queries documents in a collection having the
+     * field {@code age} with a value greater than {@code 10} and applies a
+     * projection so that only the {@code age} field is returned in the
+     * emitted document.
      *
-     * To create a MongoDB {@link StreamSource} use
-     * {@link MongoDBSourceBuilder#stream(FunctionEx, FunctionEx)} by providing
-     * a {@code searchFn} which will watch the changes in the collection and a
-     * {@code mapFn} which will transform the changes to the desired output
-     * items.
+     * <pre>{@code
+     * BatchSource<Document> batchSource =
+     *         MongoDBSources.batch(
+     *                 "batch-source",
+     *                 "mongodb://127.0.0.1:27017",
+     *                 "myDatabase",
+     *                 "myCollection",
+     *                 new Document("age", new Document("$gt", 10)),
+     *                 new Document("age", 1)
+     *         );
+     * Pipeline p = Pipeline.create();
+     * BatchStage<Document> srcStage = p.drawFrom(batchSource);
+     * }</pre>
      *
-     * If the {@code mapFn} returns a {@code null}, the item will be filtered
-     * out.
-     *
-     * @param name               name of the sink
-     * @param connectionSupplier MongoDB client supplier
-     * @param <T>                type of the queried item
+     * @param name             a descriptive name for the source (diagnostic purposes)
+     * @param connectionString a connection string URI to MongoDB for example:
+     *                         {@code mongodb://127.0.0.1:27017}
+     * @param database         the name of the database
+     * @param collection       the name of the collection
+     * @param filter           filter object as a {@link Document}
+     * @param projection       projection object as a {@link Document}
      */
-    public static <T> MongoDBSourceBuilder<T> builder(
-            @Nonnull String name,
-            @Nonnull SupplierEx<MongoClient> connectionSupplier
-    ) {
-        return new MongoDBSourceBuilder<>(name, connectionSupplier);
-    }
-
-    /**
-     * Convenience for {@link #builder(String, SupplierEx)} as a {@link
-     * BatchSource}.
-     */
+    @Nonnull
     public static BatchSource<Document> batch(
             @Nonnull String name,
             @Nonnull String connectionString,
@@ -103,19 +85,54 @@ public final class MongoDBSources {
             @Nullable Document filter,
             @Nullable Document projection
     ) {
-        return MongoDBSources
-                .<Document>builder(name, () -> MongoClients.create(connectionString))
+        return MongoDBSourceBuilder
+                .batch(name, () -> MongoClients.create(connectionString))
                 .databaseFn(client -> client.getDatabase(database))
                 .collectionFn(db -> db.getCollection(collection))
                 .destroyFn(MongoClient::close)
-                .batch(col -> col.find().filter(filter).projection(projection), identity());
+                .searchFn(col -> col.find().filter(filter).projection(projection))
+                .mapFn(identity())
+                .build();
     }
 
     /**
-     * Convenience for {@link #builder(String, SupplierEx)} as a {@link
-     * StreamSource}.
+     * Returns a MongoDB stream source which watches the changes on the
+     * collection. The source applies the given {@code filter} and {@code
+     * projection} on the change stream documents.
+     * <p>
+     * See {@link MongoDBSourceBuilder} for creating custom MongoDB sources.
+     * <p>
+     * Here's an example which streams inserts on a collection having the
+     * field {@code age} with a value greater than {@code 10} and applies a
+     * projection so that only the {@code age} field is returned in the
+     * emitted document.
+     *
+     * <pre>{@code
+     * StreamSource<? extends Document> streamSource =
+     *         MongoDBSources.stream(
+     *                 "stream-source",
+     *                 "mongodb://127.0.0.1:27017",
+     *                 "myDatabase",
+     *                 "myCollection",
+     *                 new Document("fullDocument.age", new Document("$gt", 10))
+     *                         .append("operationType", "insert"),
+     *                 new Document("fullDocument.age", 1)
+     *         );
+     *
+     * Pipeline p = Pipeline.create();
+     * StreamSourceStage<? extends Document> srcStage = p.drawFrom(streamSource);
+     * }</pre>
+     *
+     * @param name             a descriptive name for the source (diagnostic purposes)
+     * @param connectionString a connection string URI to MongoDB for example:
+     *                         {@code mongodb://127.0.0.1:27017}
+     * @param database         the name of the database
+     * @param collection       the name of the collection
+     * @param filter           filter object as a {@link Document}
+     * @param projection       projection object as a {@link Document}
      */
-    public static StreamSource<Document> stream(
+    @Nonnull
+    public static StreamSource<? extends Document> stream(
             @Nonnull String name,
             @Nonnull String connectionString,
             @Nonnull String database,
@@ -123,12 +140,12 @@ public final class MongoDBSources {
             @Nullable Document filter,
             @Nullable Document projection
     ) {
-        return MongoDBSources
-                .<Document>builder(name, () -> MongoClients.create(connectionString))
+        return MongoDBSourceBuilder
+                .stream(name, () -> MongoClients.create(connectionString))
                 .databaseFn(client -> client.getDatabase(database))
                 .collectionFn(db -> db.getCollection(collection))
                 .destroyFn(MongoClient::close)
-                .stream(
+                .searchFn(
                         col -> {
                             List<Bson> aggregates = new ArrayList<>();
                             if (filter != null) {
@@ -144,8 +161,9 @@ public final class MongoDBSources {
                                 watch = col.watch(aggregates);
                             }
                             return watch;
-                        },
-                        ChangeStreamDocument::getFullDocument
-                );
+                        }
+                )
+                .mapFn(ChangeStreamDocument::getFullDocument)
+                .build();
     }
 }

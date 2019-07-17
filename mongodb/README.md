@@ -3,6 +3,22 @@
 A Hazelcast Jet connector for MongoDB which enables Hazelcast Jet pipelines to 
 read/write data points from/to MongoDB.
 
+## Connector Attributes
+
+### Source Attributes
+|  Attribute  | Value |
+|:-----------:|-------|
+| Has Source  |  Yes  |
+| Batch       |  Yes  |
+| Stream      |  Yes  |
+| Distributed |  No   |
+
+### Sink Attributes
+|  Attribute  | Value |
+|:-----------:|-------|
+| Has Sink    |  Yes  |
+| Distributed |  Yes  |
+
 ## Getting Started
 
 ### Installing
