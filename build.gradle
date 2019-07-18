@@ -28,6 +28,13 @@ subprojects {
         mavenLocal()
     }
 
+    idea {
+        module {
+            downloadJavadoc = true
+            downloadSources = true
+        }
+    }
+
     checkstyle {
         configProperties('rootDir': rootDir)
         toolVersion = '8.18'
@@ -105,6 +112,11 @@ subprojects {
                             id = 'gurbuzali'
                             name = 'Ali Gurbuz'
                             email = 'ali@hazelcast.com'
+                        }
+                        developer {
+                            id = 'jbartok'
+                            name = 'Jozsef Bartok'
+                            email = 'jozsi@hazelcast.com'
                         }
                         developer {
                             id = 'jerrinot'

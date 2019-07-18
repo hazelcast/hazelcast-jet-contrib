@@ -63,6 +63,10 @@ p.drawFrom(
  .drainTo(Sinks.logger());
 ```
 
+Check out [InfluxDbSourceTest](src/test/java/com/hazelcast/jet/contrib/influxdb/InfluxDbSourceTest.java) test class 
+for a more complete setup.
+
+
 #### As a Sink
 
 InfluxDb sink (`InfluxDbSinks.influxDb()`) is used to write data points from 
@@ -81,8 +85,8 @@ p.drawFrom(Sources.list(measurements))
  .drainTo(InfluxDbSinks.influxDb(DB_URL, DATABASE_NAME, USERNAME, PASSWORD));
 ```
 
-Check out `com.hazelcast.jet.contrib.influxdb.InfluxDbSinkTest` test class for a more 
-complete setup.
+Check out [InfluxDbSinkTest](src/test/java/com/hazelcast/jet/contrib/influxdb/InfluxDbSinkTest.java) test class for a 
+more complete setup.
 
 ### Running the tests
 
