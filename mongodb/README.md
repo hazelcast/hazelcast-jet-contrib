@@ -25,7 +25,8 @@ read/write data points from/to MongoDB.
 
 The MongoDB Connector artifacts are published on the Maven repositories. 
 
-Add the following lines to your pom.xml to include it as a dependency to your project:
+Add the following lines to your pom.xml to include it as a dependency to your
+project:
 
 ```
 <dependency>
@@ -40,9 +41,9 @@ or if you are using Gradle:
 compile group: 'com.hazelcast.jet.contrib', name: 'mongodb', version: ${version}
 ```
 
-### Usage
+## Usage
 
-#### As a Batch Source
+### As a Batch Source
 
 MongoDB batch source (`MongoDBSources.mongodb()`)  executes the 
 query and emits the results as they arrive.
@@ -67,7 +68,7 @@ p.drawFrom(
 .drainTo(Sinks.logger());
 ```
 
-#### As a Stream Source
+### As a Stream Source
 
 MongoDB stream source (`MongoDBSources.streamMongodb()`) watches the changes to
 documents in a collection and emits these changes as they arrive. Source uses 
@@ -98,7 +99,7 @@ p.drawFrom(
 ```
 
 
-#### As a Sink
+### As a Sink
 
 MongoDB sink (`MongoDBSinks.mongodb()`) is used to write documents from 
 Hazelcast Jet Pipeline to MongoDB. 
@@ -120,10 +121,16 @@ p.drawFrom(Sources.list(list))
  );
 ```
 
-Check out `com.hazelcast.jet.contrib.influxdb.MongoDBSinkTest` test class for a more 
-complete setup.
+Check out `com.hazelcast.jet.contrib.influxdb.MongoDBSinkTest` test class for a
+more complete setup.
 
-### Running the tests
+## Fault Tolerance
+
+MongoDB stream source saves the resume-token of the last emitted item as a 
+state to the snapshot. In case of a job restarted source will resume from the
+resume-token.  
+
+## Running the tests
 
 To run the tests run the command below: 
 
