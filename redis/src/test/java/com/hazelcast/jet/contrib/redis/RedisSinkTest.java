@@ -29,21 +29,16 @@ import io.lettuce.core.ScoredValue;
 import io.lettuce.core.StreamMessage;
 import io.lettuce.core.XReadArgs;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.junit.Assert.assertEquals;
 
 public class RedisSinkTest extends JetTestSupport {
@@ -51,6 +46,7 @@ public class RedisSinkTest extends JetTestSupport {
     @Rule
     public RedisContainer container = new RedisContainer();
     private RedisClient client;
+    private RedisURI uri;
     private StatefulRedisConnection<String, String> connection;
 
     private JetInstance instance;
@@ -59,6 +55,7 @@ public class RedisSinkTest extends JetTestSupport {
     public void setup() {
         client = container.newRedisClient();
         connection = client.connect();
+        uri = RedisURI.create(container.connectionString());
 
         instance = createJetMember();
     }
@@ -82,7 +79,7 @@ public class RedisSinkTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.map(map))
-                .drainTo(RedisSinks.hash("sink", container.connectionString(), "hash"));
+                .drainTo(RedisSinks.hash("sink", uri, "hash"));
 
         instance.newJob(p).join();
 
@@ -107,7 +104,7 @@ public class RedisSinkTest extends JetTestSupport {
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.<Integer>list("list"))
                 .map(i -> ScoredValue.fromNullable(i, "foobar-" + i))
-                .drainTo(RedisSinks.sortedSet("sink", container.connectionString(), "sortedSet"));
+                .drainTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
 
         instance.newJob(p).join();
 
@@ -130,85 +127,13 @@ public class RedisSinkTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
         p.drawFrom(Sources.list(list))
-                .drainTo(RedisSinks.stream("source", container.connectionString(), "stream"));
+                .drainTo(RedisSinks.stream("source", uri, "stream"));
 
         instance.newJob(p).join();
 
         RedisCommands<String, String> sync = connection.sync();
         List<StreamMessage<String, String>> messages = sync.xread(XReadArgs.StreamOffset.from("stream", "0"));
         assertEquals(list.size(), messages.size());
-    }
-
-
-    @Test
-    @Ignore
-    public void benchmark() {
-        RedisAsyncCommands<String, String> async = connection.async();
-
-        long itemCount = 100_000;
-        int streamCount = 1;
-
-        for (int s = 0; s < streamCount; s++) {
-            for (int i = 0; i < itemCount; i++) {
-                async.xadd("stream-" + s, "key-" + i, "val-" + i);
-            }
-        }
-
-        Map<String, String> streamOffsets = new HashMap<>();
-        for (int i = 0; i < streamCount; i++) {
-            streamOffsets.put("stream-" + i, "0");
-        }
-
-        Pipeline p = Pipeline.create();
-
-        String redisURI = container.connectionString();
-        p.drawFrom(RedisSources.stream("source", redisURI, streamOffsets, StreamMessage::getBody))
-                .withoutTimestamps()
-                .drainTo(RedisSinks.stream("sink", RedisURI.create(redisURI), "sinkStream"));
-
-
-        long begin = System.currentTimeMillis();
-
-        instance.newJob(p);
-
-        assertTrueEventually(() -> {
-            long size = async.xlen("sinkStream").get(1, MINUTES);
-            assertEquals(itemCount * streamCount, size);
-        });
-        long elapsed = System.currentTimeMillis() - begin;
-        System.out.println("qwe " + elapsed);
-
-    }
-
-    @Test
-    @Ignore
-    public void benchmark2() {
-        RedisAsyncCommands<String, String> async = connection.async();
-
-        long itemCount = 1_000_000;
-        for (int i = 0; i < itemCount; i++) {
-            async.xadd("stream", "key-" + i, "val-" + i);
-        }
-
-        long begin = System.currentTimeMillis();
-
-        RedisCommands<String, String> sync = connection.sync();
-        XReadArgs readArgs = XReadArgs.Builder.block(100).count(1000);
-
-        int count = 0;
-        String offset = "0";
-
-        while (count < itemCount) {
-
-            List<StreamMessage<String, String>> messages =
-                    sync.xread(readArgs, XReadArgs.StreamOffset.from("stream", offset));
-            int size = messages.size();
-            count += size;
-            offset = messages.get(size - 1).getId();
-        }
-
-        long elapsed = System.currentTimeMillis() - begin;
-        System.out.println(elapsed);
     }
 
 }

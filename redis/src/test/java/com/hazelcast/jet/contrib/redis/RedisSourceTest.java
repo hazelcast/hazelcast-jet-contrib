@@ -27,6 +27,7 @@ import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.jet.pipeline.Sinks;
 import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
 import io.lettuce.core.ScoredValue;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -50,6 +51,7 @@ public class RedisSourceTest extends JetTestSupport {
     @Rule
     public RedisContainer container = new RedisContainer();
     private RedisClient client;
+    private RedisURI uri;
     private StatefulRedisConnection<String, String> connection;
 
     private JetInstance instance;
@@ -59,6 +61,7 @@ public class RedisSourceTest extends JetTestSupport {
     public void setup() {
         client = container.newRedisClient();
         connection = client.connect();
+        uri = RedisURI.create(container.connectionString());
 
         instance = createJetMember();
         instanceToShutDown = createJetMember();
@@ -79,7 +82,7 @@ public class RedisSourceTest extends JetTestSupport {
         fillHash("hash", elementCount);
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.hash("source", container.connectionString(), "hash"))
+        p.drawFrom(RedisSources.hash("source", uri, "hash"))
                 .drainTo(Sinks.map("map"));
 
         instance.newJob(p).join();
@@ -113,7 +116,7 @@ public class RedisSourceTest extends JetTestSupport {
         int rangeEnd = 510_000;
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.sortedSet("source", container.connectionString(), "sortedSet", rangeStart, rangeEnd))
+        p.drawFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
                 .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
                 .drainTo(Sinks.list("list"));
 
@@ -162,7 +165,7 @@ public class RedisSourceTest extends JetTestSupport {
                 .build();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.stream("source", container.connectionString(), streamOffsets,
+        p.drawFrom(RedisSources.stream("source", uri, streamOffsets,
                 mes -> mes.getStream() + " - " + mes.getId()))
                 .withoutTimestamps()
                 .drainTo(sink);
@@ -196,7 +199,7 @@ public class RedisSourceTest extends JetTestSupport {
                 .build();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.stream("source", container.connectionString(), streamOffsets,
+        p.drawFrom(RedisSources.stream("source", uri, streamOffsets,
                 mes -> mes.getStream() + " - " + mes.getId()))
                 .withoutTimestamps()
                 .drainTo(sink);

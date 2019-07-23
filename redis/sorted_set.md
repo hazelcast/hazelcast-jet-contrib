@@ -43,8 +43,9 @@ Following is an example pipeline which reads such a range from a Sorted Set, map
 drains them to some sink.
 
 ```java
+RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(RedisSources.sortedSet("source", container.connectionString(), "sortedSet", 10_000d, 19_999d))
+    .drawFrom(RedisSources.sortedSet("source", uri, "sortedSet", 10d, 90d))
     .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
     .drainTo(sink);
 ```
@@ -60,10 +61,11 @@ Redis Sorted Set.
 Following is an example pipeline which reads out trades from a source and writes them to a Redis Stream.
 
 ```java
+RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
     .drawFrom(source)
     .map(trade -> ScoredValue.fromNullable(trade.timestamp, trade))
-    .drainTo(RedisSinks.sortedSet("sink", container.connectionString(), "sortedSet"));
+    .drainTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
 ```
 
 For more detail check out [RedisSinks](src/main/java/com/hazelcast/jet/contrib/redis/RedisSinks.java) & 

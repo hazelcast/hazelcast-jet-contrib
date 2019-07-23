@@ -38,8 +38,9 @@ Following is an example pipeline which reads in all entries from such a Hash and
 [Hazelcast IMap](https://docs.hazelcast.org/docs/latest/manual/html-single/#map).
 
 ```java
+RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(RedisSources.hash("source", container.connectionString(), "hash"))
+    .drawFrom(RedisSources.hash("source", uri, "hash"))
     .drainTo(Sinks.map("map"));
 ```
 
@@ -54,9 +55,10 @@ Following is an example pipeline which reads map entries from a
 [Hazelcast IMap](https://docs.hazelcast.org/docs/latest/manual/html-single/#map) and writes them out into a Redis Hash.
 
 ```java
+RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
     .drawFrom(Sources.map(map))
-    .drainTo(RedisSinks.hash("sink", container.connectionString(), "hash"));
+    .drainTo(RedisSinks.hash("sink", uri, "hash"));
 ```
 
 For more detail check out [RedisSinks](src/main/java/com/hazelcast/jet/contrib/redis/RedisSinks.java) & 

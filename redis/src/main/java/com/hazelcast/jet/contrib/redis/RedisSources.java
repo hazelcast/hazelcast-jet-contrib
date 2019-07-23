@@ -56,6 +56,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -81,134 +82,94 @@ public final class RedisSources {
     }
 
     /**
-     * Creates a {@link BatchSource} which retrieves all key-value pairs from a Redis Hash, applies a mapping function
-     * on them and emits the resulting data items as they become available. Assumes all keys and values are
-     * {@link String}s. The returned data items are raw key-value pairs in form of {@link Map.Entry}s. The batch
-     * ends when all elements have been received.
-     *
-     * @param name      name of the source being created
-     * @param uriString URI of the Redis server in String form
-     * @param hash      identifier of the Redis Hash being used
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static BatchSource<Map.Entry<String, String>> hash(
-            String name,
-            String uriString,
-            String hash
-    ) {
-        return hash(name, RedisURI.create(uriString), hash);
-    }
-
-    /**
-     * Creates a {@link BatchSource} which retrieves all key-value pairs from a Redis Hash, applies a mapping function
-     * on them and emits the resulting data items as they become available. Assumes all keys and values are
-     * {@link String}s. The returned data items are raw key-value pairs in form of {@link Map.Entry}s. The batch
-     * ends when all elements have been received.
+     * Creates a {@link BatchSource} which retrieves all key-value pairs from a
+     * Redis Hash, applies a mapping function on them and emits the resulting
+     * data items as they become available. Assumes all keys and values are
+     * {@link String}s. The returned data items are raw key-value pairs in form
+     * of {@link Map.Entry}s. The batch ends when all elements have been
+     * received.
      *
      * @param name name of the source being created
      * @param uri  URI of the Redis server
      * @param hash identifier of the Redis Hash being used
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static BatchSource<Map.Entry<String, String>> hash(
-            String name,
-            RedisURI uri,
-            String hash
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull String hash
     ) {
-        return hash(name, uri, hash, StringCodec::new, t -> t);
+        return hash(name, uri, hash, StringCodec::new, FunctionEx.identity());
     }
 
     /**
-     * Creates a {@link BatchSource} which retrieves all key-value pairs from a Redis Hash, applies a mapping function
-     * on them and emits the resulting data items as they become available. Assumes all keys and values are
-     * {@link String}s. The batch ends when all elements have been received.
-     *
-     * @param name      name of the source being created
-     * @param uriString URI of the Redis server in String form
-     * @param hash      identifier of the Redis Hash being used
-     * @param mapFn     mapping function which transform key-value pairs into the desired output data item
-     * @param <T>       type of the data items returned by the source
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static <T> BatchSource<T> hash(
-            String name,
-            String uriString,
-            String hash,
-            FunctionEx<Map.Entry<String, String>, T> mapFn
-    ) {
-        return hash(name, RedisURI.create(uriString), hash, StringCodec::new, mapFn);
-    }
-
-    /**
-     * Creates a {@link BatchSource} which retrieves all key-value pairs from a Redis Hash, applies a mapping function
-     * on them and emits the resulting data items as they become available. Assumes all keys and values are
+     * Creates a {@link BatchSource} which retrieves all key-value pairs from a
+     * Redis Hash, applies a mapping function on them and emits the resulting
+     * data items as they become available. Assumes all keys and values are
      * {@link String}s. The batch ends when all elements have been received.
      *
      * @param name  name of the source being created
      * @param uri   URI of the Redis server
      * @param hash  identifier of the Redis Hash being used
-     * @param mapFn mapping function which transform key-value pairs into the desired output data item
+     * @param mapFn mapping function which transform key-value pairs into the
+     *              desired output data item
      * @param <T>   type of the data items returned by the source
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static <T> BatchSource<T> hash(
-            String name,
-            RedisURI uri,
-            String hash,
-            FunctionEx<Map.Entry<String, String>, T> mapFn
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull String hash,
+            @Nonnull FunctionEx<Map.Entry<String, String>, T> mapFn
     ) {
         return hash(name, uri, hash, StringCodec::new, mapFn);
     }
 
     /**
-     * Creates a {@link BatchSource} which retrieves all key-value pairs from a Redis Hash, applies a mapping function
-     * on them and emits the resulting data items as they become available. The batch ends when all elements have been
-     * received.
-     *
-     * @param name      name of the source being created
-     * @param uriString URI of the Redis server in String form
-     * @param <K>       type of the hash identifiers and also the type of hash keys
-     * @param <V>       type of hash values
-     * @param <T>       type of the data items returned by the source
-     * @param hash      identifier of the Redis Hash being used
-     * @param codecFn   supplier of {@link RedisCodec} instances, used in turn for serializing/deserializing
-     *                  keys and values
-     * @param mapFn     mapping function which transform key-value pairs into the desired output data item
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static <K, V, T> BatchSource<T> hash(
-            String name,
-            String uriString,
-            K hash,
-            SupplierEx<RedisCodec<K, V>> codecFn,
-            FunctionEx<Map.Entry<K, V>, T> mapFn
-    ) {
-        return hash(name, RedisURI.create(uriString), hash, codecFn, mapFn);
-    }
-
-    /**
-     * Creates a {@link BatchSource} which retrieves all key-value pairs from a Redis Hash, applies a mapping function
-     * on them and emits the resulting data items as they become available. The batch ends when all elements have been
-     * received.
+     * Creates a {@link BatchSource} which retrieves all key-value pairs from a
+     * Redis Hash, applies a mapping function on them and emits the resulting
+     * data items as they become available. The batch ends when all elements
+     * have been received.
+     * <p>
+     * Here is an example pipeline which reads in all entries from such a Hash
+     * and writes them out to a {@link com.hazelcast.core.IMap}.
+     * <pre>{@code
+     *     RedisURI uri = RedisURI.create("redis://localhost/");
+     *     Pipeline.create()
+     *          .drawFrom(RedisSources.hash("source", uri, "hash",
+     *                          StringCodec::new, FunctionEx.identity()))
+     *          .drainTo(Sinks.map("map"));
+     * }</pre>
      *
      * @param name    name of the source being created
      * @param uri     URI of the Redis server
-     * @param codecFn supplier of {@link RedisCodec} instances, used in turn for serializing/deserializing
-     *                keys and values
+     * @param codecFn supplier of {@link RedisCodec} instances, used in turn for
+     *                serializing/deserializing keys and values
      * @param hash    identifier of the Redis Hash being used
-     * @param mapFn   mapping function which transform key-value pairs into the desired output data item
-     * @param <K>     type of the hash identifiers and also the type of hash keys
+     * @param mapFn   mapping function which transform key-value pairs into the
+     *                desired output data item
+     * @param <K>     type of the hash identifiers and also the type of hash
+     *                keys
      * @param <V>     type of hash values
      * @param <T>     type of the data items returned by the source
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static <K, V, T> BatchSource<T> hash(
-            String name,
-            RedisURI uri,
-            K hash,
-            SupplierEx<RedisCodec<K, V>> codecFn,
-            FunctionEx<Map.Entry<K, V>, T> mapFn
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull K hash,
+            @Nonnull SupplierEx<RedisCodec<K, V>> codecFn,
+            @Nonnull FunctionEx<Map.Entry<K, V>, T> mapFn
     ) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(uri, "uri");
+        Objects.requireNonNull(hash, "hash");
+        Objects.requireNonNull(codecFn, "codecFn");
+        Objects.requireNonNull(mapFn, "mapFn");
+
         return SourceBuilder
                 .batch(name, context -> new HashContext<>(uri, hash, codecFn, mapFn))
                 .<T>fillBufferFn(HashContext::fillBuffer)
@@ -217,31 +178,11 @@ public final class RedisSources {
     }
 
     /**
-     * Creates a {@link BatchSource} which queries a Redis Sorted Set for a range of elements having their scores
-     * between the two limit values provided (from & to). The returned elements will be emitted as they arrive,
-     * the batch ends when all elements have been received. All keys and values are assumed to be {@link String}s.
-     *
-     * @param name      name of the source being created
-     * @param uriString URI of the Redis server in String form
-     * @param key       identifier of the Redis Sorted Set
-     * @param from      start of the score range we are interested in (INCLUSIVE)
-     * @param to        end of the score range we are interested in (INCLUSIVE)
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static BatchSource<ScoredValue<String>> sortedSet(
-            String name,
-            String uriString,
-            String key,
-            long from,
-            long to
-    ) {
-        return sortedSet(name, uriString, StringCodec::new, key, from, to);
-    }
-
-    /**
-     * Creates a {@link BatchSource} which queries a Redis Sorted Set for a range of elements having their scores
-     * between the two limit values provided (from & to). The returned elements will be emitted as they arrive,
-     * the batch ends when all elements have been received. All keys and values are assumed to be {@link String}s.
+     * Creates a {@link BatchSource} which queries a Redis Sorted Set for a
+     * range of elements having their scores between the two limit values
+     * provided (from & to). The returned elements will be emitted as they
+     * arrive, the batch ends when all elements have been received. All keys and
+     * values are assumed to be {@link String}s.
      *
      * @param name name of the source being created
      * @param uri  URI of the Redis server
@@ -250,10 +191,11 @@ public final class RedisSources {
      * @param to   end of the score range we are interested in (INCLUSIVE)
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static BatchSource<ScoredValue<String>> sortedSet(
-            String name,
-            RedisURI uri,
-            String key,
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull String key,
             long from,
             long to
     ) {
@@ -261,41 +203,26 @@ public final class RedisSources {
     }
 
     /**
-     * Creates a {@link BatchSource} which queries a Redis Sorted Set for a range of elements having their scores
-     * between the two limit values provided (from & to). The returned elements will be emitted as they arrive,
-     * the batch ends when all elements have been received.
-     *
-     * @param name      name of the source being created
-     * @param uriString URI of the Redis server in String form
-     * @param codecFn   supplier of {@link RedisCodec} instances, used in turn for serializing/deserializing
-     *                  keys and values
-     * @param key       identifier of the Redis Sorted Set
-     * @param from      start of the score range we are interested in (INCLUSIVE)
-     * @param to        end of the score range we are interested in (INCLUSIVE)
-     * @param <K>       type of the sorted set identifier
-     * @param <V>       type of the values stored in the sorted set
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static <K, V> BatchSource<ScoredValue<V>> sortedSet(
-            String name,
-            String uriString,
-            SupplierEx<RedisCodec<K, V>> codecFn,
-            K key,
-            long from,
-            long to
-    ) {
-        return sortedSet(name, RedisURI.create(uriString), codecFn, key, from, to);
-    }
-
-    /**
-     * Creates a {@link BatchSource} which queries a Redis Sorted Set for a range of elements having their scores
-     * between the two limit values provided (from & to). The returned elements will be emitted as they arrive,
-     * the batch ends when all elements have been received.
+     * Creates a {@link BatchSource} which queries a Redis Sorted Set for a
+     * range of elements having their scores between the two limit values
+     * provided (from & to). The returned elements will be emitted as they
+     * arrive, the batch ends when all elements have been received.
+     * <p>
+     * Here's an example which reads a range from a Sorted Set, maps the items
+     * to strings and drains them to some sink.
+     * <pre>{@code
+     *      RedisURI uri = RedisURI.create("redis://localhost/");
+     *      Pipeline.create()
+     *          .drawFrom(RedisSources.sortedSet("source", uri, "sortedSet",
+     *                          StringCodec::new, 10d, 90d))
+     *          .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
+     *          .drainTo(sink);
+     * }</pre>
      *
      * @param name    name of the source being created
      * @param uri     URI of the Redis server
-     * @param codecFn supplier of {@link RedisCodec} instances, used in turn for serializing/deserializing
-     *                keys and values
+     * @param codecFn supplier of {@link RedisCodec} instances, used in turn for
+     *                serializing/deserializing keys and values
      * @param key     identifier of the Redis Sorted Set
      * @param from    start of the score range we are interested in (INCLUSIVE)
      * @param to      end of the score range we are interested in (INCLUSIVE)
@@ -303,14 +230,20 @@ public final class RedisSources {
      * @param <V>     type of the values stored in the sorted set
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static <K, V> BatchSource<ScoredValue<V>> sortedSet(
-            String name,
-            RedisURI uri,
-            SupplierEx<RedisCodec<K, V>> codecFn,
-            K key,
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull SupplierEx<RedisCodec<K, V>> codecFn,
+            @Nonnull K key,
             long from,
             long to
     ) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(uri, "uri");
+        Objects.requireNonNull(codecFn, "codecFn");
+        Objects.requireNonNull(key, "key");
+
         return SourceBuilder.batch(name, ctx -> new SortedSetContext<>(uri, codecFn.get(), key, from, to))
                 .<ScoredValue<V>>fillBufferFn(SortedSetContext::fillBuffer)
                 .destroyFn(SortedSetContext::close)
@@ -318,183 +251,137 @@ public final class RedisSources {
     }
 
     /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive. Assumes all keys and values are {@link String}s and assumes a
-     * projection function which just emits message bodies from stream elements received.
-     *
-     * @param name      name of the source being created
-     * @param uriString URI of the Redis server in String form
-     * @param stream    identifier of stream being used
-     * @param offset    start offset of the stream from which data should be requested
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static StreamSource<Map<String, String>> stream(
-            String name, String uriString, String stream, String offset
-    ) {
-        return stream(name, RedisURI.create(uriString), singletonMap(stream, offset), StringCodec::new,
-                StreamMessage::getBody);
-    }
-
-    /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive. Assumes all keys and values are {@code String}s and assumes a
-     * projection function which just emits message bodies from stream elements received. Works with a single
-     * stream.
+     * Creates a {@link StreamSource} which reads all items from multiple Redis
+     * Streams (starting from given indexes) and emits them as they arrive.
+     * Assumes all keys and values are {@code String}s and assumes a projection
+     * function which just emits message bodies from stream elements received.
+     * Works with a single stream.
      *
      * @param name   name of the source being created
      * @param uri    URI of the Redis server
      * @param stream identifier of stream being used
-     * @param offset start offset of the stream from which data should be requested
+     * @param offset start offset of the stream from which data should be
+     *               requested
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static StreamSource<Map<String, String>> stream(
-            String name, RedisURI uri, String stream, String offset
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull String stream,
+            @Nonnull String offset
     ) {
         return stream(name, uri, singletonMap(stream, offset), StringCodec::new, StreamMessage::getBody);
     }
 
     /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive. Assumes all keys and values are {@code String}s and assumes a
-     * projection function which just emits message bodies from stream elements received.
-     *
-     * @param name          name of the source being created
-     * @param uriString     URI of the Redis server in String form
-     * @param streamOffsets map keyed by stream identifiers, containing offset values from which to start
-     *                      element retrieval of each stream
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static StreamSource<Map<String, String>> stream(
-            String name,
-            String uriString,
-            Map<String, String> streamOffsets
-    ) {
-        return stream(name, RedisURI.create(uriString), streamOffsets, StringCodec::new, StreamMessage::getBody);
-    }
-
-    /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive. Assumes all keys and values are {@code String}s and assumes a
-     * projection function which just emits message bodies from stream elements received.
+     * Creates a {@link StreamSource} which reads all items from multiple Redis
+     * Streams (starting from given indexes) and emits them as they arrive.
+     * Assumes all keys and values are {@code String}s and assumes a projection
+     * function which just emits message bodies from stream elements received.
      *
      * @param name          name of the source being created
      * @param uri           URI of the Redis server
-     * @param streamOffsets map keyed by stream identifiers, containing offset values from which to start
-     *                      element retrieval of each stream
+     * @param streamOffsets map keyed by stream identifiers, containing offset
+     *                      values from which to start element retrieval of each
+     *                      stream
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static StreamSource<Map<String, String>> stream(
-            String name,
-            RedisURI uri,
-            Map<String, String> streamOffsets
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull Map<String, String> streamOffsets
     ) {
         return stream(name, uri, streamOffsets, StringCodec::new, StreamMessage::getBody);
     }
 
     /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive. Assumes all keys and values are {@code String}s.
+     * Creates a {@link StreamSource} which reads all items from multiple Redis
+     * Streams (starting from given indexes) and emits them as they arrive.
+     * Assumes all keys and values are {@code String}s.
      *
-     * @param <T>           type of data coming out of the stream, the result of applying the projection function
-     *                      over {@link StreamMessage} instances
-     * @param name          name of the source being created
-     * @param uriString     URI of the Redis server in String form
-     * @param streamOffsets map keyed by stream identifiers, containing offset values from which to start
-     *                      element retrieval of each stream
-     * @param projectionFn  built in mapping function of the source which can be used to map {@link StreamMessage}
-     *                      instances received from Redis to an arbitrary type of output; this could be done
-     *                      by an external mapping function in the pipeline too, but it's included for convenience
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static <T> StreamSource<T> stream(
-            String name,
-            String uriString,
-            Map<String, String> streamOffsets,
-            FunctionEx<? super StreamMessage<String, String>, ? extends T> projectionFn
-    ) {
-        return stream(name, RedisURI.create(uriString), streamOffsets, StringCodec::new, projectionFn);
-    }
-
-    /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive. Assumes all keys and values are {@code String}s.
-     *
-     * @param <T>           type of data coming out of the stream, the result of applying the projection function
-     *                      over {@link StreamMessage} instances
+     * @param <T>           type of data coming out of the stream, the result of
+     *                      applying the projection function over {@link
+     *                      StreamMessage} instances
      * @param name          name of the source being created
      * @param uri           URI of the Redis server
-     * @param streamOffsets map keyed by stream identifiers, containing offset values from which to start
-     *                      element retrieval of each stream
-     * @param projectionFn  built in mapping function of the source which can be used to map {@link StreamMessage}
-     *                      instances received from Redis to an arbitrary type of output; this could be done
-     *                      by an external mapping function in the pipeline too, but it's included for convenience
+     * @param streamOffsets map keyed by stream identifiers, containing offset
+     *                      values from which to start element retrieval of each
+     *                      stream
+     * @param projectionFn  built in mapping function of the source which can be
+     *                      used to map {@link StreamMessage} instances received
+     *                      from Redis to an arbitrary type of output; this
+     *                      could be done by an external mapping function in the
+     *                      pipeline too, but it's included for convenience
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static <T> StreamSource<T> stream(
-            String name,
-            RedisURI uri,
-            Map<String, String> streamOffsets,
-            FunctionEx<? super StreamMessage<String, String>, ? extends T> projectionFn
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull Map<String, String> streamOffsets,
+            @Nonnull FunctionEx<? super StreamMessage<String, String>, ? extends T> projectionFn
     ) {
         return stream(name, uri, streamOffsets, StringCodec::new, projectionFn);
     }
 
     /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive.
+     * Creates a {@link StreamSource} which reads all items from multiple Redis
+     * Streams (starting from given indexes) and emits them as they arrive.
+     * <p>
+     * Here is an example which reads all elements from two different Redis
+     * Streams, maps the objects received to a stream specific ID and drains
+     * the results out to some generic sink.
+     * <pre>{@code
+     * Map<String, String> streamOffsets = new HashMap<>();
+     * streamOffsets.put("streamA", "0");
+     * streamOffsets.put("streamB", "0");
      *
-     * @param <K>           type of the stream identifier and of fields (keys of the Redis Stream entry's body map)
-     * @param <V>           type of the field values in the message body
-     * @param <T>           type of data coming out of the stream, the result of applying the projection function
-     *                      over {@link StreamMessage} instances
-     * @param name          name of the source being created
-     * @param uriString     URI of the Redis server in String form
-     * @param streamOffsets map keyed by stream identifiers, containing offset values from which to start
-     *                      element retrieval of each stream
-     * @param codecFn       supplier of {@link RedisCodec} instances, used in turn for serializing/deserializing
-     *                      keys and values
-     * @param projectionFn  built in mapping function of the source which can be used to map {@link StreamMessage}
-     *                      instances received from Redis to an arbitrary type of output; this could be done
-     *                      by an external mapping function in the pipeline too, but it's included for convenience
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
-     */
-    public static <K, V,
-            T> StreamSource<T> stream(
-            String name,
-            String uriString,
-            Map<K, String> streamOffsets,
-            SupplierEx<RedisCodec<K, V>> codecFn,
-            FunctionEx<? super StreamMessage<K, V>, ? extends T> projectionFn
-    ) {
-        return stream(name, RedisURI.create(uriString), streamOffsets, codecFn, projectionFn);
-    }
-
-    /**
-     * Creates a {@link StreamSource} which reads all items from multiple Redis Streams (starting from
-     * given indexes) and emits them as they arrive.
+     * RedisURI uri = RedisURI.create("redis://localhost/");
      *
-     * @param <K>           type of the stream identifier and of fields (keys of the Redis Stream entry's body map)
+     * Pipeline.create()
+     *     .drawFrom(RedisSources.stream("source", uri, streamOffsets,
+     *                      StringCodec::new,
+     *                      mes -> mes.getStream() + " - " + mes.getId()))
+     *     .withoutTimestamps()
+     *     .drainTo(sink);
+     * }</pre>
+     *
+     * @param <K>           type of the stream identifier and of fields (keys of
+     *                      the Redis Stream entry's body map)
      * @param <V>           type of the field values in the message body
-     * @param <T>           type of data coming out of the stream, the result of applying the projection function
-     *                      over {@link StreamMessage} instances
+     * @param <T>           type of data coming out of the stream, the result of
+     *                      applying the projection function over {@link
+     *                      StreamMessage} instances
      * @param name          name of the source being created
      * @param uri           URI of the Redis server
-     * @param streamOffsets map keyed by stream identifiers, containing offset values from which to start
-     *                      element retrieval of each stream
-     * @param codecFn       supplier of {@link RedisCodec} instances, used in turn for serializing/deserializing
-     *                      keys and values
-     * @param projectionFn  built in mapping function of the source which can be used to map {@link StreamMessage}
-     *                      instances received from Redis to an arbitrary type of output; this could be done
-     *                      by an external mapping function in the pipeline too, but it's included for convenience
+     * @param streamOffsets map keyed by stream identifiers, containing offset
+     *                      values from which to start element retrieval of each
+     *                      stream
+     * @param codecFn       supplier of {@link RedisCodec} instances, used in
+     *                      turn for serializing/deserializing keys and values
+     * @param projectionFn  built in mapping function of the source which can be
+     *                      used to map {@link StreamMessage} instances received
+     *                      from Redis to an arbitrary type of output; this
+     *                      could be done by an external mapping function in the
+     *                      pipeline too, but it's included for convenience
      * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
      */
+    @Nonnull
     public static <K, V, T> StreamSource<T> stream(
-            String name,
-            RedisURI uri,
-            Map<K, String> streamOffsets,
-            SupplierEx<RedisCodec<K, V>> codecFn,
-            FunctionEx<? super StreamMessage<K, V>, ? extends T> projectionFn
+            @Nonnull String name,
+            @Nonnull RedisURI uri,
+            @Nonnull Map<K, String> streamOffsets,
+            @Nonnull SupplierEx<RedisCodec<K, V>> codecFn,
+            @Nonnull FunctionEx<? super StreamMessage<K, V>, ? extends T> projectionFn
     ) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(uri, "uri");
+        Objects.requireNonNull(streamOffsets, "streamOffsets");
+        Objects.requireNonNull(codecFn, "codecFn");
+        Objects.requireNonNull(projectionFn, "projectionFn");
+
         return streamFromProcessorWithWatermarks(name,
                 w -> StreamRedisP.streamRedisP(uri, streamOffsets, w, codecFn, projectionFn), false);
     }
@@ -509,6 +396,7 @@ public final class RedisSources {
         private final FunctionEx<Map.Entry<K, V>, T> mapFn;
         private final BlockingQueue<Map.Entry<K, V>> queue = new ArrayBlockingQueue<>(NO_OF_ITEMS_TO_FETCH_AT_ONCE);
         private final RedisFuture<Long> commandFuture;
+        private final List<Map.Entry<K, V>> batchHolder = new ArrayList<>(NO_OF_ITEMS_TO_FETCH_AT_ONCE);
 
         private volatile InterruptedException exception;
 
@@ -537,16 +425,20 @@ public final class RedisSources {
                 throw exception;
             }
 
-            for (int i = 0; i < NO_OF_ITEMS_TO_FETCH_AT_ONCE; i++) {
-                Map.Entry<K, V> item = queue.poll(POLL_DURATION.toMillis(), TimeUnit.MILLISECONDS);
-                if (item == null) {
+            int itemsToFetch = NO_OF_ITEMS_TO_FETCH_AT_ONCE;
+            while (itemsToFetch > 0) {
+                int itemsFetched = queue.drainTo(batchHolder, itemsToFetch);
+                if (itemsFetched <= 0) {
                     if (commandFuture.isDone()) {
                         buffer.close();
                     }
                     return;
                 } else {
-                    T t = mapFn.apply(item);
-                    buffer.add(t);
+                    batchHolder.stream()
+                            .map(mapFn)
+                            .forEach(buffer::add);
+                    batchHolder.clear();
+                    itemsToFetch -= itemsFetched;
                 }
             }
         }

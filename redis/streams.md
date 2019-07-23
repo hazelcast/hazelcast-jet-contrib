@@ -40,8 +40,10 @@ Map<String, String> streamOffsets = new HashMap<>();
 streamOffsets.put("streamA", "0");
 streamOffsets.put("streamB", "0");
 
+RedisURI uri = RedisURI.create("redis://localhost/");
+
 Pipeline.create()
-    .drawFrom(RedisSources.redisStream("redis://localhost/", streamOffsets,
+    .drawFrom(RedisSources.stream("source", uri, streamOffsets,
                     mes -> mes.getStream() + " - " + mes.getId()))
     .withoutTimestamps()
     .drainTo(sink);
@@ -57,9 +59,10 @@ The Redis Streams sink (`RedisSinks.stream()`) is used to write data points from
 Following is an example pipeline which reads out measurements from Hazelcast List and writes them to a Redis Stream.
 
 ```java
+RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
     .drawFrom(Sources.list(list))
-    .drainTo(RedisSinks.redisStream("redis://localhost/", "stream"));
+    .drainTo(RedisSinks.stream("sink", uri, "stream"));
 ```
 
 For more detail check out [RedisSinks](src/main/java/com/hazelcast/jet/contrib/redis/RedisSinks.java) & 
