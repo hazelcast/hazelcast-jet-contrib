@@ -25,10 +25,8 @@ For development, the fastest way to get it working is to use [Homebrew](https://
 ### Java client
 
 Redis Connector artifacts are published on the Maven repositories. The connectors in turn also have a dependency of
-their own on the [Lettuce](https://github.com/lettuce-io/lettuce-core) Redis Java client, so that jar must also be
-on the classpath. 
-
-Add the following lines to your pom.xml:
+their own on the [Lettuce](https://github.com/lettuce-io/lettuce-core) Redis Java client, but that jar will be included
+transitively. Just add the following lines to your pom.xml:
 
 ```
 <dependency>
@@ -36,18 +34,11 @@ Add the following lines to your pom.xml:
     <artifactId>redis</artifactId>
     <version>${version}</version>
 </dependency>
-
-<dependency>
-    <groupId>io.lettuce</groupId>
-    <artifactId>lettuce-core</artifactId>
-    <version>5.1.7.RELEASE</version>
-</dependency>
 ```
 
 Or if you are using Gradle: 
 ```
 compile group: 'com.hazelcast.jet.contrib', name: 'redis', version: ${version}
-compile group: 'io.lettuce', name: 'lettuce-core', version: '5.1.7.RELEASE'
 ```
 
 ## Running the tests
