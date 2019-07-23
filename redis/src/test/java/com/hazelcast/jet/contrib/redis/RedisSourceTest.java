@@ -109,11 +109,11 @@ public class RedisSourceTest extends JetTestSupport {
 
     @Test
     public void sortedSet() {
-        int elementCount = 1_000_000;
+        int elementCount = 100_000;
         fillSortedSet("sortedSet", elementCount);
 
-        int rangeStart = 10_000;
-        int rangeEnd = 510_000;
+        int rangeStart = 1_000;
+        int rangeEnd = 51_000;
 
         Pipeline p = Pipeline.create();
         p.drawFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
@@ -131,7 +131,7 @@ public class RedisSourceTest extends JetTestSupport {
     private void fillSortedSet(String sortedSet, int elementCount) {
         RedisCommands<String, String> commands = connection.sync();
 
-        int batchSize = 1_000;
+        int batchSize = 100;
         List<ScoredValue<String>> scoredValues = new ArrayList<>(batchSize);
         for (int i = 0; i < elementCount; i++) {
             scoredValues.add(ScoredValue.fromNullable(i, "foobar-" + i));
