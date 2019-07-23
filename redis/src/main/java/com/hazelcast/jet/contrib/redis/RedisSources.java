@@ -28,6 +28,7 @@ import com.hazelcast.jet.core.ProcessorSupplier;
 import com.hazelcast.jet.core.processor.Processors;
 import com.hazelcast.jet.function.FunctionEx;
 import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.jet.impl.util.Util;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
@@ -169,6 +170,9 @@ public final class RedisSources {
         Objects.requireNonNull(hash, "hash");
         Objects.requireNonNull(codecFn, "codecFn");
         Objects.requireNonNull(mapFn, "mapFn");
+
+        Util.checkSerializable(codecFn, "codecFn");
+        Util.checkSerializable(mapFn, "mapFn");
 
         return SourceBuilder
                 .batch(name, context -> new HashContext<>(uri, hash, codecFn, mapFn))
@@ -382,6 +386,9 @@ public final class RedisSources {
         Objects.requireNonNull(codecFn, "codecFn");
         Objects.requireNonNull(projectionFn, "projectionFn");
 
+        Util.checkSerializable(codecFn, "codecFn");
+        Util.checkSerializable(projectionFn, "projectionFn");
+
         return streamFromProcessorWithWatermarks(name,
                 w -> StreamRedisP.streamRedisP(uri, streamOffsets, w, codecFn, projectionFn), false);
     }
@@ -389,7 +396,6 @@ public final class RedisSources {
     private static class HashContext<K, V, T> implements KeyValueStreamingChannel<K, V> {
 
         private static final int NO_OF_ITEMS_TO_FETCH_AT_ONCE = 100;
-        private static final Duration POLL_DURATION = Duration.ofMillis(100);
 
         private final RedisClient client;
         private final StatefulRedisConnection<K, V> connection;
@@ -425,21 +431,16 @@ public final class RedisSources {
                 throw exception;
             }
 
-            int itemsToFetch = NO_OF_ITEMS_TO_FETCH_AT_ONCE;
-            while (itemsToFetch > 0) {
-                int itemsFetched = queue.drainTo(batchHolder, itemsToFetch);
-                if (itemsFetched <= 0) {
-                    if (commandFuture.isDone()) {
-                        buffer.close();
-                    }
-                    return;
-                } else {
-                    batchHolder.stream()
-                            .map(mapFn)
-                            .forEach(buffer::add);
-                    batchHolder.clear();
-                    itemsToFetch -= itemsFetched;
+            int itemsFetched = queue.drainTo(batchHolder, NO_OF_ITEMS_TO_FETCH_AT_ONCE);
+            if (itemsFetched <= 0) {
+                if (commandFuture.isDone()) {
+                    buffer.close();
                 }
+            } else {
+                batchHolder.stream()
+                        .map(mapFn)
+                        .forEach(buffer::add);
+                batchHolder.clear();
             }
         }
 

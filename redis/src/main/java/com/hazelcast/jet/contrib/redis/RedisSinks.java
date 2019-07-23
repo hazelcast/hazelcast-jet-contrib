@@ -18,6 +18,7 @@ package com.hazelcast.jet.contrib.redis;
 
 import com.hazelcast.jet.function.FunctionEx;
 import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.jet.impl.util.Util;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import io.lettuce.core.LettuceFutures;
@@ -137,6 +138,10 @@ public final class RedisSinks {
         Objects.requireNonNull(keyFn, "keyFn");
         Objects.requireNonNull(valueFn, "valueFn");
 
+        Util.checkSerializable(codecFn, "codecFn");
+        Util.checkSerializable(keyFn, "keyFn");
+        Util.checkSerializable(valueFn, "valueFn");
+
         return SinkBuilder
                 .sinkBuilder(name, context -> new HashContext<>(uri, hash, codecFn.get(), keyFn, valueFn))
                 .<T>receiveFn(HashContext::store)
@@ -237,6 +242,10 @@ public final class RedisSinks {
         Objects.requireNonNull(scoreFn, "scoreFn");
         Objects.requireNonNull(valueFn, "valueFn");
 
+        Util.checkSerializable(codecFn, "codecFn");
+        Util.checkSerializable(scoreFn, "scoreFn");
+        Util.checkSerializable(valueFn, "valueFn");
+
         return SinkBuilder.sinkBuilder(name, ctx -> new SortedSetContext<>(uri, set, codecFn.get(), scoreFn, valueFn))
                 .<T>receiveFn(SortedSetContext::store)
                 .flushFn(SortedSetContext::flush)
@@ -327,6 +336,9 @@ public final class RedisSinks {
         Objects.requireNonNull(stream, "stream");
         Objects.requireNonNull(codecFn, "codecFn");
         Objects.requireNonNull(mapFn, "mapFn");
+
+        Util.checkSerializable(codecFn, "codecFn");
+        Util.checkSerializable(mapFn, "mapFn");
 
         return SinkBuilder
                 .sinkBuilder(name, c -> new StreamContext<>(uri, stream, codecFn, mapFn))
