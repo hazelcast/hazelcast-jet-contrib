@@ -109,11 +109,11 @@ public class RedisSourceTest extends JetTestSupport {
 
     @Test
     public void sortedSet() {
-        int elementCount = 100_000;
+        int elementCount = 1_000_000;
         fillSortedSet("sortedSet", elementCount);
 
-        int rangeStart = 1_000;
-        int rangeEnd = 51_000;
+        int rangeStart = 100_000;
+        int rangeEnd = 500_000;
 
         Pipeline p = Pipeline.create();
         p.drawFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
@@ -131,17 +131,19 @@ public class RedisSourceTest extends JetTestSupport {
     private void fillSortedSet(String sortedSet, int elementCount) {
         RedisCommands<String, String> commands = connection.sync();
 
-        int batchSize = 100;
+        int batchSize = 100_000;
         List<ScoredValue<String>> scoredValues = new ArrayList<>(batchSize);
         for (int i = 0; i < elementCount; i++) {
             scoredValues.add(ScoredValue.fromNullable(i, "foobar-" + i));
             if (scoredValues.size() == batchSize) {
-                commands.zadd(sortedSet, scoredValues.toArray(new ScoredValue[0]));
+                long added = commands.zadd(sortedSet, scoredValues.toArray(new ScoredValue[0]));
+                assertEquals(scoredValues.size(), added);
                 scoredValues.clear();
             }
         }
         if (!scoredValues.isEmpty()) {
-            commands.zadd(sortedSet, scoredValues.toArray(new ScoredValue[0]));
+            long added = commands.zadd(sortedSet, scoredValues.toArray(new ScoredValue[0]));
+            assertEquals(scoredValues.size(), added);
         }
     }
 
