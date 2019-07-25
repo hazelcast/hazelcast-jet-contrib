@@ -164,7 +164,6 @@ subprojects {
     
     tasks.withType(Test) {
         maxParallelForks = 1
-        ignoreFailures = true
     }
 
 
