@@ -202,29 +202,30 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
         col1.insertOne(new Document("val", 1));
         col1.insertOne(new Document("val", 10).append("foo", "bar"));
 
-        col2.insertOne(new Document("val", 1));
-        col2.insertOne(new Document("val", 10).append("foo", "bar"));
+        col2.insertOne(new Document("val", 2));
+        col2.insertOne(new Document("val", 11).append("foo", "bar"));
 
         assertTrueEventually(() -> {
             assertEquals(2, list.size());
-            list.forEach(document -> {
-                assertEquals(10, document.get("val"));
-                assertNull(document.get("foo"));
-            });
+            list.forEach(document -> assertNull(document.get("foo")));
+
+            assertEquals(10, list.get(0).get("val"));
+            assertEquals(11, list.get(1).get("val"));
+
         });
 
-        col1.insertOne(new Document("val", 2));
-        col1.insertOne(new Document("val", 20).append("foo", "bar"));
+        col1.insertOne(new Document("val", 3));
+        col1.insertOne(new Document("val", 12).append("foo", "bar"));
 
-        col2.insertOne(new Document("val", 2));
-        col2.insertOne(new Document("val", 20).append("foo", "bar"));
+        col2.insertOne(new Document("val", 4));
+        col2.insertOne(new Document("val", 13).append("foo", "bar"));
 
         assertTrueEventually(() -> {
             assertEquals(4, list.size());
-            list.stream().skip(2).forEach(document -> {
-                assertEquals(20, document.get("val"));
-                assertNull(document.get("foo"));
-            });
+            list.forEach(document -> assertNull(document.get("foo")));
+
+            assertEquals(12, list.get(2).get("val"));
+            assertEquals(13, list.get(3).get("val"));
         });
 
         job.cancel();
@@ -243,7 +244,7 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
                 .destroyFn(MongoClient::close)
                 .searchFn(client -> {
                     List<Bson> aggregates = new ArrayList<>();
-                    aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gte", 10))
+                    aggregates.add(Aggregates.match(new Document("fullDocument.val", new Document("$gt", 10))
                             .append("operationType", "insert")));
 
                     aggregates.add(Aggregates.project(new Document("fullDocument.val", 1).append("_id", 1)));
@@ -265,33 +266,35 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
         MongoCollection<Document> col3 = collection("db2", "col3");
 
         col1.insertOne(new Document("val", 1));
-        col1.insertOne(new Document("val", 10).append("foo", "bar"));
-        col2.insertOne(new Document("val", 1));
-        col2.insertOne(new Document("val", 10).append("foo", "bar"));
-        col3.insertOne(new Document("val", 1));
-        col3.insertOne(new Document("val", 10).append("foo", "bar"));
+        col1.insertOne(new Document("val", 11).append("foo", "bar"));
+        col2.insertOne(new Document("val", 2));
+        col2.insertOne(new Document("val", 12).append("foo", "bar"));
+        col3.insertOne(new Document("val", 3));
+        col3.insertOne(new Document("val", 13).append("foo", "bar"));
 
         assertTrueEventually(() -> {
             assertEquals(3, list.size());
-            list.forEach(document -> {
-                assertEquals(10, document.get("val"));
-                assertNull(document.get("foo"));
-            });
+            list.forEach(document -> assertNull(document.get("foo")));
+
+            assertEquals(11, list.get(0).get("val"));
+            assertEquals(12, list.get(1).get("val"));
+            assertEquals(13, list.get(2).get("val"));
         });
 
-        col1.insertOne(new Document("val", 2));
-        col1.insertOne(new Document("val", 20).append("foo", "bar"));
-        col2.insertOne(new Document("val", 2));
-        col2.insertOne(new Document("val", 20).append("foo", "bar"));
-        col2.insertOne(new Document("val", 2));
-        col2.insertOne(new Document("val", 20).append("foo", "bar"));
+        col1.insertOne(new Document("val", 4));
+        col1.insertOne(new Document("val", 14).append("foo", "bar"));
+        col2.insertOne(new Document("val", 5));
+        col2.insertOne(new Document("val", 15).append("foo", "bar"));
+        col2.insertOne(new Document("val", 6));
+        col2.insertOne(new Document("val", 16).append("foo", "bar"));
 
         assertTrueEventually(() -> {
             assertEquals(6, list.size());
-            list.stream().skip(3).forEach(document -> {
-                assertEquals(20, document.get("val"));
-                assertNull(document.get("foo"));
-            });
+            list.forEach(document -> assertNull(document.get("foo")));
+
+            assertEquals(14, list.get(3).get("val"));
+            assertEquals(15, list.get(4).get("val"));
+            assertEquals(16, list.get(5).get("val"));
         });
 
         job.cancel();

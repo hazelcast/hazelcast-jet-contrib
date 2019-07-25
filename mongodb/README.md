@@ -48,25 +48,29 @@ compile group: 'com.hazelcast.jet.contrib', name: 'mongodb', version: ${version}
 MongoDB batch source (`MongoDBSources.mongodb()`)  executes the 
 query and emits the results as they arrive.
 
-Following is an example pipeline which queries from `myCollection` which is in 
-`myDatabase`, filters the documents which has `val` field greater than or equal
-to `10`, applies the projection so that only the `val` and `_id` fields are
-returned and logs them.
+Here's an example which queries documents in a collection having the field 
+`age` with a value greater than `10` and applies a projection so that only
+the `age` field is returned in the emitted document.
 
 ```java
+BatchSource<Document> batchSource =
+        MongoDBSources.batch(
+                "batch-source",
+                "mongodb://127.0.0.1:27017",
+                "myDatabase",
+                "myCollection",
+                new Document("age", new Document("$gt", 10)),
+                new Document("age", 1)
+        );
 Pipeline p = Pipeline.create();
-p.drawFrom(
-    MongoDBSources.mongodb(
-        "batchSource", 
-        "mongodb://localhost:27017",
-        "myDatabase",
-        "myCollection",
-        new Document("val", new Document("$gte", 10)),
-        new Document("val", 1).append("_id", 0)
-    )
-)
-.drainTo(Sinks.logger());
+BatchStage<Document> srcStage = p.drawFrom(batchSource);
 ```
+
+For more detail check out 
+[MongoDBSources](src/main/java/com/hazelcast/jet/contrib/mongodb/MongoDBSources.java),
+[MongoDBSourceBuilder](src/main/java/com/hazelcast/jet/contrib/mongodb/MongoDBSourceBuilder.java)
+and 
+[MongoDBSourceTest](src/test/java/com/hazelcast/jet/contrib/mongodb/MongoDBSourceTest.java).
 
 ### As a Stream Source
 
@@ -79,24 +83,30 @@ Source filters the changes so that only `insert`s which has the `val` field
 greater than or equal to `10` will be fetched, applies the projection so that
 only the `val` and `_id` fields are returned.
 
-In this example we are using 
+Here's an example which streams inserts on a collection having the field `age`
+with a value greater than `10` and applies a projection so that only the `age`
+field is returned in the emitted document.
 
 ```java
-Pipeline p = Pipeline.create();
-p.drawFrom(
-    MongoDBSources.streamMongodb(
-        "streamSource",
-        "mongodb://localhost:27017",
-        "myDatabase",
-        "myCollection",
-        new Document("fullDocument.val", new Document("$gte", 10))
+StreamSource<? extends Document> streamSource =
+        MongoDBSources.stream(
+                "stream-source",
+                "mongodb://127.0.0.1:27017",
+                "myDatabase",
+                "myCollection",
+                new Document("fullDocument.age", new Document("$gt", 10))
                         .append("operationType", "insert"),
-        new Document("fullDocument.val", 1).append("_id", 1)
-    )
-)
-.withNativeTimestamps(0)
-.drainTo(Sinks.logger());
+                new Document("fullDocument.age", 1)
+        );
+Pipeline p = Pipeline.create();
+StreamSourceStage<? extends Document> srcStage = p.drawFrom(streamSource);
 ```
+
+For more detail check out 
+[MongoDBSources](src/main/java/com/hazelcast/jet/contrib/mongodb/MongoDBSources.java),
+[MongoDBSourceBuilder](src/main/java/com/hazelcast/jet/contrib/mongodb/MongoDBSourceBuilder.java)
+and 
+[MongoDBSourceTest](src/test/java/com/hazelcast/jet/contrib/mongodb/MongoDBSourceTest.java).
 
 
 ### As a Sink
@@ -121,13 +131,16 @@ p.drawFrom(Sources.list(list))
  );
 ```
 
-Check out `com.hazelcast.jet.contrib.influxdb.MongoDBSinkTest` test class for a
-more complete setup.
+For more detail check out 
+[MongoDBSinks](src/main/java/com/hazelcast/jet/contrib/mongodb/MongoDBSinks.java),
+[MongoDBSinkBuilder](src/main/java/com/hazelcast/jet/contrib/mongodb/MongoDBSinkBuilder.java)
+and 
+[MongoDBSinkTest](src/test/java/com/hazelcast/jet/contrib/mongodb/MongoDBSinkTest.java).
 
 ## Fault Tolerance
 
 MongoDB stream source saves the resume-token of the last emitted item as a 
-state to the snapshot. In case of a job restarted source will resume from the
+state to the snapshot. In case of a job restarted, source will resume from the
 resume-token.  
 
 ## Running the tests

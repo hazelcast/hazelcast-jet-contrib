@@ -24,7 +24,7 @@ import org.testcontainers.containers.GenericContainer;
 import java.util.Collections;
 import java.util.Set;
 
-public class MongoDBContainer<SELF extends MongoDBContainer<SELF>> extends GenericContainer<SELF> {
+public class MongoDBContainer extends GenericContainer<MongoDBContainer> {
 
     public static final String VERSION = "4.1.13";
     public static final Integer MONGODB_PORT = 27017;
@@ -61,7 +61,7 @@ public class MongoDBContainer<SELF extends MongoDBContainer<SELF>> extends Gener
      *
      * @param replicaSetName Enables replicaSet.
      */
-    public SELF withReplicaSetName(String replicaSetName) {
+    public MongoDBContainer withReplicaSetName(String replicaSetName) {
         this.replicaSetName = replicaSetName;
         return self();
     }
