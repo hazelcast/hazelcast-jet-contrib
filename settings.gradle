@@ -1,5 +1,6 @@
 rootProject.name = 'hazelcast-jet-contrib'
 include 'influxdb'
+include 'redis'
 include 'probabilistic'
 include 'elasticsearch-5'
 include 'elasticsearch-6'
