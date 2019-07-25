@@ -53,7 +53,7 @@ public final class RedisSinks {
     /**
      * Creates a {@link Sink} which pushes data items into a specified Redis
      * Hash. Assumes that all keys and values are {@link String}s and that
-     * incoming data items are raw {@link Map.Entry}s.
+     * incoming data items are raw {@link java.util.Map.Entry}s.
      *
      * @param name name of the source being created
      * @param uri  URI of the Redis server
@@ -153,8 +153,8 @@ public final class RedisSinks {
     /**
      * Creates a {@link Sink} which pushes data items into a specified Redis
      * Sorted Set. Assumes that the sorted set identifier and stored values are
-     * all {@code String}s and the incoming data items are {@link
-     * ScoredValue<String>}s.
+     * all {@code String}s and the incoming data items are
+     * {@link io.lettuce.core.ScoredValue}s.
      *
      * @param name name of the source being created
      * @param uri  URI of the Redis server

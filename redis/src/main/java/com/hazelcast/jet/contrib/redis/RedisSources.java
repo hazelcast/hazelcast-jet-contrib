@@ -87,7 +87,8 @@ public final class RedisSources {
      * Redis Hash, applies a mapping function on them and emits the resulting
      * data items as they become available. Assumes all keys and values are
      * {@link String}s. The returned data items are raw key-value pairs in form
-     * of {@link Map.Entry}s. The batch ends when all elements have been
+     * of {@link java.util.Map.Entry}s. The batch ends when all elements have
+     * been
      * received.
      *
      * @param name name of the source being created
