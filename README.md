@@ -39,6 +39,10 @@ from/to Elasticsearch.
 
 Hazelcast Jet connectors for various Redis data structures.
 
+### [MongoDB Connector](mongodb) 
+
+A Hazelcast Jet connector for MongoDB for querying/inserting objects
+from/to MongoDB.
 
 ## Snapshot Releases
 
