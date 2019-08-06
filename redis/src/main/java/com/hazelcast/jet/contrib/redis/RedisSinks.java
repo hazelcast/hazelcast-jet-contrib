@@ -404,7 +404,7 @@ public final class RedisSinks {
 
     private static class SortedSetContext<K, V, T> {
 
-        private static final Duration FLUSH_TIMEOUT = Duration.ofSeconds(1);
+        private static final Duration FLUSH_TIMEOUT = Duration.ofSeconds(10);
 
         private final RedisClient client;
         private final StatefulRedisConnection<K, V> connection;
