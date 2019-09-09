@@ -20,6 +20,7 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.contrib.http.marshalling.impl.HazelcastInternalJsonMarshallingStrategy;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.function.SupplierEx;
@@ -69,10 +70,9 @@ public class HttpListenerSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
 
-        p.drawFrom(HttpListenerSources.httpListener(portOffset))
+        p.drawFrom(HttpListenerSources.httpListener(portOffset, new HazelcastInternalJsonMarshallingStrategy()))
          .withoutTimestamps()
-         .map(JsonValue::asObject)
-         .filter(object -> object.get("id").asInt() >= 80)
+         .filter(object -> object.asObject().get("id").asInt() >= 80)
          .drainTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
@@ -117,7 +117,7 @@ public class HttpListenerSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
 
-        p.drawFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier))
+        p.drawFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier, new HazelcastInternalJsonMarshallingStrategy()))
          .withoutTimestamps()
          .map(JsonValue::asObject)
          .filter(object -> object.get("id").asInt() >= 80)

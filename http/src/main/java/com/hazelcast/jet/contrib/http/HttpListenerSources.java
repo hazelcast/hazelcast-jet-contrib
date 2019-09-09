@@ -16,9 +16,9 @@
 
 package com.hazelcast.jet.contrib.http;
 
-import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.contrib.http.marshalling.MarshallingStrategy;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
 import com.hazelcast.jet.pipeline.StreamSource;
@@ -60,12 +60,12 @@ public final class HttpListenerSources {
      * @return {@link JsonValue}, parsed JSON payload on HTTP request
      */
     @Nonnull
-    public static StreamSource<JsonValue> httpListener(@Nonnull int portOffset) {
+    public static <T> StreamSource<T> httpListener(@Nonnull int portOffset, @Nonnull MarshallingStrategy<T> marshallingStrategy) {
         checkPositive(portOffset, "portOffset cannot be negative");
 
         return SourceBuilder.stream("http-listener(base port +" + portOffset + ")", ctx ->
-                new HttpListenerSourceContext(ctx.jetInstance(), portOffset))
-                            .fillBufferFn(HttpListenerSourceContext::fillBuffer)
+                new HttpListenerSourceContext<>(ctx.jetInstance(), portOffset, marshallingStrategy))
+                            .<T>fillBufferFn(HttpListenerSourceContext::fillBuffer)
                             .destroyFn(HttpListenerSourceContext::close)
                             .distributed(1)
                             .build();
@@ -85,40 +85,43 @@ public final class HttpListenerSources {
      * @return {@link JsonValue} parsed JSON payload on HTTPS request
      */
     @Nonnull
-    public static StreamSource<JsonValue> httpsListener(@Nonnull int portOffset,
-                                                        @Nonnull Supplier<SSLContext> sslContextSupplier) {
+    public static <T> StreamSource<T> httpsListener(@Nonnull int portOffset,
+                                                    @Nonnull Supplier<SSLContext> sslContextSupplier,
+                                                    @Nonnull MarshallingStrategy<T> marshallingStrategy) {
         checkPositive(portOffset, "portOffset cannot be negative");
         checkNotNull(sslContextSupplier, "sslContextSupplier cannot be null");
 
         return SourceBuilder.stream("https-listener(base port + " + portOffset + ")", ctx ->
-                new HttpListenerSourceContext(ctx.jetInstance(), portOffset, sslContextSupplier.get()))
-                            .fillBufferFn(HttpListenerSourceContext::fillBuffer)
+                new HttpListenerSourceContext<>(ctx.jetInstance(), portOffset, marshallingStrategy, sslContextSupplier.get()))
+                            .<T>fillBufferFn(HttpListenerSourceContext::fillBuffer)
                             .destroyFn(HttpListenerSourceContext::close)
                             .distributed(1)
                             .build();
     }
 
-    private static class HttpListenerSourceContext {
+    private static class HttpListenerSourceContext<T> {
 
         private static final ILogger LOGGER = Logger.getLogger(HttpListenerSources.class);
         private static final int MAX_FILL_ELEMENTS = 100;
 
-        private final BlockingQueue<JsonValue> queue = new ArrayBlockingQueue<>(1000);
-        private final ArrayList<JsonValue> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
+        private final BlockingQueue<T> queue = new ArrayBlockingQueue<>(1000);
+        private final ArrayList<T> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
         private final Undertow undertow;
+        private MarshallingStrategy<T> marshallingStrategy;
         private final HttpHandler handler = exchange ->
                 exchange
                         .getRequestReceiver()
                         .receiveFullString((e, message) -> {
-                            queue.offer(Json.parse(message));
+                            queue.offer(marshallingStrategy.getObject(message));
                             e.endExchange();
                         });
 
-        HttpListenerSourceContext(JetInstance jet, int portOffset) {
-            this(jet, portOffset, null);
+        HttpListenerSourceContext(JetInstance jet, int portOffset, MarshallingStrategy<T> marshallingStrategy) {
+            this(jet, portOffset, marshallingStrategy, null);
         }
 
-        HttpListenerSourceContext(JetInstance jet, int portOffset, @Nullable SSLContext sslContext) {
+        HttpListenerSourceContext(JetInstance jet, int portOffset, MarshallingStrategy<T> marshallingStrategy, @Nullable SSLContext sslContext) {
+            this.marshallingStrategy = marshallingStrategy;
             Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
             String host = localAddress.getHost();
             int port = localAddress.getPort() + portOffset;
@@ -138,9 +141,9 @@ public final class HttpListenerSources {
             undertow.start();
         }
 
-        void fillBuffer(SourceBuffer<JsonValue> sourceBuffer) {
+        void fillBuffer(SourceBuffer<T> sourceBuffer) {
             queue.drainTo(buffer, MAX_FILL_ELEMENTS);
-            for (JsonValue json : buffer) {
+            for (T json : buffer) {
                 sourceBuffer.add(json);
             }
             buffer.clear();
