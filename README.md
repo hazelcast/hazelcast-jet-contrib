@@ -44,6 +44,10 @@ Hazelcast Jet connectors for various Redis data structures.
 A Hazelcast Jet connector for MongoDB for querying/inserting objects
 from/to MongoDB.
 
+### [Deduplication Module](deduplication) 
+
+A module for stream deduplication.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations
