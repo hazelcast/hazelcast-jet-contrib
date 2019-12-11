@@ -26,6 +26,12 @@ subprojects {
     repositories {
         mavenCentral()
         mavenLocal()
+        maven {
+            url "https://oss.sonatype.org/content/repositories/snapshots"
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
     }
 
     idea {
@@ -46,8 +52,8 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        jetVersion = '3.1'
-        hazelcastVersion = '3.12.1'
+        jetVersion = '4.0-SNAPSHOT'
+        hazelcastVersion = '3.12.4'
     }
 
     dependencies {
@@ -55,7 +61,6 @@ subprojects {
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
         testCompile "com.hazelcast.jet:hazelcast-jet-core:" + jetVersion + ":tests"
         testCompile "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
-        testCompile "com.hazelcast:hazelcast-client:" + hazelcastVersion + ":tests"
         testCompile "javax.cache:cache-api:1.1.0"
         testCompile 'log4j:log4j:1.2.17'
         testCompile 'junit:junit:4.11'

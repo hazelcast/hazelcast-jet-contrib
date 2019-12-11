@@ -16,11 +16,11 @@
 
 package com.hazelcast.jet.contrib.probabilistic;
 
-import com.hazelcast.jet.function.BiFunctionEx;
-import com.hazelcast.jet.pipeline.ContextFactory;
-import com.hazelcast.nio.serialization.Data;
+import com.hazelcast.function.BiFunctionEx;
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.SerializationService;
+import com.hazelcast.jet.pipeline.ServiceFactory;
 import com.hazelcast.spi.impl.SerializationServiceSupport;
-import com.hazelcast.spi.serialization.SerializationService;
 
 /**
  * Utility for calculating hashes from arbitrary objects.
@@ -35,12 +35,12 @@ public final class HashingSupport {
     }
 
     /**
-     * Creates a new factory for hashing context.
+     * Creates a new factory for hashing service.
      *
-     * @return factory for hashing context
+     * @return factory for hashing service
      */
-    public static ContextFactory<HashingContext> hashingContextFactory() {
-        return ContextFactory.withCreateFn(jet -> {
+    public static ServiceFactory<HashingContext> hashingServiceFactory() {
+        return ServiceFactory.withCreateFn(jet -> {
             SerializationServiceSupport support = (SerializationServiceSupport) jet.getHazelcastInstance();
             SerializationService serializationService = support.getSerializationService();
             return new HashingContext(serializationService);
@@ -48,7 +48,7 @@ public final class HashingSupport {
     }
 
     /**
-     * Calculate 64 bit hash. It's meant to work together with a factory returned by {@link #hashingContextFactory()}
+     * Calculate 64 bit hash. It's meant to work together with a factory returned by {@link #hashingServiceFactory()}
      *
      * @param <T> type of the element to calculate hash from.uses Hazelcast internal
      * @return function to calculate hash.

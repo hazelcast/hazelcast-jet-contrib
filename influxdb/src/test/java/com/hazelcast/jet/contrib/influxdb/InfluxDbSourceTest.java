@@ -66,14 +66,14 @@ public class InfluxDbSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
 
-        p.drawFrom(
+        p.readFrom(
                 InfluxDbSources.influxDb("SELECT * FROM test_db..test",
                         DATABASE_NAME,
                         influxdbContainer.getUrl(),
                         USERNAME,
                         PASSWORD,
                         (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
-         .drainTo(Sinks.list("results"));
+         .writeTo(Sinks.list("results"));
 
         jet.newJob(p).join();
 
@@ -87,7 +87,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
 
-        p.drawFrom(
+        p.readFrom(
                 InfluxDbSources.influxDb("SELECT * FROM test_db..cpu",
                         DATABASE_NAME,
                         influxdbContainer.getUrl(),
@@ -95,7 +95,7 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         PASSWORD,
                         Cpu.class))
          .addTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
-         .drainTo(Sinks.list("results"));
+         .writeTo(Sinks.list("results"));
 
         jet.newJob(p).join();
 

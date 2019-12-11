@@ -43,10 +43,10 @@ streamOffsets.put("streamB", "0");
 RedisURI uri = RedisURI.create("redis://localhost/");
 
 Pipeline.create()
-    .drawFrom(RedisSources.stream("source", uri, streamOffsets,
+    .readFrom(RedisSources.stream("source", uri, streamOffsets,
                     mes -> mes.getStream() + " - " + mes.getId()))
     .withoutTimestamps()
-    .drainTo(sink);
+    .writeTo(sink);
 ```
 
 For more detail check out [RedisSources](src/main/java/com/hazelcast/jet/contrib/redis/RedisSources.java) & 
@@ -61,8 +61,8 @@ Following is an example pipeline which reads out measurements from Hazelcast Lis
 ```java
 RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(Sources.list(list))
-    .drainTo(RedisSinks.stream("sink", uri, "stream"));
+    .readFrom(Sources.list(list))
+    .writeTo(RedisSinks.stream("sink", uri, "stream"));
 ```
 
 For more detail check out [RedisSinks](src/main/java/com/hazelcast/jet/contrib/redis/RedisSinks.java) & 

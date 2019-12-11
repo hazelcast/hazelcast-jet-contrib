@@ -52,7 +52,7 @@ second column values on the row to a tuple and logs them.
 
 ```java
 Pipeline p = Pipeline.create();
-p.drawFrom(
+p.readFrom(
         InfluxDbSources.influxDb("SELECT * FROM db..cpu_usages",
                 DATABASE_NAME,
                 INFLUXDB_URL,
@@ -60,7 +60,7 @@ p.drawFrom(
                 PASSWORD,
                 (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
 )
- .drainTo(Sinks.logger());
+ .writeTo(Sinks.logger());
 ```
 
 Check out [InfluxDbSourceTest](src/test/java/com/hazelcast/jet/contrib/influxdb/InfluxDbSourceTest.java) test class 
@@ -77,12 +77,12 @@ List, maps them to `Point` instances and writes them to InfluxDb.
 
 ```java
 Pipeline p = Pipeline.create();
-p.drawFrom(Sources.list(measurements))
+p.readFrom(Sources.list(measurements))
  .map(index -> Point.measurement("mem_usage")
                     .time(System.nanoTime(), TimeUnit.NANOSECONDS)
                     .addField("value", index)
                     .build())
- .drainTo(InfluxDbSinks.influxDb(DB_URL, DATABASE_NAME, USERNAME, PASSWORD));
+ .writeTo(InfluxDbSinks.influxDb(DB_URL, DATABASE_NAME, USERNAME, PASSWORD));
 ```
 
 Check out [InfluxDbSinkTest](src/test/java/com/hazelcast/jet/contrib/influxdb/InfluxDbSinkTest.java) test class for a 

@@ -16,9 +16,9 @@
 
 package com.hazelcast.jet.contrib.elasticsearch;
 
-import com.hazelcast.jet.function.ConsumerEx;
-import com.hazelcast.jet.function.FunctionEx;
-import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.function.ConsumerEx;
+import com.hazelcast.function.FunctionEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import org.apache.http.HttpHost;

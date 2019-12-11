@@ -37,7 +37,7 @@ results:
 ```java
 Pipeline p = Pipeline.create();
 
-p.drawFrom(ElasticsearchSources.elasticsearch("sourceName",
+p.readFrom(ElasticsearchSources.elasticsearch("sourceName",
     () -> RestClient.builder(HttpHost.create("hostAddress")).build(),
     () -> {
         SearchRequest searchRequest = new SearchRequest("users");
@@ -49,7 +49,7 @@ p.drawFrom(ElasticsearchSources.elasticsearch("sourceName",
     "10s",
     SearchHit::getSourceAsString,
     RestClient::close))
- .drainTo(Sinks.logger());
+ .writeTo(Sinks.logger());
 ``` 
 
 #### As a Sink
@@ -62,8 +62,8 @@ List and indexes them to Elasticsearch:
 
 ```java
 Pipeline p = Pipeline.create();
-p.drawFrom(Sources.list(users))
- .drainTo(ElasticsearchSinks.elasticsearch("sinkName",
+p.readFrom(Sources.list(users))
+ .writeTo(ElasticsearchSinks.elasticsearch("sinkName",
     () -> RestClient.builder(HttpHost.create("hostAddress")).build(),
     BulkRequest::new,
     user -> {

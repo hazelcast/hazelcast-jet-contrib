@@ -45,9 +45,9 @@ drains them to some sink.
 ```java
 RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(RedisSources.sortedSet("source", uri, "sortedSet", 10d, 90d))
+    .readFrom(RedisSources.sortedSet("source", uri, "sortedSet", 10d, 90d))
     .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
-    .drainTo(sink);
+    .writeTo(sink);
 ```
 
 For more detail check out [RedisSources](src/main/java/com/hazelcast/jet/contrib/redis/RedisSources.java) & 
@@ -63,9 +63,9 @@ Following is an example pipeline which reads out trades from a source and writes
 ```java
 RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(source)
+    .readFrom(source)
     .map(trade -> ScoredValue.fromNullable(trade.timestamp, trade))
-    .drainTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
+    .writeTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
 ```
 
 For more detail check out [RedisSinks](src/main/java/com/hazelcast/jet/contrib/redis/RedisSinks.java) & 

@@ -16,8 +16,7 @@
 
 package com.hazelcast.jet.contrib.probabilistic;
 
-import com.hazelcast.core.IList;
-import com.hazelcast.core.IMap;
+import com.hazelcast.collection.IList;
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.config.JetConfig;
@@ -25,6 +24,7 @@ import com.hazelcast.jet.pipeline.JournalInitialPosition;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.Sources;
+import com.hazelcast.map.IMap;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,8 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.hazelcast.jet.contrib.probabilistic.HashingSupport.hashingContextFactory;
 import static com.hazelcast.jet.contrib.probabilistic.HashingSupport.hashingFn;
+import static com.hazelcast.jet.contrib.probabilistic.HashingSupport.hashingServiceFactory;
 import static com.hazelcast.jet.contrib.probabilistic.ProbabilisticAggregations.hyperLogLog;
 import static com.hazelcast.jet.pipeline.Sinks.list;
 import static org.awaitility.Awaitility.await;
@@ -52,9 +52,10 @@ public class HyperLogLogTest {
     @Before
     public void setup() {
         JetConfig jetConfig = new JetConfig();
-        jetConfig.getHazelcastConfig().getMapEventJournalConfig("default")
-                .setEnabled(true)
-                .setCapacity(50_000);
+        jetConfig.getHazelcastConfig().getMapConfig("default")
+                 .getEventJournalConfig()
+                 .setEnabled(true)
+                 .setCapacity(50_000);
         jet = Jet.newJetInstance(jetConfig);
     }
 
@@ -75,12 +76,12 @@ public class HyperLogLogTest {
 
 
         Pipeline pipeline = Pipeline.create();
-        pipeline.drawFrom(Sources.mapJournal(sourceMapName, JournalInitialPosition.START_FROM_OLDEST))
+        pipeline.readFrom(Sources.mapJournal(sourceMapName, JournalInitialPosition.START_FROM_OLDEST))
                 .withIngestionTimestamps()
                 .map(Map.Entry::getValue)
-                .mapUsingContext(hashingContextFactory(), hashingFn())
+                .mapUsingService(hashingServiceFactory(), hashingFn())
                 .rollingAggregate(ProbabilisticAggregations.hyperLogLog())
-                .drainTo(Sinks.mapWithUpdating(targetMapName, e -> 0, (current, n) -> n));
+                .writeTo(Sinks.mapWithUpdating(targetMapName, e -> 0, (current, n) -> n));
         jet.newJob(pipeline);
 
         IMap<Integer, Integer> sourceMap = jet.getMap(sourceMapName);
@@ -106,10 +107,10 @@ public class HyperLogLogTest {
         populateSourceList(sourceList, actualCardinality, totalItemCount);
 
         Pipeline pipeline = Pipeline.create();
-        pipeline.drawFrom(Sources.list(sourceListName))
-                .mapUsingContext(hashingContextFactory(), hashingFn())
+        pipeline.readFrom(Sources.list(sourceListName))
+                .mapUsingService(hashingServiceFactory(), hashingFn())
                 .aggregate(hyperLogLog())
-                .drainTo(list(targetListName));
+                .writeTo(list(targetListName));
         jet.newJob(pipeline).join();
 
         long estimatedCardinality = jet.<Long>getList(targetListName).get(0);

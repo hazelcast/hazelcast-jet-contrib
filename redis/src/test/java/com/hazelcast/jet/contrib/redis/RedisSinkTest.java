@@ -16,12 +16,12 @@
 
 package com.hazelcast.jet.contrib.redis;
 
-import com.hazelcast.jet.IListJet;
-import com.hazelcast.jet.IMapJet;
+import com.hazelcast.collection.IList;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sources;
+import com.hazelcast.map.IMap;
 import io.lettuce.core.Range;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
@@ -72,14 +72,14 @@ public class RedisSinkTest extends JetTestSupport {
     public void hash() {
         long itemCount = 100_000;
 
-        IMapJet<String, String> map = instance.getMap("map");
+        IMap<String, String> map = instance.getMap("map");
         for (int i = 0; i < itemCount; i++) {
             map.put("foo-" + i, "bar-" + i);
         }
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(Sources.map(map))
-                .drainTo(RedisSinks.hash("sink", uri, "hash"));
+        p.readFrom(Sources.map(map))
+                .writeTo(RedisSinks.hash("sink", uri, "hash"));
 
         instance.newJob(p).join();
 
@@ -98,13 +98,13 @@ public class RedisSinkTest extends JetTestSupport {
         }
         Collections.shuffle(shuffledList);
 
-        IListJet<Integer> list = instance.getList("list");
+        IList<Integer> list = instance.getList("list");
         list.addAll(shuffledList);
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(Sources.<Integer>list("list"))
+        p.readFrom(Sources.<Integer>list("list"))
                 .map(i -> ScoredValue.fromNullable(i, "foobar-" + i))
-                .drainTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
+                .writeTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
 
         instance.newJob(p).join();
 
@@ -120,14 +120,14 @@ public class RedisSinkTest extends JetTestSupport {
 
     @Test
     public void stream() {
-        IListJet<String> list = instance.getList("list");
+        IList<String> list = instance.getList("list");
         for (int i = 0; i < 10; i++) {
             list.add("key-" + i);
         }
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(Sources.list(list))
-                .drainTo(RedisSinks.stream("source", uri, "stream"));
+        p.readFrom(Sources.list(list))
+                .writeTo(RedisSinks.stream("source", uri, "stream"));
 
         instance.newJob(p).join();
 
