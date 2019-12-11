@@ -1,0 +1,8 @@
+dependencies {
+    compile group: 'org.apache.kafka', name: 'connect-api', version: '2.3.0'
+    testCompile "org.testcontainers:rabbitmq:1.12.1"
+    testCompile 'com.rabbitmq:amqp-client:5.7.3'
+    testCompile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.28'
+    testCompile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.28'
+
+}

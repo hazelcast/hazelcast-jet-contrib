@@ -40,8 +40,8 @@ public final class HashingSupport {
      * @return factory for hashing service
      */
     public static ServiceFactory<HashingContext> hashingServiceFactory() {
-        return ServiceFactory.withCreateFn(jet -> {
-            SerializationServiceSupport support = (SerializationServiceSupport) jet.getHazelcastInstance();
+        return ServiceFactory.withCreateFn(ctx -> {
+            SerializationServiceSupport support = (SerializationServiceSupport) ctx.jetInstance().getHazelcastInstance();
             SerializationService serializationService = support.getSerializationService();
             return new HashingContext(serializationService);
         }).withLocalSharing();
