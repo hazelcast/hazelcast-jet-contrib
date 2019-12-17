@@ -16,15 +16,19 @@
 
 package com.hazelcast.jet.contrib.eventime;
 
-import java.io.Serializable;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
+import com.hazelcast.nio.serialization.DataSerializable;
 
-public final class EventWithTimestamp<T> implements Serializable {
-    private final T event;
-    private final long ts;
+import java.io.IOException;
+
+public final class EventWithTimestamp<T> implements DataSerializable {
+    private T event;
+    private long timestamp;
 
     public EventWithTimestamp(T event, long timestamp) {
         this.event = event;
-        this.ts = timestamp;
+        this.timestamp = timestamp;
     }
 
     public T getEvent() {
@@ -32,14 +36,26 @@ public final class EventWithTimestamp<T> implements Serializable {
     }
 
     public long getTimestamp() {
-        return ts;
+        return timestamp;
     }
 
     @Override
     public String toString() {
         return "EventWithTimestamp{" +
                 "event=" + event +
-                ", ts=" + ts +
+                ", ts=" + timestamp +
                 '}';
+    }
+
+    @Override
+    public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeObject(event);
+        out.writeLong(timestamp);
+    }
+
+    @Override
+    public void readData(ObjectDataInput in) throws IOException {
+        event = in.readObject();
+        timestamp = in.readLong();
     }
 }

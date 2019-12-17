@@ -23,6 +23,7 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinkBuilder;
+import com.hazelcast.jet.pipeline.test.SimpleEvent;
 import com.hazelcast.jet.pipeline.test.TestSources;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,19 +44,21 @@ public final class EventTimeUtilsTest extends JetTestSupport {
     @Test
     public void smokeTest() {
         Pipeline pipeline = Pipeline.create();
-        pipeline.drawFrom(TestSources.itemStream(1000))
+        pipeline.drawFrom(TestSources.itemStream(1_000))
                 .withNativeTimestamps(0)
                 .apply(EventTimeUtils.enrichWithEventTime())
-                .map(e -> {
-                    if (e.getEvent().timestamp() != e.getTimestamp()) {
-                        throw new AssertionError("wrong timestamp attached");
-                    }
-                    return e;
-                })
+                .map(EventTimeUtilsTest::assertEventTime)
                 .drainTo(assertItemsReceived(10_000));
 
         Job job = jet.newJob(pipeline);
         assertJobCompleted(job);
+    }
+
+    private static EventWithTimestamp<SimpleEvent> assertEventTime(EventWithTimestamp<SimpleEvent> event) {
+        if (event.getEvent().timestamp() != event.getTimestamp()) {
+            throw new AssertionError("wrong timestamp attached");
+        }
+        return event;
     }
 
     private static void assertJobCompleted(Job job) {
