@@ -1,6 +1,7 @@
 # Kafka Connect Connector
 
-A generic Kafka Connect source provides ability to plug any Kafka Connect source for data ingestion to Jet pipelines.
+A generic Kafka Connect source provides ability to plug any Kafka Connect source
+for data ingestion to Jet pipelines.
 
 ## Connector Attributes
 
@@ -41,15 +42,15 @@ compile group: 'com.hazelcast.jet.contrib', name: 'kafka-connect', version: ${ve
 
 ### Usage
 
-To use the any Kafka Connect Connector as a source in your pipeline you need to create a 
-source with a call to `KafkaConnectSources.connect()` method with the `Properties` object. 
-After that you can use your pipeline like any other source in the
-Jet pipeline. The source will emit items in `SourceRecord` type from Kafka 
-Connect API, where you can access the key and value along with their corresponding
-schemas.
+To use any Kafka Connect Connector as a source in your pipeline you need to
+create a source by calling `KafkaConnectSources.connect()` method with the
+`Properties` object. After that you can use your pipeline like any other source
+in the Jet pipeline. The source will emit items in `SourceRecord` type from
+Kafka Connect API, where you can access the key and value along with their
+corresponding schemas.
 
-Following is an example pipeline which stream events from RabbitMQ, maps the values to
-their string representation and and logs them.
+Following is an example pipeline which stream events from RabbitMQ, maps the
+values to their string representation and logs them.
 
 Beware the fact that you'll need to attach the Kafka Connect Connector of your 
 choice with the job that you are submitting.

@@ -39,12 +39,12 @@ public final class HashingSupport {
      *
      * @return factory for hashing service
      */
-    public static ServiceFactory<HashingContext> hashingServiceFactory() {
-        return ServiceFactory.withCreateFn(ctx -> {
+    public static ServiceFactory<HashingContext, HashingContext> hashingServiceFactory() {
+        return ServiceFactory.withCreateContextFn(ctx -> {
             SerializationServiceSupport support = (SerializationServiceSupport) ctx.jetInstance().getHazelcastInstance();
             SerializationService serializationService = support.getSerializationService();
             return new HashingContext(serializationService);
-        }).withLocalSharing();
+        }).withCreateServiceFn((ctx, hashingCtx) -> hashingCtx);
     }
 
     /**
