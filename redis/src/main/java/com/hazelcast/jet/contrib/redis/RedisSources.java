@@ -16,6 +16,9 @@
 
 package com.hazelcast.jet.contrib.redis;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.function.FunctionEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.Traverser;
 import com.hazelcast.jet.Traversers;
 import com.hazelcast.jet.core.AbstractProcessor;
@@ -26,13 +29,10 @@ import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorMetaSupplier;
 import com.hazelcast.jet.core.ProcessorSupplier;
 import com.hazelcast.jet.core.processor.Processors;
-import com.hazelcast.jet.function.FunctionEx;
-import com.hazelcast.jet.function.SupplierEx;
 import com.hazelcast.jet.impl.util.Util;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
-import com.hazelcast.nio.Address;
 import io.lettuce.core.Range;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisFuture;
@@ -65,13 +65,13 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.hazelcast.internal.util.CollectionUtil.isEmpty;
 import static com.hazelcast.jet.Traversers.traverseIterable;
 import static com.hazelcast.jet.Traversers.traverseStream;
 import static com.hazelcast.jet.Util.entry;
 import static com.hazelcast.jet.core.BroadcastKey.broadcastKey;
 import static com.hazelcast.jet.core.EventTimeMapper.NO_NATIVE_TIME;
 import static com.hazelcast.jet.pipeline.Sources.streamFromProcessorWithWatermarks;
-import static com.hazelcast.util.CollectionUtil.isEmpty;
 import static java.util.Collections.singletonMap;
 
 /**
@@ -94,7 +94,7 @@ public final class RedisSources {
      * @param name name of the source being created
      * @param uri  URI of the Redis server
      * @param hash identifier of the Redis Hash being used
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static BatchSource<Map.Entry<String, String>> hash(
@@ -117,7 +117,7 @@ public final class RedisSources {
      * @param mapFn mapping function which transform key-value pairs into the
      *              desired output data item
      * @param <T>   type of the data items returned by the source
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> hash(
@@ -136,13 +136,13 @@ public final class RedisSources {
      * have been received.
      * <p>
      * Here is an example pipeline which reads in all entries from such a Hash
-     * and writes them out to a {@link com.hazelcast.core.IMap}.
+     * and writes them out to a {@link com.hazelcast.map.IMap}.
      * <pre>{@code
      *     RedisURI uri = RedisURI.create("redis://localhost/");
      *     Pipeline.create()
-     *          .drawFrom(RedisSources.hash("source", uri, "hash",
+     *          .readFrom(RedisSources.hash("source", uri, "hash",
      *                          StringCodec::new, FunctionEx.identity()))
-     *          .drainTo(Sinks.map("map"));
+     *          .writeTo(Sinks.map("map"));
      * }</pre>
      *
      * @param name    name of the source being created
@@ -156,7 +156,7 @@ public final class RedisSources {
      *                keys
      * @param <V>     type of hash values
      * @param <T>     type of the data items returned by the source
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <K, V, T> BatchSource<T> hash(
@@ -194,7 +194,7 @@ public final class RedisSources {
      * @param key  identifier of the Redis Sorted Set
      * @param from start of the score range we are interested in (INCLUSIVE)
      * @param to   end of the score range we are interested in (INCLUSIVE)
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static BatchSource<ScoredValue<String>> sortedSet(
@@ -218,10 +218,10 @@ public final class RedisSources {
      * <pre>{@code
      *      RedisURI uri = RedisURI.create("redis://localhost/");
      *      Pipeline.create()
-     *          .drawFrom(RedisSources.sortedSet("source", uri, "sortedSet",
+     *          .readFrom(RedisSources.sortedSet("source", uri, "sortedSet",
      *                          StringCodec::new, 10d, 90d))
      *          .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
-     *          .drainTo(sink);
+     *          .writeTo(sink);
      * }</pre>
      *
      * @param name    name of the source being created
@@ -233,7 +233,7 @@ public final class RedisSources {
      * @param to      end of the score range we are interested in (INCLUSIVE)
      * @param <K>     type of the sorted set identifier
      * @param <V>     type of the values stored in the sorted set
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <K, V> BatchSource<ScoredValue<V>> sortedSet(
@@ -267,7 +267,7 @@ public final class RedisSources {
      * @param stream identifier of stream being used
      * @param offset start offset of the stream from which data should be
      *               requested
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static StreamSource<Map<String, String>> stream(
@@ -290,7 +290,7 @@ public final class RedisSources {
      * @param streamOffsets map keyed by stream identifiers, containing offset
      *                      values from which to start element retrieval of each
      *                      stream
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static StreamSource<Map<String, String>> stream(
@@ -319,7 +319,7 @@ public final class RedisSources {
      *                      from Redis to an arbitrary type of output; this
      *                      could be done by an external mapping function in the
      *                      pipeline too, but it's included for convenience
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <T> StreamSource<T> stream(
@@ -346,11 +346,11 @@ public final class RedisSources {
      * RedisURI uri = RedisURI.create("redis://localhost/");
      *
      * Pipeline.create()
-     *     .drawFrom(RedisSources.stream("source", uri, streamOffsets,
+     *     .readFrom(RedisSources.stream("source", uri, streamOffsets,
      *                      StringCodec::new,
      *                      mes -> mes.getStream() + " - " + mes.getId()))
      *     .withoutTimestamps()
-     *     .drainTo(sink);
+     *     .writeTo(sink);
      * }</pre>
      *
      * @param <K>           type of the stream identifier and of fields (keys of
@@ -371,7 +371,7 @@ public final class RedisSources {
      *                      from Redis to an arbitrary type of output; this
      *                      could be done by an external mapping function in the
      *                      pipeline too, but it's included for convenience
-     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <K, V, T> StreamSource<T> stream(
@@ -390,8 +390,8 @@ public final class RedisSources {
         Util.checkSerializable(codecFn, "codecFn");
         Util.checkSerializable(projectionFn, "projectionFn");
 
-        return streamFromProcessorWithWatermarks(name,
-                w -> StreamRedisP.streamRedisP(uri, streamOffsets, w, codecFn, projectionFn), false);
+        return streamFromProcessorWithWatermarks(name, false,
+                w -> StreamRedisP.streamRedisP(uri, streamOffsets, w, codecFn, projectionFn));
     }
 
     private static class HashContext<K, V, T> implements KeyValueStreamingChannel<K, V> {
@@ -439,8 +439,8 @@ public final class RedisSources {
                 }
             } else {
                 batchHolder.stream()
-                        .map(mapFn)
-                        .forEach(buffer::add);
+                           .map(mapFn)
+                           .forEach(buffer::add);
                 batchHolder.clear();
             }
         }
@@ -622,7 +622,7 @@ public final class RedisSources {
                         .stream()
                         .map(entry -> {
                             long watermark = eventTimeMapper.getWatermark(0);
-                            return entry(broadcastKey(entry.getKey()), new Object[]{entry.getValue(), watermark});
+                            return entry(broadcastKey(entry.getKey()), new Object[] {entry.getValue(), watermark});
                         });
                 snapshotTraverser = traverseStream(snapshotStream)
                         .onFirstNull(() -> {

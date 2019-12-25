@@ -16,8 +16,8 @@
 
 package com.hazelcast.jet.contrib.redis;
 
-import com.hazelcast.jet.function.FunctionEx;
-import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.function.FunctionEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.impl.util.Util;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
@@ -58,7 +58,7 @@ public final class RedisSinks {
      * @param name name of the source being created
      * @param uri  URI of the Redis server
      * @param hash identifier of the Redis Hash being used
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static Sink<Map.Entry<String, String>> hash(
@@ -81,7 +81,7 @@ public final class RedisSinks {
      * @param valueFn function that specifies how to extract the hash value from
      *                incoming data items
      * @param <T>     type of incoming data items
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <T> Sink<T> hash(
@@ -99,12 +99,12 @@ public final class RedisSinks {
      * Hash.
      * <p>
      * Here is an example which reads map entries from a {@link
-     * com.hazelcast.core.IMap} and writes them out into a Redis Hash.
+     * com.hazelcast.map.IMap} and writes them out into a Redis Hash.
      * <pre>{@code
      *  RedisURI uri = RedisURI.create("redis://localhost/");
      *  Pipeline.create()
-     *      .drawFrom(Sources.map(map))
-     *      .drainTo(RedisSinks.hash("sink", uri, "hash", StringCodec::new,
+     *      .readFrom(Sources.map(map))
+     *      .writeTo(RedisSinks.hash("sink", uri, "hash", StringCodec::new,
      *                      Map.Entry::getKey, Map.Entry::getValue));
      * }</pre>
      *
@@ -120,7 +120,7 @@ public final class RedisSinks {
      * @param <K>     type of the hash identifier and type of hash keys
      * @param <V>     type of hash values
      * @param <T>     type of incoming data items
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <K, V, T> Sink<T> hash(
@@ -159,7 +159,7 @@ public final class RedisSinks {
      * @param name name of the source being created
      * @param uri  URI of the Redis server
      * @param set  identifier of the Redis Sorted Set being used
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static Sink<ScoredValue<String>> sortedSet(
@@ -183,7 +183,7 @@ public final class RedisSinks {
      * @param valueFn function that specifies how to extract stored values from
      *                incoming data items
      * @param <T>     type of data items coming into the sink
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <T> Sink<T> sortedSet(
@@ -205,9 +205,9 @@ public final class RedisSinks {
      * <pre>{@code
      * RedisURI uri = RedisURI.create("redis://localhost/");
      * Pipeline.create()
-     *      .drawFrom(source)
+     *      .readFrom(source)
      *      .map(trade -> ScoredValue.fromNullable(trade.timestamp, trade))
-     *      .drainTo(RedisSinks.sortedSet("sink", uri, "sortedSet",
+     *      .writeTo(RedisSinks.sortedSet("sink", uri, "sortedSet",
      *                      StringCodec::new,
      *                      ScoredValue::getScore, ScoredValue::getValue));
      * }</pre>
@@ -224,7 +224,7 @@ public final class RedisSinks {
      *                incoming data items
      * @param valueFn function that specifies how to extract stored values from
      *                incoming data items
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <K, V, T> Sink<T> sortedSet(
@@ -263,7 +263,7 @@ public final class RedisSinks {
      * @param name   name of the source being created
      * @param uri    URI of the Redis server
      * @param stream identifier of stream being used
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <T> Sink<T> stream(
@@ -285,7 +285,7 @@ public final class RedisSinks {
      * @param stream identifier of stream being used
      * @param mapFn  mapping function used to transform an incoming element into
      *               a Redis Stream entry's body
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <T> Sink<T> stream(
@@ -307,8 +307,8 @@ public final class RedisSinks {
      * RedisURI uri = RedisURI.create("redis://localhost/");
      * FunctionEx<T, Map<String, String>> mapFn = item -> singletonMap("", item.toString());
      * Pipeline.create()
-     *     .drawFrom(Sources.list(list))
-     *     .drainTo(RedisSinks.stream("sink", uri, "stream", StringCodec::new, mapFn));
+     *     .readFrom(Sources.list(list))
+     *     .writeTo(RedisSinks.stream("sink", uri, "stream", StringCodec::new, mapFn));
      * } </pre>
      * @param <T>     type of elements forming the input of this sink
      * @param <K>     type of the stream identifier and of fields (keys of the
@@ -321,7 +321,7 @@ public final class RedisSinks {
      *                serializing/deserializing keys and values
      * @param mapFn   mapping function used to transform an incoming element
      *                into a Redis Stream entry's body
-     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#drainTo}
+     * @return sink to use in {@link com.hazelcast.jet.pipeline.Pipeline#writeTo}
      */
     @Nonnull
     public static <T, K, V> Sink<T> stream(

@@ -40,8 +40,8 @@ Following is an example pipeline which reads in all entries from such a Hash and
 ```java
 RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(RedisSources.hash("source", uri, "hash"))
-    .drainTo(Sinks.map("map"));
+    .readFrom(RedisSources.hash("source", uri, "hash"))
+    .writeTo(Sinks.map("map"));
 ```
 
 For more detail check out [RedisSources](src/main/java/com/hazelcast/jet/contrib/redis/RedisSources.java) & 
@@ -57,8 +57,8 @@ Following is an example pipeline which reads map entries from a
 ```java
 RedisURI uri = RedisURI.create("redis://localhost/");
 Pipeline.create()
-    .drawFrom(Sources.map(map))
-    .drainTo(RedisSinks.hash("sink", uri, "hash"));
+    .readFrom(Sources.map(map))
+    .writeTo(RedisSinks.hash("sink", uri, "hash"));
 ```
 
 For more detail check out [RedisSinks](src/main/java/com/hazelcast/jet/contrib/redis/RedisSinks.java) & 

@@ -33,10 +33,10 @@ In practices in looks like this:
 ```java
 import com.hazelcast.jet.contrib.probabilistic.*;
 [...]
-pipeline.drawFrom(Sources.mySource())
+pipeline.readFrom(Sources.mySource())
                 .mapUsingContext(HashingSupport.hashingContextFactory(), HashingSupport.hashingFn()) // hash items 
                 .aggregate(ProbabilisticAggregations.hyperLogLog()) // actual aggregation
-                .drainTo(Sinks.mySink()); // write cardinality into sink
+                .writeTo(Sinks.mySink()); // write cardinality into sink
 ```
 
 

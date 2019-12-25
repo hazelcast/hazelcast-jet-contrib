@@ -16,10 +16,10 @@
 
 package com.hazelcast.jet.contrib.elasticsearch;
 
-import com.hazelcast.jet.IListJet;
+import com.hazelcast.collection.IList;
+import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.JetTestSupport;
-import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
 import org.elasticsearch.action.get.MultiGetItemResponse;
 import org.elasticsearch.action.get.MultiGetRequest;
@@ -52,7 +52,7 @@ public abstract class ElasticsearchBaseTest extends JetTestSupport {
             new ElasticsearchContainer("docker.elastic.co/elasticsearch/elasticsearch:7.1.0")
             .withNetwork(Network.newNetwork());
     JetInstance jet;
-    IListJet<User> userList;
+    IList<User> userList;
     String indexName = "users";
     private RestHighLevelClient client;
 

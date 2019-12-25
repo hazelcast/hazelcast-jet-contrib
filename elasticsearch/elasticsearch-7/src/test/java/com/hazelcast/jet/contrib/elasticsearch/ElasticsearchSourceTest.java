@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.elasticsearch;
 
-import com.hazelcast.jet.IListJet;
+import com.hazelcast.collection.IList;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.Sources;
@@ -40,8 +40,8 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
         String containerAddress = container.getHttpHostAddress();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(Sources.list(userList))
-         .drainTo(ElasticsearchSinks.elasticsearch(indexName, () -> createClient(containerAddress),
+        p.readFrom(Sources.list(userList))
+         .writeTo(ElasticsearchSinks.elasticsearch(indexName, () -> createClient(containerAddress),
                  () -> new BulkRequest().setRefreshPolicy(IMMEDIATE), indexFn(indexName),
                  request -> RequestOptions.DEFAULT, RestHighLevelClient::close));
 
@@ -51,7 +51,7 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
 
         p = Pipeline.create();
 
-        p.drawFrom(ElasticsearchSources.elasticsearch("users", () -> createClient(containerAddress),
+        p.readFrom(ElasticsearchSources.elasticsearch("users", () -> createClient(containerAddress),
                 () -> {
                     SearchRequest searchRequest = new SearchRequest("users");
                     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -59,11 +59,11 @@ public class ElasticsearchSourceTest extends ElasticsearchBaseTest {
                     searchRequest.source(searchSourceBuilder);
                     return searchRequest;
                 }))
-         .drainTo(Sinks.list("sink"));
+         .writeTo(Sinks.list("sink"));
 
         jet.newJob(p).join();
 
-        IListJet<Object> sink = jet.getList("sink");
+        IList<Object> sink = jet.getList("sink");
         assertEquals(1, sink.size());
     }
 

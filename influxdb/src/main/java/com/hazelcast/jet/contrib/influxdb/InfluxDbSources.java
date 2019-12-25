@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.influxdb;
 
-import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import static com.hazelcast.util.Preconditions.checkNotNull;
+import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static org.influxdb.InfluxDBFactory.connect;
 
 /**
@@ -53,7 +53,7 @@ public final class InfluxDbSources {
      * Example pipeline which reads records from InfluxDb, maps the first two
      * columns to a tuple and logs them can be seen below: <pre>{@code
      *     Pipeline p = Pipeline.create();
-     *     p.drawFrom(
+     *     p.readFrom(
      *             InfluxDbSources.influxDb("SELECT * FROM db..cpu_usages",
      *                     DATABASE_NAME,
      *                     INFLUXDB_URL,
@@ -61,7 +61,7 @@ public final class InfluxDbSources {
      *                     PASSWORD,
      *                     (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
      *     )
-     *      .drainTo(Sinks.logger());
+     *      .writeTo(Sinks.logger());
      * }</pre>
      *
      * @param query                 query to execute on InfluxDb database
@@ -73,7 +73,7 @@ public final class InfluxDbSources {
      *                              as argument and produces the user object {@link T} which will be emitted from
      *                              this source
      * @param <T>                   type of the user object
-     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(
@@ -101,12 +101,12 @@ public final class InfluxDbSources {
      * Example pipeline which reads records from InfluxDb, maps the first two
      * columns to a tuple and logs them can be seen below: <pre>{@code
      *     Pipeline p = Pipeline.create();
-     *     p.drawFrom(
+     *     p.readFrom(
      *             InfluxDbSources.influxDb("SELECT * FROM db..cpu_usages",
      *                     () -> InfluxDBFactory.connect(url, username, password).setDatabase(database)
      *                     (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
      *     )
-     *      .drainTo(Sinks.logger());
+     *      .writeTo(Sinks.logger());
      * }</pre>
      *
      * @param <T>                   type of the user object
@@ -115,7 +115,7 @@ public final class InfluxDbSources {
      * @param measurementProjection mapper function which takes measurement name, tags set, column names and values
      *                              as argument and produces the user object {@link T} which will be emitted from
      *                              this source
-     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(
@@ -143,7 +143,7 @@ public final class InfluxDbSources {
      * Example pipeline which reads records from InfluxDb, maps them
      * to the provided POJO and logs them can be seen below: <pre>{@code
      *     Pipeline p = Pipeline.create();
-     *     p.drawFrom(
+     *     p.readFrom(
      *             InfluxDbSources.influxDb("SELECT * FROM db..cpu",
      *                         DATABASE_NAME,
      *                         INFLUXDB_URL,
@@ -151,7 +151,7 @@ public final class InfluxDbSources {
      *                         PASSWORD,
      *                         Cpu.class)
      *       )
-     *      .drainTo(Sinks.logger());
+     *      .writeTo(Sinks.logger());
      * }</pre>
      *
      * @param query     query to execute on InfluxDb database
@@ -161,7 +161,7 @@ public final class InfluxDbSources {
      * @param password  password of the InfluxDb server
      * @param pojoClass the POJO class instance
      * @param <T>       the POJO class
-     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(
@@ -189,19 +189,19 @@ public final class InfluxDbSources {
      * Example pipeline which reads records from InfluxDb, maps them
      * to the provided POJO and logs them can be seen below: <pre>{@code
      *     Pipeline p = Pipeline.create();
-     *     p.drawFrom(
+     *     p.readFrom(
      *             InfluxDbSources.influxDb("SELECT * FROM db..cpu",
      *                       () -> InfluxDBFactory.connect(url, username, password).setDatabase(database)
      *                       Cpu.class)
      *       )
-     *      .drainTo(Sinks.logger());
+     *      .writeTo(Sinks.logger());
      * }</pre>
      *
      * @param query              query to execute on InfluxDb database
      * @param connectionSupplier supplier which returns {@link InfluxDB} instance
      * @param pojoClass          the POJO class instance
      * @param <T>                the POJO class
-     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#drawFrom}
+     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static <T> BatchSource<T> influxDb(

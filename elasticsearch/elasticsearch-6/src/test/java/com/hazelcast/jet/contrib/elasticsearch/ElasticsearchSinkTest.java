@@ -29,8 +29,8 @@ public class ElasticsearchSinkTest extends ElasticsearchBaseTest {
         String containerAddress = container.getHttpHostAddress();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(Sources.list(userList))
-         .drainTo(ElasticsearchSinks.elasticsearch(indexName, () -> createClient(containerAddress), indexFn(indexName)));
+        p.readFrom(Sources.list(userList))
+         .writeTo(ElasticsearchSinks.elasticsearch(indexName, () -> createClient(containerAddress), indexFn(indexName)));
 
         jet.newJob(p).join();
 

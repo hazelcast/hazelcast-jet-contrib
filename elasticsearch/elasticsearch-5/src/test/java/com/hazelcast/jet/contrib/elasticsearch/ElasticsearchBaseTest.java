@@ -16,10 +16,10 @@
 
 package com.hazelcast.jet.contrib.elasticsearch;
 
-import com.hazelcast.jet.IListJet;
+import com.hazelcast.collection.IList;
+import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.JetTestSupport;
-import com.hazelcast.jet.function.FunctionEx;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
@@ -55,7 +55,7 @@ public abstract class ElasticsearchBaseTest extends JetTestSupport {
             .withNetwork(Network.newNetwork());
 
     JetInstance jet;
-    IListJet<User> userList;
+    IList<User> userList;
     String indexName = "users";
 
     private RestClient client;

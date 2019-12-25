@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.influxdb;
 
-import com.hazelcast.jet.IListJet;
+import com.hazelcast.collection.IList;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -67,7 +67,7 @@ public class InfluxDbSinkTest extends JetTestSupport {
 
     @Test
     public void test_influxDbSink() {
-        IListJet<Integer> measurements = jet.getList("mem_usage");
+        IList<Integer> measurements = jet.getList("mem_usage");
         for (int i = 0; i < VALUE_COUNT; i++) {
             measurements.add(i);
         }
@@ -78,12 +78,12 @@ public class InfluxDbSinkTest extends JetTestSupport {
         Pipeline p = Pipeline.create();
 
         int startTime = 0;
-        p.drawFrom(Sources.list(measurements))
+        p.readFrom(Sources.list(measurements))
          .map(index -> Point.measurement("mem_usage")
                             .time(startTime + index, TimeUnit.MILLISECONDS)
                             .addField("value", index)
                             .build())
-         .drainTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), DATABASE_NAME, USERNAME, PASSWORD));
+         .writeTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), DATABASE_NAME, USERNAME, PASSWORD));
 
         jet.newJob(p).join();
 
@@ -98,18 +98,18 @@ public class InfluxDbSinkTest extends JetTestSupport {
 
     @Test
     public void test_influxDbSink_nonExistingDb() {
-        IListJet<Integer> measurements = jet.getList("mem_usage");
+        IList<Integer> measurements = jet.getList("mem_usage");
         IntStream.range(0, VALUE_COUNT).forEach(measurements::add);
         influxdbContainer.getNewInfluxDB();
 
         Pipeline p = Pipeline.create();
         int startTime = 0;
-        p.drawFrom(Sources.list(measurements))
+        p.readFrom(Sources.list(measurements))
          .map(index -> Point.measurement("mem_usage")
                             .time(startTime + index, TimeUnit.MILLISECONDS)
                             .addField("value", index)
                             .build())
-         .drainTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), "non-existing", USERNAME, PASSWORD));
+         .writeTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), "non-existing", USERNAME, PASSWORD));
 
         expected.expectMessage("database not found: \"non-existing\"");
         jet.newJob(p).join();

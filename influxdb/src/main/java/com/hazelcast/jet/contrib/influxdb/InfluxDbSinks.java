@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.influxdb;
 
-import com.hazelcast.jet.function.SupplierEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;

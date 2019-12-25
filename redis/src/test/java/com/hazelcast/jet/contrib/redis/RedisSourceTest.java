@@ -16,8 +16,7 @@
 
 package com.hazelcast.jet.contrib.redis;
 
-import com.hazelcast.core.IMap;
-import com.hazelcast.jet.IListJet;
+import com.hazelcast.collection.IList;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JobConfig;
@@ -26,6 +25,7 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.jet.pipeline.Sinks;
+import com.hazelcast.map.IMap;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.ScoredValue;
@@ -82,8 +82,8 @@ public class RedisSourceTest extends JetTestSupport {
         fillHash("hash", elementCount);
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.hash("source", uri, "hash"))
-                .drainTo(Sinks.map("map"));
+        p.readFrom(RedisSources.hash("source", uri, "hash"))
+                .writeTo(Sinks.map("map"));
 
         instance.newJob(p).join();
 
@@ -116,13 +116,13 @@ public class RedisSourceTest extends JetTestSupport {
         int rangeEnd = 500_000;
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
+        p.readFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
                 .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
-                .drainTo(Sinks.list("list"));
+                .writeTo(Sinks.list("list"));
 
         instance.newJob(p).join();
 
-        IListJet<String> list = instance.getList("list");
+        IList<String> list = instance.getList("list");
         assertTrueEventually(() -> assertEquals(rangeEnd - rangeStart + 1, list.size()));
         assertEquals(rangeStart + ":foobar-" + rangeStart , list.get(0));
         assertEquals(rangeEnd + ":foobar-" + rangeEnd , list.get(list.size() - 1));
@@ -167,10 +167,10 @@ public class RedisSourceTest extends JetTestSupport {
                 .build();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.stream("source", uri, streamOffsets,
+        p.readFrom(RedisSources.stream("source", uri, streamOffsets,
                 mes -> mes.getStream() + " - " + mes.getId()))
                 .withoutTimestamps()
-                .drainTo(sink);
+                .writeTo(sink);
 
         Job job = instance.newJob(p);
 
@@ -201,10 +201,10 @@ public class RedisSourceTest extends JetTestSupport {
                 .build();
 
         Pipeline p = Pipeline.create();
-        p.drawFrom(RedisSources.stream("source", uri, streamOffsets,
+        p.readFrom(RedisSources.stream("source", uri, streamOffsets,
                 mes -> mes.getStream() + " - " + mes.getId()))
                 .withoutTimestamps()
-                .drainTo(sink);
+                .writeTo(sink);
 
 
         JobConfig config = new JobConfig();
