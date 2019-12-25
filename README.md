@@ -44,6 +44,16 @@ Hazelcast Jet connectors for various Redis data structures.
 A Hazelcast Jet connector for MongoDB for querying/inserting objects
 from/to MongoDB.
 
+### [Kafka Connect Connector](kafka-connect) 
+
+A generic Kafka Connect source provides ability to plug any Kafka Connect 
+source for data ingestion to Jet pipelines.
+
+### [Debezium Connector](debezium) 
+
+A Hazelcast Jet connector for [Debezium](https://debezium.io/) which
+enables Hazelcast Jet pipelines to consume CDC events from various databases.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations
