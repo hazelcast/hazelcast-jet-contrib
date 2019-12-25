@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+
 /**
- *
+ * Contains a generic Kafka Connect source provides ability to plug any Kafka
+ * Connect source for data ingestion to Jet pipelines.
  */
 package com.hazelcast.jet.contrib.connect;

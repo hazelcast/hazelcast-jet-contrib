@@ -83,17 +83,21 @@ public final class KafkaConnectSources {
         private final SourceTask task;
         private final Map<String, String> taskConfig;
 
+        /**
+         * Key represents the partition which the record originated from. Value
+         * represents the offset within that partition. Kafka Connect represents
+         * the partition and offset as arbitrary values so that is why it is
+         * stored as map.
+         * See {@link SourceRecord} for more information regarding the format.
+         */
         private Map<Map<String, ?>, Map<String, ?>> partitionsToOffset = new HashMap<>();
         private boolean taskInit;
 
         Context(Processor.Context ctx, Properties properties) {
             try {
-                // inject hazelcast.instance.name for retrieving from JVM instance factory in the Debezium source
-                if (properties.containsKey("database.history")) {
-                    JetInstance jetInstance = ctx.jetInstance();
-                    String instanceName = HazelcastInstanceFactory.getInstanceName(jetInstance.getName(),
-                            jetInstance.getHazelcastInstance().getConfig());
-                    properties.setProperty("database.history.hazelcast.instance.name", instanceName);
+                if (isDebezium(properties)) {
+                    // inject hazelcast.instance.name for retrieving from JVM instance factory in the Debezium source
+                    injectHazelcastInstanceNameProperty(ctx, properties);
                 }
                 String connectorClazz = properties.getProperty("connector.class");
                 Class<?> connectorClass = Thread.currentThread().getContextClassLoader().loadClass(connectorClazz);
@@ -109,6 +113,17 @@ public final class KafkaConnectSources {
             }
         }
 
+        private void injectHazelcastInstanceNameProperty(Processor.Context ctx, Properties properties) {
+            JetInstance jet = ctx.jetInstance();
+            String instanceName = HazelcastInstanceFactory.getInstanceName(jet.getName(),
+                    jet.getHazelcastInstance().getConfig());
+            properties.setProperty("database.history.hazelcast.instance.name", instanceName);
+        }
+
+        private boolean isDebezium(Properties properties) {
+            return properties.containsKey("database.history");
+        }
+
         void fillBuffer(TimestampedSourceBuffer<SourceRecord> buf) {
             if (!taskInit) {
                 task.initialize(new JetSourceTaskContext());
@@ -122,8 +137,7 @@ public final class KafkaConnectSources {
                 }
 
                 for (SourceRecord record : records) {
-                    long ts = record.timestamp() == null ? 0 :
-                            record.timestamp();
+                    long ts = record.timestamp() == null ? 0 : record.timestamp();
                     buf.add(record, ts);
                     partitionsToOffset.put(record.sourcePartition(), record.sourceOffset());
                 }
