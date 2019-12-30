@@ -68,7 +68,6 @@ public class MongoDbIntegrationTest extends JetTestSupport {
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
                 .map(record -> Values.convertToString(record.valueSchema(), record.value()))
-                .peek()
                 .writeTo(AssertionSinks.assertCollectedEventually(60,
                         list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Jason")))));
 

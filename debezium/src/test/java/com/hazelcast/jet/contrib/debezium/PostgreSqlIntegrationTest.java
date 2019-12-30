@@ -85,13 +85,13 @@ public class PostgreSqlIntegrationTest extends JetTestSupport {
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
         // update record
-        Connection connection = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(),
-                postgres.getPassword());
-        connection.setSchema("inventory");
-        PreparedStatement preparedStatement = connection.prepareStatement("update customers set " +
-                "first_name = 'Anne Marie' where id = 1004;");
-        preparedStatement.executeUpdate();
-        connection.close();
+        try (Connection connection = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(),
+                postgres.getPassword())) {
+            connection.setSchema("inventory");
+            PreparedStatement preparedStatement = connection.prepareStatement("update customers set " +
+                    "first_name = 'Anne Marie' where id = 1004;");
+            preparedStatement.executeUpdate();
+        }
 
         try {
             job.join();

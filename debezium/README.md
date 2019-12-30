@@ -1,6 +1,7 @@
 # Debezium Connector
 
-A Hazelcast Jet connector for [Debezium](https://debezium.io/) which enables Hazelcast Jet pipelines to consume CDC events from various databases.
+A Hazelcast Jet connector for [Debezium](https://debezium.io/) which enables 
+Hazelcast Jet pipelines to consume CDC events from various databases.
 
 ## Connector Attributes
 
@@ -118,7 +119,8 @@ The pipeline will output records like the following
 ```
 P.S. The record has been pretty printed for clarity.
 
-Check out tests folder for integration tests which covers the same scenario for various databases.
+Check out [tests folder](src/test/java/com/hazelcast/jet/contrib/debezium)
+ for integration tests which covers the same scenario for various databases.
 
 
 ### Running the tests

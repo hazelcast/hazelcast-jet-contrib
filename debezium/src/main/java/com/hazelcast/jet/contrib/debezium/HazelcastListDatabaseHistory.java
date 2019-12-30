@@ -41,7 +41,7 @@ public class HazelcastListDatabaseHistory extends AbstractDatabaseHistory {
     /**
      * Hazelcast IList {@link IList} name property.
      */
-    public static final String LIST_NAME = "database.history.hazelcast.list.name";
+    public static final String LIST_NAME_PROPERTY = "database.history.hazelcast.list.name";
 
     private String listName;
     private HazelcastInstance instance;
@@ -56,8 +56,8 @@ public class HazelcastListDatabaseHistory extends AbstractDatabaseHistory {
         super.configure(config, comparator, listener, useCatalogBeforeSchema);
         String instanceName = config.getString("database.history.hazelcast.instance.name");
         this.instance = HazelcastInstanceFactory.getHazelcastInstance(instanceName);
-        listName = config.getString(LIST_NAME);
-        Preconditions.checkHasText(listName, LIST_NAME + " property cannot have null value");
+        listName = config.getString(LIST_NAME_PROPERTY);
+        Preconditions.checkHasText(listName, LIST_NAME_PROPERTY + " property cannot have null value");
     }
 
     @Override

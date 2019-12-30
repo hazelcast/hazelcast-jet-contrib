@@ -84,12 +84,12 @@ public class MySqlIntegrationTest extends JetTestSupport {
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
         // update a record
-        Connection connection = DriverManager.getConnection(mysql.withDatabaseName("inventory").getJdbcUrl(),
-                mysql.getUsername(), mysql.getPassword());
-        PreparedStatement preparedStatement = connection
-                .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004;");
-        preparedStatement.executeUpdate();
-        connection.close();
+        try (Connection connection = DriverManager.getConnection(mysql.withDatabaseName("inventory").getJdbcUrl(),
+                mysql.getUsername(), mysql.getPassword())) {
+            PreparedStatement preparedStatement = connection
+                    .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004;");
+            preparedStatement.executeUpdate();
+        }
 
 
         // then

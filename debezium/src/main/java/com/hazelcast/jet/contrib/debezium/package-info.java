@@ -15,6 +15,7 @@
  */
 
 /**
- *
+ * Contains a connector for <a href="https://debezium.io/)">Debezium</a> which
+ * enables Hazelcast Jet pipelines to consume CDC events from various databases.
  */
 package com.hazelcast.jet.contrib.debezium;
