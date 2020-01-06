@@ -1,7 +1,16 @@
 # Kafka Connect Connector
 
-A generic Kafka Connect source provides ability to plug any Kafka Connect source
-for data ingestion to Jet pipelines.
+From the [Confluent documentation](https://docs.confluent.io/current/connect/index.html):
+> Kafka Connect, an open source component of Kafka, is a framework for connecting
+> Kafka with external systems such as databases, key-value stores, search indexes, 
+> and file systems. Using Kafka Connect you can use existing connector 
+> implementations for common data sources and sinks to move data into and out of 
+> Kafka. 
+
+Take an existing Kafka Connect source and use it as a source for Hazelcast Jet 
+without the need to have a Kafka deployment. Hazelcast Jet will drive the
+ Kafka Connect connector and bring the data from external systems to the pipeline
+ directly.
 
 ## Connector Attributes
 
