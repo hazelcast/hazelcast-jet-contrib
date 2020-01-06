@@ -1,0 +1,16 @@
+dependencies {
+    compile project(':kafka-connect')
+    compile group: 'io.debezium', name: 'debezium-core', version: '1.0.0.Beta3'
+    testCompile "org.testcontainers:mysql:1.12.3"
+    testCompile "org.testcontainers:postgresql:1.12.3"
+    testCompile group: 'org.postgresql', name: 'postgresql', version: '42.2.8'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile 'mysql:mysql-connector-java:5.1.34'
+    testCompile project(':mongodb').sourceSets.test.output
+    testCompile "org.slf4j:slf4j-log4j12:1.7.26"
+
+}
+
+test {
+    systemProperty "hazelcast.logging.type", "log4j"
+}

@@ -7,6 +7,7 @@ include 'elasticsearch-6'
 include 'elasticsearch-7'
 include 'kafka-connect'
 include 'mongodb'
+include 'debezium'
 
 project(':elasticsearch-5').projectDir = file('elasticsearch/elasticsearch-5')
 project(':elasticsearch-6').projectDir = file('elasticsearch/elasticsearch-6')
