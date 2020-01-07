@@ -122,6 +122,15 @@ INFO: [127.0.0.1]:5701 [jet] [4.0-SNAPSHOT] Output to ordinal 0:
 ```
 P.S. The record has been pretty printed for clarity.
 
+### Fault-Tolerance
+The Kafka Connect connectors driven by Jet are participating to store their state 
+snapshots (e.g partition offsets + any metadata which they might have to 
+recover/restart) in Jet. This way when the job is restarted they can recover 
+their state and continue to consume from where they left off. Since implementations
+may vary between Kafka Connect modules, each will have different 
+behaviors when there is a failure. Please refer to the documentation of Kafka 
+Connect connector of your choice for detailed information.
+
 ### Running the tests
 
 To run the tests run the command below: 

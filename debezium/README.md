@@ -123,6 +123,16 @@ Check out [tests folder](src/test/java/com/hazelcast/jet/contrib/debezium)
  for integration tests which covers the same scenario for various databases.
 
 
+### Fault-Tolerance
+The Debezium connectors driven by Jet are participating to store their state 
+snapshots (e.g partition offsets + any metadata which they might have to 
+recover/restart) in Jet. This way when the job is restarted they can recover 
+their state and continue to consume from where they left off. Since Debezium 
+itself consists of multiple Kafka Connect modules, each will have different 
+behaviors when there is a failure. Please refer to the corresponding [Debezium Connectors](https://debezium.io/documentation/reference/1.0/connectors/index.html)
+ page for more detailed information.
+
+
 ### Running the tests
 
 To run the tests run the command below: 
