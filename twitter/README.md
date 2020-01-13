@@ -1,8 +1,11 @@
-# Module Title
+# Twitter Source
 
-One Paragraph of module description goes here
+A Hazelcast Jet connector for Twitter Streaming API 
+which enables Hazelcast Jet pipelines to consume tweets.
 
-## Connector Attributes (Optional for non-connector extensions)
+
+
+## Connector Attributes
 
 ### Source Attributes
 |  Atrribute  | Value |
@@ -48,13 +51,15 @@ If you are using Gradle:
 ```
 compile group: 'com.hazelcast.jet.contrib', name: 'twitter', version: ${version}
 ```
+
+<!--
 ## Usage
 Describe the module usage and how it interacts with the rest of the system. The
 entry point of the module must be included in this section like `InfluxDbSinks.influxDb()`.
 
 End with a very small example/snippet of getting some data out of the system 
 or using it for a little demo
-
+-->
 
 ## Running the tests
 
