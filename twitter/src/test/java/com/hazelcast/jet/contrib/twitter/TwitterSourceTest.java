@@ -95,19 +95,17 @@ public class TwitterSourceTest extends JetTestSupport {
     @Test
     public void it_should_read_from_twitter_stream_source_2() {
         Pipeline pipeline = Pipeline.create();
-        List<String> terms = new ArrayList<String>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
-
+        List<Long> userIds = new ArrayList<Long>(Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
         final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source",
-                () -> new StatusesFilterEndpoint().trackTerms(terms), credentials, Constants.STREAM_HOST);
+                () -> new StatusesFilterEndpoint().followings(userIds), credentials, Constants.STREAM_HOST);
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
                 .map(rawJson -> Json.parse(rawJson)
                         .asObject()
                         .getString("text", null));
-        tweets.writeTo(Sinks.logger());
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
-                list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.", list.size(), 20)));
+                list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.", list.size(), 15)));
         Job job = jet.newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
