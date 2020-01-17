@@ -95,7 +95,8 @@ public class TwitterSourceTest extends JetTestSupport {
     @Test
     public void it_should_read_from_twitter_stream_source_2() {
         Pipeline pipeline = Pipeline.create();
-        List<Long> userIds = new ArrayList<Long>(Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
+        List<Long> userIds = new ArrayList<Long>(
+                Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
         final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source",
                 () -> new StatusesFilterEndpoint().followings(userIds), credentials, Constants.STREAM_HOST);
         StreamStage<String> tweets = pipeline
