@@ -1,23 +1,42 @@
+/*
+ * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import com.hazelcast.core.HazelcastJsonValue;
+package com.hazelcast.jet.contrib.twitter;
+
+
 import com.hazelcast.internal.json.Json;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.core.JetTestSupport;
-
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
+
 import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +44,8 @@ import java.util.Properties;
 import java.util.concurrent.CompletionException;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.rethrow;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class TwitterSourceTest extends JetTestSupport {
 
@@ -49,7 +69,8 @@ public class TwitterSourceTest extends JetTestSupport {
     public void it_should_read_from_twitter_stream_source() {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
-        final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source", () -> new StatusesFilterEndpoint().trackTerms(terms), credentials, Constants.STREAM_HOST);
+        final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source",
+                () -> new StatusesFilterEndpoint().trackTerms(terms), credentials, Constants.STREAM_HOST);
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
@@ -114,7 +135,8 @@ public class TwitterSourceTest extends JetTestSupport {
                         .getString("text", null));
         tweets.writeTo(Sinks.logger());
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
-                list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.", list.size(), 20)));
+                list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
+                        list.size(), 20)));
         Job job = jet.newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {

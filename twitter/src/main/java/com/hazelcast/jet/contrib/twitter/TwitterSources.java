@@ -1,3 +1,21 @@
+/*
+ * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.hazelcast.jet.contrib.twitter;
+
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonObject;
@@ -11,9 +29,10 @@ import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 
-import java.util.*;
+import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Properties;
 
 import javax.annotation.Nonnull;
 
@@ -32,16 +51,18 @@ public final class TwitterSources {
      *
      * @param name             a descriptive name of this source.
      * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
-     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey", "consumerSecret", "token", "tokenSecret" keys.
+     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
+     *                         "consumerSecret", "token", "tokenSecret" keys.
      * @param host             a Twitter endpoint host that are defined in {@link com.twitter.hbc.core.Constants}
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static StreamSource<String> timestampedStream(@Nonnull String name,
-                                                             @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
-                                                             @Nonnull Properties credentials,
-                                                             @Nonnull String host) {
-        return SourceBuilder.timestampedStream(name, ignored -> new TwitterSourceContext(endpointSupplier, credentials, host))
+                                                         @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
+                                                         @Nonnull Properties credentials,
+                                                         @Nonnull String host) {
+        return SourceBuilder.timestampedStream(name,
+                ctx -> new TwitterSourceContext(endpointSupplier, credentials, host))
                 .fillBufferFn(TwitterSourceContext::fillTimestampedBuffer)
                 .destroyFn(TwitterSourceContext::close)
                 .build();
@@ -54,7 +75,8 @@ public final class TwitterSources {
      *
      * @param name             a descriptive name of this source.
      * @param endpointSupplier a supplier function that supplies a Twitter StreamingEndpoint to connect to source.
-     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey", "consumerSecret", "token", "tokenSecret" keys.
+     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
+     *                         "consumerSecret", "token", "tokenSecret" keys.
      * @param host             a Twitter endpoint host that are defined in {@link com.twitter.hbc.core.Constants}
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
@@ -72,7 +94,7 @@ public final class TwitterSources {
     /**
      * A source context of Twitter
      */
-    private static class TwitterSourceContext {
+    private static final class TwitterSourceContext {
 
         private static final int QUEUE_CAPACITY = 1000;
         private static final int MAX_FILL_ELEMENTS = 250;
@@ -83,7 +105,8 @@ public final class TwitterSources {
 
         /**
          * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
-         * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey", "consumerSecret", "token", "tokenSecret" keys.
+         * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
+         *                         "consumerSecret", "token", "tokenSecret" keys.
          * @param host             a Twitter endpoint host that are defined in {@link com.twitter.hbc.core.Constants}
          */
         private TwitterSourceContext(
