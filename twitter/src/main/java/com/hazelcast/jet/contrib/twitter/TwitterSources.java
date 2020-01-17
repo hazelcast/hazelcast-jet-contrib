@@ -48,13 +48,27 @@ public final class TwitterSources {
     /**
      * Creates a {@link StreamSource} which reads tweets from Twitter's Streaming API
      * for data ingestion to Jet pipelines.
+     * Example usage:
+     * <pre>{@code
+     * Properties credentials = loadTwitterCredentials();
+     * List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
+     * StreamSource<String> timestampedStreamSource =
+     *              TwitterSources.timestampedStream(
+     *                      "twitter-timestampedstream-source",
+     *                      () -> new StatusesFilterEndpoint().trackTerms(terms),
+     *                      credentials,
+     *                      Constants.STREAM_HOST
+     *              );
+     * Pipeline p = Pipeline.create();
+     * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
+     * }</pre>
      *
      * @param name             a descriptive name of this source.
      * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
      *                         "consumerSecret", "token", "tokenSecret" keys.
-     * @param host             a Twitter endpoint host that are defined in {@link com.twitter.hbc.core.Constants}
-     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
+     * @param host             a Twitter host URL to connect. These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+     * @return a timestamped stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static StreamSource<String> timestampedStream(@Nonnull String name,
@@ -73,12 +87,27 @@ public final class TwitterSources {
      * Creates a {@link StreamSource} which reads tweets from Twitter's Streaming API
      * for data ingestion to Jet pipelines.
      *
+     * Example usage:
+     * <pre>{@code
+     * Properties credentials = loadTwitterCredentials();
+     * List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
+     * StreamSource<String> streamSource =
+     *              TwitterSources.stream(
+     *                      "twitter-stream-source",
+     *                      () -> new StatusesFilterEndpoint().trackTerms(terms),
+     *                      credentials,
+     *                      Constants.STREAM_HOST
+     *              );
+     * Pipeline p = Pipeline.create();
+     * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
+     * }</pre>
+     *
      * @param name             a descriptive name of this source.
      * @param endpointSupplier a supplier function that supplies a Twitter StreamingEndpoint to connect to source.
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
      *                         "consumerSecret", "token", "tokenSecret" keys.
-     * @param host             a Twitter endpoint host that are defined in {@link com.twitter.hbc.core.Constants}
-     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
+     * @param host             a Twitter host URL to connect. These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+     * @return a stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
     public static StreamSource<String> stream(@Nonnull String name,
@@ -107,7 +136,7 @@ public final class TwitterSources {
          * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
          * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
          *                         "consumerSecret", "token", "tokenSecret" keys.
-         * @param host             a Twitter endpoint host that are defined in {@link com.twitter.hbc.core.Constants}
+         * @param host             a Twitter host URL to connect. These hosts are defined in {@link com.twitter.hbc.core.Constants}.
          */
         private TwitterSourceContext(
                 @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
