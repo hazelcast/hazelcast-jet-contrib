@@ -24,17 +24,6 @@ which enables Hazelcast Jet pipelines to consume tweets.
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local
- machine for development and testing purposes. 
-
-### Prerequisites
-
-What things you need to install the software and how to install them
-
-```
-Give examples
-```
-
 ### Installing
 
 <The Hazelcast Twitter Source Connector artifacts are published on the Maven repositories.>
@@ -71,7 +60,7 @@ To run the tests run the command below:
 
 ## Authors
 
-* **Name Surname** - link to your profile or contact information if you like
+* **Ufuk Yilmaz**
 
 See also the list of [contributors](https://github.com/hazelcast/hazelcast-jet-contrib/graphs/contributors) 
 who participated in this project.
