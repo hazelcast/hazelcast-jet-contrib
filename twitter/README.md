@@ -26,7 +26,8 @@ which enables Hazelcast Jet pipelines to consume tweets.
 
 ### Installing
 
-<The Hazelcast Twitter Source Connector artifacts are published on the Maven repositories.>
+The Hazelcast Twitter Source Connector artifacts are published on the Maven repositories.
+
 Add the following lines to your pom.xml to include it as a dependency to your project:
 
 ```
@@ -40,16 +41,6 @@ If you are using Gradle:
 ```
 compile group: 'com.hazelcast.jet.contrib', name: 'twitter', version: ${version}
 ```
-
-<!--
-## Usage
-Describe the module usage and how it interacts with the rest of the system. The
-entry point of the module must be included in this section like `InfluxDbSinks.influxDb()`.
-
-End with a very small example/snippet of getting some data out of the system 
-or using it for a little demo
--->
-
 ## Running the tests
 
 To run the tests run the command below: 
