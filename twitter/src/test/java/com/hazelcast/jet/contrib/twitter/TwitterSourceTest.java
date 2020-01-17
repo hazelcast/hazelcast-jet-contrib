@@ -66,7 +66,7 @@ public class TwitterSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void it_should_read_from_twitter_stream_source() {
+    public void it_should_read_from_twitter_stream_source_with_term_filter() {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
         final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source",
@@ -93,7 +93,7 @@ public class TwitterSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void it_should_read_from_twitter_stream_source_2() {
+    public void it_should_read_from_twitter_stream_source_with_user_filter() {
         Pipeline pipeline = Pipeline.create();
         List<Long> userIds = new ArrayList<Long>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
