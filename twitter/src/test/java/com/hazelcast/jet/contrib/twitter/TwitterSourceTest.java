@@ -22,7 +22,6 @@ import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
@@ -106,7 +105,8 @@ public class TwitterSourceTest extends JetTestSupport {
                         .asObject()
                         .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
-                list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.", list.size(), 15)));
+                list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
+                        list.size(), 15)));
         Job job = jet.newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
@@ -120,7 +120,7 @@ public class TwitterSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void it_should_read_from_twitter_timestamped_stream_source() {
+    public void it_should_read_from_twitter_timestamped_stream_source_with_term_filter() {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
 
@@ -132,7 +132,6 @@ public class TwitterSourceTest extends JetTestSupport {
                 .map(rawJson -> Json.parse(rawJson)
                         .asObject()
                         .getString("text", null));
-        tweets.writeTo(Sinks.logger());
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
                         list.size(), 20)));
@@ -147,6 +146,36 @@ public class TwitterSourceTest extends JetTestSupport {
                     + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
     }
+
+    @Test
+    public void it_should_read_from_twitter_timestamped_stream_source_with_user_filter() {
+        Pipeline pipeline = Pipeline.create();
+        List<Long> userIds = new ArrayList<Long>(
+                Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
+        final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream("twitter-test-source",
+                () -> new StatusesFilterEndpoint().followings(userIds), credentials, Constants.STREAM_HOST);
+        StreamStage<String> tweets = pipeline
+                .readFrom(twitterTestStream)
+                .withNativeTimestamps(0)
+                .map(rawJson -> Json.parse(rawJson)
+                        .asObject()
+                        .getString("text", null));
+        tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
+                list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
+                        list.size(), 20)));
+        Job job = jet.newJob(pipeline);
+        sleepAtLeastSeconds(5);
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
+                    + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+    }
+
+
 
     private static Properties loadCredentials() {
         Properties credentials = new Properties();
