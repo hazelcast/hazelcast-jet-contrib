@@ -184,7 +184,7 @@ public class TwitterSourceTest extends JetTestSupport {
         return credentials;
     }
 
-    private static Properties loadCredentialsFromConfigurationFile(){
+    private static Properties loadCredentialsFromConfigurationFile() {
         Properties credentials = new Properties();
         try {
             credentials.load(Thread.currentThread().getContextClassLoader()
