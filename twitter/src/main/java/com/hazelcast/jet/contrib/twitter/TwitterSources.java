@@ -77,7 +77,7 @@ public final class TwitterSources {
                                               @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
                                               @Nonnull Properties credentials,
                                               @Nonnull String host) {
-        return SourceBuilder.stream(name, ignored -> new TwitterSourceContext(endpointSupplier, credentials, host))
+        return SourceBuilder.stream(name, ctx -> new TwitterSourceContext(endpointSupplier, credentials, host))
                 .fillBufferFn(TwitterSourceContext::fillBuffer)
                 .destroyFn(TwitterSourceContext::close)
                 .build();

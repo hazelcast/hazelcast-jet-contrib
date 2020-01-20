@@ -54,7 +54,7 @@ public class TwitterSourceTest extends JetTestSupport {
     @Before
     public void setup() {
         jet = createJetMember();
-        credentials = loadCredentials();
+        credentials = loadCredentialsFromEnv();
     }
 
     @After
@@ -175,9 +175,16 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
+    private static Properties loadCredentialsFromEnv() {
+        Properties credentials = new Properties();
+        credentials.put("consumerKey", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY"));
+        credentials.put("consumerSecret", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET"));
+        credentials.put("token", System.getenv("JET_TWITTER_CONNECTOR_TOKEN"));
+        credentials.put("tokenSecret", System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET"));
+        return credentials;
+    }
 
-
-    private static Properties loadCredentials() {
+    private static Properties loadCredentialsFromConfigurationFile(){
         Properties credentials = new Properties();
         try {
             credentials.load(Thread.currentThread().getContextClassLoader()
@@ -188,3 +195,4 @@ public class TwitterSourceTest extends JetTestSupport {
         return credentials;
     }
 }
+
