@@ -27,7 +27,6 @@ import com.hazelcast.jet.pipeline.StreamStage;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 
-import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 
 import org.junit.After;
@@ -68,8 +67,8 @@ public class TwitterSourceTest extends JetTestSupport {
     public void it_should_read_from_twitter_stream_source_with_term_filter() {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
-        final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source",
-                () -> new StatusesFilterEndpoint().trackTerms(terms), credentials, Constants.STREAM_HOST);
+        final StreamSource<String> twitterTestStream = TwitterSources.stream(
+                credentials,  () -> new StatusesFilterEndpoint().trackTerms(terms));
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
@@ -96,8 +95,8 @@ public class TwitterSourceTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         List<Long> userIds = new ArrayList<Long>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
-        final StreamSource<String> twitterTestStream = TwitterSources.stream("twitter-test-source",
-                () -> new StatusesFilterEndpoint().followings(userIds), credentials, Constants.STREAM_HOST);
+        final StreamSource<String> twitterTestStream = TwitterSources.stream(credentials,
+                () -> new StatusesFilterEndpoint().followings(userIds));
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
@@ -124,8 +123,8 @@ public class TwitterSourceTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
 
-        final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream("twitter-test-source",
-                () -> new StatusesFilterEndpoint().trackTerms(terms), credentials, Constants.STREAM_HOST);
+        final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream(
+                credentials, () -> new StatusesFilterEndpoint().trackTerms(terms));
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
                 .withNativeTimestamps(0)
@@ -152,17 +151,17 @@ public class TwitterSourceTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         List<Long> userIds = new ArrayList<Long>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
-        final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream("twitter-test-source",
-                () -> new StatusesFilterEndpoint().followings(userIds), credentials, Constants.STREAM_HOST);
+        final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream(
+                credentials, () -> new StatusesFilterEndpoint().followings(userIds));
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
-                .withNativeTimestamps(0)
+                .withNativeTimestamps(1)
                 .map(rawJson -> Json.parse(rawJson)
                         .asObject()
                         .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
-                list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
-                        list.size(), 20)));
+                list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
+                        list.size(), 15)));
         Job job = jet.newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {

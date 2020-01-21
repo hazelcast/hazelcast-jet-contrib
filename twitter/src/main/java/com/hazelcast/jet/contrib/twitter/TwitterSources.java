@@ -23,15 +23,17 @@ import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 
 import com.twitter.hbc.ClientBuilder;
+import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StreamingEndpoint;
-import com.twitter.hbc.httpclient.BasicClient;
 import com.twitter.hbc.core.processor.StringDelimitedProcessor;
+import com.twitter.hbc.httpclient.BasicClient;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 
 import java.util.ArrayList;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.Objects;
 import java.util.Properties;
 
 import javax.annotation.Nonnull;
@@ -46,49 +48,83 @@ public final class TwitterSources {
     }
 
     /**
-     * Creates a {@link StreamSource} which reads tweets from Twitter's Streaming API
-     * for data ingestion to Jet pipelines.
-     *
+     * Creates a {@link StreamSource} which reads tweets from Twitter's Streaming API for data ingestion to Jet
+     * pipelines. This StreamSource uses {@link com.twitter.hbc.core.Constants#STREAM_HOST} as a default Twitter
+     * Streaming host.
+     * <p>
      * Example usage:
      * <pre>{@code
      * Properties credentials = loadTwitterCredentials();
      * List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
      * StreamSource<String> streamSource =
      *              TwitterSources.stream(
-     *                      "twitter-stream-source",
-     *                      () -> new StatusesFilterEndpoint().trackTerms(terms),
      *                      credentials,
-     *                      Constants.STREAM_HOST
+     *                      () -> new StatusesFilterEndpoint().trackTerms(terms)
      *              );
      * Pipeline p = Pipeline.create();
      * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
-     * @param name             a descriptive name of this source.
-     * @param endpointSupplier a supplier function that supplies a Twitter StreamingEndpoint to connect to source.
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
      *                         "consumerSecret", "token", "tokenSecret" keys.
-     * @param host             a Twitter host URL to connect.
-     *                         These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+     * @param endpointSupplier a supplier function that supplies a Twitter StreamingEndpoint to connect to source.
      * @return a stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
-    public static StreamSource<String> stream(@Nonnull String name,
-                                              @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
-                                              @Nonnull Properties credentials,
-                                              @Nonnull String host) {
-        return SourceBuilder.stream(name, ctx -> new TwitterSourceContext(endpointSupplier, credentials, host))
+    public static StreamSource<String> stream(@Nonnull Properties credentials,
+                                              @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
+    ) {
+        return SourceBuilder.stream("twitter-stream-source", ctx -> new TwitterSourceContext(
+                credentials, Constants.STREAM_HOST, endpointSupplier))
                 .fillBufferFn(TwitterSourceContext::fillBuffer)
                 .destroyFn(TwitterSourceContext::close)
                 .build();
     }
 
     /**
+     * The method {@link TwitterSources#stream(Properties, SupplierEx)} is overloaded here.
+     * This difference between this method and the other is that this method gets the Twitter host URL as a parameter.
      * <p>
-     * The timestampedStream is almost same with {@link TwitterSources#stream}.
+     * Example usage:
+     * <pre>{@code
+     * Properties credentials = loadTwitterCredentials();
+     * List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
+     * StreamSource<String> streamSource =
+     *              TwitterSources.stream(
+     *                      credentials,
+     *                      Constants.STREAM_HOST,
+     *                      () -> new StatusesFilterEndpoint().trackTerms(terms)
+     *              );
+     * Pipeline p = Pipeline.create();
+     * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
+     * }</pre>
+     *
+     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
+     *                         "consumerSecret", "token", "tokenSecret" keys.
+     * @param host             a Twitter host URL to connect.
+     *                         These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+     * @param endpointSupplier a supplier function that supplies a Twitter StreamingEndpoint to connect to source.
+     * @return a stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
+     */
+    @Nonnull
+    public static StreamSource<String> stream(
+            @Nonnull Properties credentials,
+            @Nonnull String host,
+            @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
+    ) {
+        return SourceBuilder.stream("twitter-stream-source",
+                ctx -> new TwitterSourceContext(credentials, host, endpointSupplier))
+                .fillBufferFn(TwitterSourceContext::fillBuffer)
+                .destroyFn(TwitterSourceContext::close)
+                .build();
+    }
+
+    /**
+     * The timestampedStream is almost same with {@link TwitterSources#stream(Properties, SupplierEx)}.
      * The only difference is that the timestampedStream creates a timestamped stream source while the
-     * other creates without timestamps.
-     * </p>
+     * other creates without timestamps. This timestampedStreamSource uses
+     * {@link com.twitter.hbc.core.Constants#STREAM_HOST} as a default Twitter Streaming API host.
+     * <p>
      * Example usage:
      * <pre>{@code
      *
@@ -96,30 +132,65 @@ public final class TwitterSources {
      *                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
      * StreamSource<String> timestampedStreamSource =
      *              TwitterSources.timestampedStream(
-     *                      "twitter-timestampedstream-source",
-     *                      () -> new StatusesFilterEndpoint().followings(userIds),
      *                      credentials,
-     *                      Constants.STREAM_HOST
+     *                      () -> new StatusesFilterEndpoint().followings(userIds),
      *              );
      * Pipeline p = Pipeline.create();
      * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
-     * @param name             a descriptive name of this source.
-     * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
      *                         "consumerSecret", "token", "tokenSecret" keys.
-     * @param host             a Twitter host URL to connect.
-     *                         These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+     * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
      * @return a timestamped stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
     @Nonnull
-    public static StreamSource<String> timestampedStream(@Nonnull String name,
-                                                         @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
-                                                         @Nonnull Properties credentials,
-                                                         @Nonnull String host) {
-        return SourceBuilder.timestampedStream(name,
-                ctx -> new TwitterSourceContext(endpointSupplier, credentials, host))
+    public static StreamSource<String> timestampedStream(
+            @Nonnull Properties credentials,
+            @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
+    ) {
+        return SourceBuilder.timestampedStream("twitter-timestamped-stream-source",
+                ctx -> new TwitterSourceContext(credentials, Constants.STREAM_HOST, endpointSupplier))
+                .fillBufferFn(TwitterSourceContext::fillTimestampedBuffer)
+                .destroyFn(TwitterSourceContext::close)
+                .build();
+    }
+
+    /**
+     * The method {@link TwitterSources#timestampedStream(Properties, SupplierEx)} is overloaded here.
+     * This method differs from the other in the aspect of getting the Twitter host URL as a parameter.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     *
+     * List<Long> userIds = new ArrayList<Long>(
+     *                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
+     * StreamSource<String> timestampedStreamSource =
+     *              TwitterSources.timestampedStream(
+     *                      credentials,
+     *                      Constants.STREAM_HOST,
+     *                      () -> new StatusesFilterEndpoint().followings(userIds),
+     *              );
+     * Pipeline p = Pipeline.create();
+     * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
+     * }</pre>
+     *
+     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
+     *                         "consumerSecret", "token", "tokenSecret" keys.
+     *                         These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+     * @param host             a Twitter host URL to connect.
+     * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
+     * @return a timestamped stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
+     */
+    @Nonnull
+    public static StreamSource<String> timestampedStream(
+            @Nonnull Properties credentials,
+            @Nonnull String host,
+            @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
+
+    ) {
+        return SourceBuilder.timestampedStream("twitter-timestamped-stream-source",
+                ctx -> new TwitterSourceContext(credentials, host, endpointSupplier))
                 .fillBufferFn(TwitterSourceContext::fillTimestampedBuffer)
                 .destroyFn(TwitterSourceContext::close)
                 .build();
@@ -138,26 +209,22 @@ public final class TwitterSources {
         private final BasicClient client;
 
         /**
-         * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
          * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
          *                         "consumerSecret", "token", "tokenSecret" keys.
          * @param host             a Twitter host URL to connect.
          *                         These hosts are defined in {@link com.twitter.hbc.core.Constants}.
+         * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
          */
         private TwitterSourceContext(
-                @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier,
                 @Nonnull Properties credentials,
-                @Nonnull String host
+                @Nonnull String host,
+                @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
         ) {
-
+            checkTwitterCredentials(credentials);
             String consumerKey = credentials.getProperty("consumerKey");
             String consumerSecret = credentials.getProperty("consumerSecret");
             String token = credentials.getProperty("token");
             String tokenSecret = credentials.getProperty("tokenSecret");
-
-            if (isMissing(consumerKey) || isMissing(consumerSecret) || isMissing(token) || isMissing(tokenSecret)) {
-                throw new IllegalArgumentException("Twitter credentials are missing!");
-            }
 
             Authentication auth = new OAuth1(consumerKey, consumerSecret, token, tokenSecret);
             client = new ClientBuilder()
@@ -188,17 +255,30 @@ public final class TwitterSources {
             buffer.clear();
         }
 
-
         private void close() {
             if (client != null) {
                 client.stop();
             }
         }
 
-        private static boolean isMissing(String test) {
-            return test.isEmpty() || "REPLACE_THIS".equals(test);
+        private void checkTwitterCredentials(Properties credentials) {
+            String consumerKey = credentials.getProperty("consumerKey");
+            String consumerSecret = credentials.getProperty("consumerSecret");
+            String token = credentials.getProperty("token");
+            String tokenSecret = credentials.getProperty("tokenSecret");
+
+            isMissing(consumerKey, "consumerKey");
+            isMissing(consumerSecret, "consumerSecret");
+            isMissing(token, "token");
+            isMissing(tokenSecret, "tokenSecret");
         }
 
+        private static void isMissing(String key, String description) {
+            Objects.requireNonNull(key, description);
+            if ("REPLACE_THIS".equals(key)) {
+                throw new IllegalArgumentException("Twitter credentials key: " + description + " is missing!");
+            }
+        }
     }
 
 }
