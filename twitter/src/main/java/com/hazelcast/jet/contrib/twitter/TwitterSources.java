@@ -19,6 +19,7 @@ package com.hazelcast.jet.contrib.twitter;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 
@@ -30,7 +31,16 @@ import com.twitter.hbc.httpclient.BasicClient;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 
+import twitter4j.Query;
+import twitter4j.QueryResult;
+import twitter4j.Status;
+import twitter4j.Twitter;
+import twitter4j.TwitterException;
+import twitter4j.TwitterFactory;
+import twitter4j.conf.ConfigurationBuilder;
+
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Objects;
@@ -63,7 +73,7 @@ public final class TwitterSources {
      *                      () -> new StatusesFilterEndpoint().trackTerms(terms)
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
+     * StreamStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
@@ -80,9 +90,9 @@ public final class TwitterSources {
             @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
     ) {
         return SourceBuilder.stream("twitter-stream-source",
-                ctx -> new TwitterSourceContext(credentials, host, endpointSupplier))
-                .fillBufferFn(TwitterSourceContext::fillBuffer)
-                .destroyFn(TwitterSourceContext::close)
+                ctx -> new TwitterStreamSourceContext(credentials, host, endpointSupplier))
+                .fillBufferFn(TwitterStreamSourceContext::fillBuffer)
+                .destroyFn(TwitterStreamSourceContext::close)
                 .build();
     }
 
@@ -101,7 +111,7 @@ public final class TwitterSources {
      *                      () -> new StatusesFilterEndpoint().trackTerms(terms)
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
+     * StreamStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
@@ -135,7 +145,7 @@ public final class TwitterSources {
      *                      () -> new StatusesFilterEndpoint().followings(userIds),
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
+     * StreamStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
@@ -151,12 +161,11 @@ public final class TwitterSources {
             @Nonnull Properties credentials,
             @Nonnull String host,
             @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
-
     ) {
         return SourceBuilder.timestampedStream("twitter-timestamped-stream-source",
-                ctx -> new TwitterSourceContext(credentials, host, endpointSupplier))
-                .fillBufferFn(TwitterSourceContext::fillTimestampedBuffer)
-                .destroyFn(TwitterSourceContext::close)
+                ctx -> new TwitterStreamSourceContext(credentials, host, endpointSupplier))
+                .fillBufferFn(TwitterStreamSourceContext::fillTimestampedBuffer)
+                .destroyFn(TwitterStreamSourceContext::close)
                 .build();
     }
 
@@ -176,7 +185,7 @@ public final class TwitterSources {
      *                      () -> new StatusesFilterEndpoint().followings(userIds),
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
+     * StreamStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
@@ -194,9 +203,43 @@ public final class TwitterSources {
 
 
     /**
-     * A source context of Twitter
+     * Creates a {@link BatchSource} which emits tweets as the form of {@link Status} by getting from
+     * Twitter's Search API for data ingestion to Jet pipelines.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * Properties credentials = loadTwitterCredentials();
+     * BatchSource<Status> twitterSearchSource =
+     *              TwitterSources.search(
+     *                      credentials,
+     *                      "Jet flies"
+     *              );
+     * Pipeline p = Pipeline.create();
+     * BatchStage<Status> srcStage = p.readFrom(streamSource);
+     * }</pre>
+     *
+     * @param credentials      a Twitter OAuth1 credentials that consists "consumerKey",
+     *                         "consumerSecret", "token", "tokenSecret" keys.
+     * @param query            a search query
+     * @return a batch source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
      */
-    private static final class TwitterSourceContext {
+    @Nonnull
+    public static BatchSource<Status> search(
+            @Nonnull Properties credentials,
+            @Nonnull String query
+    ) {
+        return SourceBuilder.batch("twitter-search-batch-source",
+                ctx -> new TwitterBatchSourceContext(credentials, query))
+                .fillBufferFn(TwitterBatchSourceContext::fillBuffer)
+                .destroyFn(TwitterBatchSourceContext::close)
+                .build();
+    }
+
+
+    /**
+     * A context for the stream source of Twitter's Stream API
+     */
+    private static final class TwitterStreamSourceContext {
 
         private static final int QUEUE_CAPACITY = 1000;
         private static final int MAX_FILL_ELEMENTS = 250;
@@ -212,7 +255,7 @@ public final class TwitterSources {
          *                         These hosts are defined in {@link com.twitter.hbc.core.Constants}.
          * @param endpointSupplier Supplier that supplies a Twitter StreamingEndpoint to connect to source.
          */
-        private TwitterSourceContext(
+        private TwitterStreamSourceContext(
                 @Nonnull Properties credentials,
                 @Nonnull String host,
                 @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
@@ -258,23 +301,74 @@ public final class TwitterSources {
             }
         }
 
-        private void checkTwitterCredentials(Properties credentials) {
+    }
+
+    /**
+     * Context for the batch source of Twitter's Search API
+     */
+    private static final class TwitterBatchSourceContext {
+        private QueryResult searchResult;
+        private final Twitter twitter4JClient;
+
+        /**
+         * @param credentials a Twitter OAuth1 credentials that consists "consumerKey",
+         *                    "consumerSecret", "token", "tokenSecret" keys.
+         * @param query       a search query
+         */
+        private TwitterBatchSourceContext(
+                @Nonnull Properties credentials,
+                @Nonnull String query
+        ) throws TwitterException {
+            checkTwitterCredentials(credentials);
             String consumerKey = credentials.getProperty("consumerKey");
             String consumerSecret = credentials.getProperty("consumerSecret");
             String token = credentials.getProperty("token");
             String tokenSecret = credentials.getProperty("tokenSecret");
-
-            isMissing(consumerKey, "consumerKey");
-            isMissing(consumerSecret, "consumerSecret");
-            isMissing(token, "token");
-            isMissing(tokenSecret, "tokenSecret");
+            ConfigurationBuilder cb = new ConfigurationBuilder();
+            cb.setDebugEnabled(true)
+                    .setOAuthConsumerKey(consumerKey)
+                    .setOAuthConsumerSecret(consumerSecret)
+                    .setOAuthAccessToken(token)
+                    .setOAuthAccessTokenSecret(tokenSecret);
+            this.twitter4JClient = new TwitterFactory(cb.build())
+                    .getInstance();
+            this.searchResult = twitter4JClient.search(new Query(query));
         }
 
-        private static void isMissing(String key, String description) {
-            Objects.requireNonNull(key, description);
-            if ("REPLACE_THIS".equals(key)) {
-                throw new IllegalArgumentException("Twitter credentials key: " + description + " is missing!");
+        private void fillBuffer(SourceBuilder.SourceBuffer<Status> sourceBuffer) throws TwitterException {
+            try {
+                List<Status> tweets = searchResult.getTweets();
+                for (Status tweet : tweets) {
+                    sourceBuffer.add(tweet);
+                }
+                searchResult = twitter4JClient.search(searchResult.nextQuery());
+            } catch (TwitterException te) {
+                te.printStackTrace();
+                System.out.println("Failed to search tweets: " + te.getMessage());
             }
+        }
+        private void close() {
+            // TODO: I don't know what to do in here. Twitter4J client does not have any destructor.
+        }
+
+    }
+
+    private static void checkTwitterCredentials(Properties credentials) {
+        String consumerKey = credentials.getProperty("consumerKey");
+        String consumerSecret = credentials.getProperty("consumerSecret");
+        String token = credentials.getProperty("token");
+        String tokenSecret = credentials.getProperty("tokenSecret");
+
+        isMissing(consumerKey, "consumerKey");
+        isMissing(consumerSecret, "consumerSecret");
+        isMissing(token, "token");
+        isMissing(tokenSecret, "tokenSecret");
+    }
+
+    private static void isMissing(String key, String description) {
+        Objects.requireNonNull(key, description);
+        if ("REPLACE_THIS".equals(key)) {
+            throw new IllegalArgumentException("Twitter credentials key: " + description + " is missing!");
         }
     }
 

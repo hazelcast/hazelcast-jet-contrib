@@ -21,13 +21,19 @@ import com.hazelcast.internal.json.Json;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.pipeline.BatchSource;
+import com.hazelcast.jet.pipeline.BatchStage;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
+
+
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
+
+import twitter4j.Status;
 
 import org.junit.After;
 import org.junit.Before;
@@ -68,7 +74,7 @@ public class TwitterSourceTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
         final StreamSource<String> twitterTestStream = TwitterSources.stream(
-                credentials,  () -> new StatusesFilterEndpoint().trackTerms(terms));
+                credentials, () -> new StatusesFilterEndpoint().trackTerms(terms));
         StreamStage<String> tweets = pipeline
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
@@ -174,13 +180,29 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    private static Properties loadCredentialsFromEnv() {
-        Properties credentials = new Properties();
-        credentials.put("consumerKey", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY"));
-        credentials.put("consumerSecret", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET"));
-        credentials.put("token", System.getenv("JET_TWITTER_CONNECTOR_TOKEN"));
-        credentials.put("tokenSecret", System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET"));
-        return credentials;
+
+    @Test
+    public void it_should_read_from_twitter_search_batch_source() {
+        Pipeline pipeline = Pipeline.create();
+        String query = "Jet flies";
+        BatchSource<Status> twitterSearch = TwitterSources.search(
+                credentials, query);
+        BatchStage<String> tweets = pipeline
+                .readFrom(twitterSearch)
+                .map(status -> status.getText());
+        tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
+                list -> assertGreaterOrEquals("Emits at least 10 tweets in 1 minute.",
+                        list.size(), 10)));
+        Job job = jet.newJob(pipeline);
+        sleepAtLeastSeconds(5);
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
+                    + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
     }
 
     private static Properties loadCredentialsFromConfigurationFile() {
@@ -193,5 +215,16 @@ public class TwitterSourceTest extends JetTestSupport {
         }
         return credentials;
     }
+
+    private static Properties loadCredentialsFromEnv() {
+        Properties credentials = new Properties();
+        credentials.put("consumerKey", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY"));
+        credentials.put("consumerSecret", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET"));
+        credentials.put("token", System.getenv("JET_TWITTER_CONNECTOR_TOKEN"));
+        credentials.put("tokenSecret", System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET"));
+        return credentials;
+    }
+
+
 }
 
