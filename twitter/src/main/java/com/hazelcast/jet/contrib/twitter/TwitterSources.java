@@ -201,7 +201,11 @@ public final class TwitterSources {
 
     /**
      * Creates a {@link BatchSource} which emits tweets as the form of {@link Status} by getting from
-     * Twitter's Search API for data ingestion to Jet pipelines.
+     * Twitter's Search API for data ingestion to Jet pipelines. Twitter restricts the repeated(continuous) access
+     * to its search endpoint so you can only make 180 calls every 15 mins. This source tries to get the search
+     * results from the search endpoint until the api rate limit gets exhausted.
+     * <p>
+     * See <a href="https://developer.twitter.com/en/docs/basics/rate-limiting">Twitter's Rate Limiting.</a>
      * <p>
      * Example usage:
      * <pre>{@code
@@ -305,6 +309,7 @@ public final class TwitterSources {
     private static final class TwitterBatchSourceContext {
         private QueryResult searchResult;
         private final Twitter twitter4JClient;
+        private int counter;
 
         /**
          * @param credentials a Twitter OAuth1 credentials that consists "consumerKey",
@@ -332,11 +337,13 @@ public final class TwitterSources {
         }
 
         private void fillBuffer(SourceBuilder.SourceBuffer<Status> sourceBuffer) throws TwitterException {
-            List<Status> tweets = searchResult.getTweets();
-            for (Status tweet : tweets) {
-                sourceBuffer.add(tweet);
+            if(searchResult != null) {
+                List<Status> tweets = searchResult.getTweets();
+                for (Status tweet : tweets) {
+                    sourceBuffer.add(tweet);
+                }
+                searchResult = searchResult.nextQuery() != null ? twitter4JClient.search(searchResult.nextQuery()) : null;
             }
-            searchResult = twitter4JClient.search(searchResult.nextQuery());
         }
     }
 
