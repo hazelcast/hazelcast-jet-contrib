@@ -204,9 +204,7 @@ public final class TwitterSources {
      * Twitter's Search API for data ingestion to Jet pipelines. Twitter restricts the repeated(continuous) access
      * to its search endpoint so you can only make 180 calls every 15 mins. This source tries to get the search
      * results from the search endpoint until the api rate limit gets exhausted.
-     * <p>
-     * See <a href="https://developer.twitter.com/en/docs/basics/rate-limiting">Twitter's Rate Limiting.</a>
-     * <p>
+     *
      * Example usage:
      * <pre>{@code
      * Properties credentials = loadTwitterCredentials();
@@ -223,6 +221,11 @@ public final class TwitterSources {
      *                    "consumerSecret", "token", "tokenSecret" keys.
      * @param query       a search query
      * @return a batch source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom}
+     * @see <a href="https://developer.twitter.com/en/docs/basics/rate-limiting">Twitter's Rate Limiting.</a>
+     * @see <a href="https://developer.twitter.com/en/docs/tweets/search/api-reference/get-search-tweets">
+     *     GET search tweets/ Twitter Developers</a>
+     * @see <a href="https://developer.twitter.com/en/docs/tweets/search/guides/standard-operators">
+     *     Twitter API / Standard search Operators</a>
      */
     @Nonnull
     public static BatchSource<Status> search(
