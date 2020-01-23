@@ -128,7 +128,7 @@ public final class TwitterSources {
     }
 
     /**
-     * The timestampedStream is almost same with {@link TwitterSources#stream(Properties,SupplierEx)}.
+     * The timestampedStream is almost same with {@link TwitterSources#stream(Properties, SupplierEx)}.
      * The only difference is that the timestampedStream creates a timestamped stream source while the
      * other creates without timestamps.
      * This method uses {@link com.twitter.hbc.core.Constants#STREAM_HOST} as a default Twitter Streaming API host.
@@ -228,7 +228,6 @@ public final class TwitterSources {
         return SourceBuilder.batch("twitter-search-batch-source",
                 ctx -> new TwitterBatchSourceContext(credentials, query))
                 .fillBufferFn(TwitterBatchSourceContext::fillBuffer)
-                .destroyFn(TwitterBatchSourceContext::close)
                 .build();
     }
 
@@ -333,22 +332,12 @@ public final class TwitterSources {
         }
 
         private void fillBuffer(SourceBuilder.SourceBuffer<Status> sourceBuffer) throws TwitterException {
-            try {
-                List<Status> tweets = searchResult.getTweets();
-                for (Status tweet : tweets) {
-                    sourceBuffer.add(tweet);
-                }
-                searchResult = twitter4JClient.search(searchResult.nextQuery());
-            } catch (TwitterException te) {
-                te.printStackTrace();
-                System.out.println("Failed to search tweets: " + te.getMessage());
+            List<Status> tweets = searchResult.getTweets();
+            for (Status tweet : tweets) {
+                sourceBuffer.add(tweet);
             }
+            searchResult = twitter4JClient.search(searchResult.nextQuery());
         }
-
-        private void close() {
-            // TODO: I don't know what to do in here. Twitter4J client does not have any destructor.
-        }
-
     }
 
     private static void checkTwitterCredentials(Properties credentials) {
