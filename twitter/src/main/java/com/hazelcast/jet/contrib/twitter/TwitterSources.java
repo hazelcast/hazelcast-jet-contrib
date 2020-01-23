@@ -337,13 +337,13 @@ public final class TwitterSources {
         }
 
         private void fillBuffer(SourceBuilder.SourceBuffer<Status> sourceBuffer) throws TwitterException {
-            if(searchResult != null) {
+            if (searchResult != null) {
                 List<Status> tweets = searchResult.getTweets();
                 for (Status tweet : tweets) {
                     sourceBuffer.add(tweet);
                 }
                 searchResult = searchResult.nextQuery() != null ? twitter4JClient.search(searchResult.nextQuery()) : null;
-            }else{
+            } else {
                 sourceBuffer.close();
             }
         }
