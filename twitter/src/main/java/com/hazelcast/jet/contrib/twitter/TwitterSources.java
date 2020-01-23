@@ -343,6 +343,8 @@ public final class TwitterSources {
                     sourceBuffer.add(tweet);
                 }
                 searchResult = searchResult.nextQuery() != null ? twitter4JClient.search(searchResult.nextQuery()) : null;
+            }else{
+                sourceBuffer.close();
             }
         }
     }

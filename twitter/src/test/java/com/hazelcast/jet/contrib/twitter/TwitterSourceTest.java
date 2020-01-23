@@ -27,7 +27,6 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
 
-
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 
@@ -189,7 +188,7 @@ public class TwitterSourceTest extends JetTestSupport {
                 credentials, query);
         BatchStage<String> tweets = pipeline
                 .readFrom(twitterSearch)
-                .map(status -> status.getText());
+                .map(status -> "@" + status.getUser() + " - " + status.getText());
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 10 tweets in 1 minute.",
                         list.size(), 10)));
