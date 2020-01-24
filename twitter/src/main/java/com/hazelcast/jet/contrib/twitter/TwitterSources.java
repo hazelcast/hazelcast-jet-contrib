@@ -45,7 +45,6 @@ import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-
 /**
  * Contains methods for creating Twitter stream sources.
  */
@@ -74,7 +73,7 @@ public final class TwitterSources {
      * StreamStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
-     * @param credentials      a Twitter OAuth1 credentials that consists
+     * @param credentials      a Twitter OAuth1 credentials that consists of
      *                         "consumerKey", "consumerSecret", "token",
      *                         "tokenSecret" keys.
      * @param endpointSupplier a supplier function that supplies a Twitter
@@ -110,7 +109,7 @@ public final class TwitterSources {
      * StreamStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
-     * @param credentials      a Twitter OAuth1 credentials that consists
+     * @param credentials      a Twitter OAuth1 credentials that consists of
      *                         "consumerKey", "consumerSecret", "token",
      *                         "tokenSecret" keys.
      * @param host             a Twitter host URL to connect. These hosts are
@@ -134,7 +133,7 @@ public final class TwitterSources {
     }
 
     /**
-     * The timestampedStream is almost same with
+     * The timestampedStream is almost same as
      * {@link TwitterSources#stream(Properties, SupplierEx)}. The only
      * difference is that the timestampedStream creates a timestamped stream
      * source while the other creates without timestamps. This method uses
@@ -154,7 +153,7 @@ public final class TwitterSources {
      * StreamStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
-     * @param credentials      a Twitter OAuth1 credentials that consists
+     * @param credentials      a Twitter OAuth1 credentials that consists of
      *                         "consumerKey", "consumerSecret", "token",
      *                         "tokenSecret" keys.
      * @param endpointSupplier Supplier that supplies a Twitter
@@ -190,7 +189,7 @@ public final class TwitterSources {
      * StreamStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
-     * @param credentials      a Twitter OAuth1 credentials that consists
+     * @param credentials      a Twitter OAuth1 credentials that consists of
      *                         "consumerKey", "consumerSecret", "token",
      *                         "tokenSecret" keys.
      * @param host             a Twitter host URL to connect. These hosts are
@@ -215,12 +214,12 @@ public final class TwitterSources {
     }
 
     /**
-     * Creates a {@link BatchSource} which emits tweets as the form of
-     * {@link Status} by getting from Twitter's Search API for data ingestion
-     * to Jet pipelines. Twitter restricts the repeated(continuous) access to
-     * its search endpoint so you can only make 180 calls every 15 mins. This
-     * source tries to get the search results from the search endpoint until
-     * the api rate limit gets exhausted.
+     * Creates a {@link BatchSource} which emits tweets in the form of {@link
+     * Status} by using Twitter's Search API for data ingestion. Twitter
+     * restricts the repeated (continuous) access to its search endpoint so you
+     * can only make 180 calls every 15 minutes. This source tries to get the
+     * search results from the search endpoint until the API rate limit gets
+     * exhausted.
      * <p>
      * Example usage:
      * <pre>{@code
@@ -234,7 +233,7 @@ public final class TwitterSources {
      * BatchStage<Status> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
-     * @param credentials a Twitter OAuth1 credentials that consists
+     * @param credentials a Twitter OAuth1 credentials that consists of
      *                    "consumerKey", "consumerSecret", "token",
      *                    "tokenSecret" keys.
      * @param query       a search query
@@ -271,7 +270,8 @@ public final class TwitterSources {
     private static void isMissing(String key, String description) {
         Objects.requireNonNull(key, description);
         if ("REPLACE_THIS".equals(key)) {
-            throw new IllegalArgumentException("Twitter credentials key: " + description + " is missing!");
+            throw new IllegalArgumentException("Twitter credentials key '" + description
+                    + "' contains the default placeholder");
         }
     }
 
@@ -350,10 +350,9 @@ public final class TwitterSources {
     private static final class TwitterBatchSourceContext {
         private final Twitter twitter4JClient;
         private QueryResult searchResult;
-        private int counter;
 
         /**
-         * @param credentials a Twitter OAuth1 credentials that consists
+         * @param credentials a Twitter OAuth1 credentials that consists of
          *                    "consumerKey", "consumerSecret", "token",
          *                    "tokenSecret" keys.
          * @param query       a search query
@@ -390,5 +389,4 @@ public final class TwitterSources {
             }
         }
     }
-
 }

@@ -16,29 +16,21 @@
 
 package com.hazelcast.jet.contrib.twitter;
 
-
 import com.hazelcast.internal.json.Json;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.BatchStage;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
-
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
-
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
-
-import twitter4j.Status;
-
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import java.io.IOException;
+import twitter4j.Status;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,7 +38,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletionException;
 
-import static com.hazelcast.jet.impl.util.ExceptionUtil.rethrow;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -61,15 +52,8 @@ public class TwitterSourceTest extends JetTestSupport {
         credentials = loadCredentialsFromEnv();
     }
 
-    @After
-    public void tearDown() {
-        if (jet != null) {
-            jet.shutdown();
-        }
-    }
-
     @Test
-    public void it_should_read_from_twitter_stream_source_with_term_filter() {
+    public void testStream_withTermFilter() {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
         final StreamSource<String> twitterTestStream = TwitterSources.stream(
@@ -96,7 +80,7 @@ public class TwitterSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void it_should_read_from_twitter_stream_source_with_user_filter() {
+    public void testStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
         List<Long> userIds = new ArrayList<Long>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
@@ -124,7 +108,7 @@ public class TwitterSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void it_should_read_from_twitter_timestamped_stream_source_with_term_filter() {
+    public void testTimestampedStream_termFilter() {
         Pipeline pipeline = Pipeline.create();
         List<String> terms = new ArrayList<String>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
 
@@ -152,7 +136,7 @@ public class TwitterSourceTest extends JetTestSupport {
     }
 
     @Test
-    public void it_should_read_from_twitter_timestamped_stream_source_with_user_filter() {
+    public void testTimestampedStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
         List<Long> userIds = new ArrayList<Long>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
@@ -179,9 +163,8 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-
     @Test
-    public void it_should_read_from_twitter_search_batch_source() {
+    public void testBatch() {
         Pipeline pipeline = Pipeline.create();
         String query = "Jet flies";
         BatchSource<Status> twitterSearch = TwitterSources.search(
@@ -204,17 +187,6 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    private static Properties loadCredentialsFromConfigurationFile() {
-        Properties credentials = new Properties();
-        try {
-            credentials.load(Thread.currentThread().getContextClassLoader()
-                    .getResourceAsStream("twitter-security.properties"));
-        } catch (IOException e) {
-            throw rethrow(e);
-        }
-        return credentials;
-    }
-
     private static Properties loadCredentialsFromEnv() {
         Properties credentials = new Properties();
         credentials.put("consumerKey", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY"));
@@ -223,7 +195,4 @@ public class TwitterSourceTest extends JetTestSupport {
         credentials.put("tokenSecret", System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET"));
         return credentials;
     }
-
-
 }
-
