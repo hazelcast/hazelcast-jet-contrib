@@ -23,6 +23,8 @@ import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StreamingEndpoint;
@@ -204,6 +206,7 @@ public final class TwitterSources {
 
         private static final int QUEUE_CAPACITY = 1000;
         private static final int MAX_FILL_ELEMENTS = 250;
+        private static final ILogger LOGGER = Logger.getLogger(TwitterStreamSourceContext.class);
 
         private final BlockingQueue<String> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
         private final ArrayList<String> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
@@ -242,8 +245,17 @@ public final class TwitterSources {
             queue.drainTo(buffer, MAX_FILL_ELEMENTS);
             for (String item : buffer) {
                 JsonObject object = Json.parse(item).asObject();
-                long timestamp = Long.parseLong(object.getString("timestamp_ms", "0"));
-                sourceBuffer.add(item, timestamp);
+                try {
+                    long timestamp = Long.parseLong(object.getString("timestamp_ms",
+                            Long.toString(Long.MIN_VALUE)));
+                    if (timestamp != Long.MIN_VALUE) {
+                        sourceBuffer.add(item, timestamp);
+                    } else {
+                        LOGGER.warning("An error occurred while getting the timestamp of a tweet.");
+                    }
+                } catch (NumberFormatException e) {
+                    LOGGER.warning("An error occurred while getting the timestamp of a tweet.");
+                }
             }
             buffer.clear();
         }
