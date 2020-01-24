@@ -63,14 +63,14 @@ public final class TwitterSources {
      * Example usage:
      * <pre>{@code
      * Properties credentials = loadTwitterCredentials();
-     * List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
+     * List<String> terms = new ArrayList<>(Arrays.asList("BTC", "ETH"));
      * StreamSource<String> streamSource =
      *              TwitterSources.stream(
      *                      credentials,
      *                      () -> new StatusesFilterEndpoint().trackTerms(terms)
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamStage<String> srcStage = p.readFrom(streamSource);
+     * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists of
@@ -98,7 +98,7 @@ public final class TwitterSources {
      * Example usage:
      * <pre>{@code
      * Properties credentials = loadTwitterCredentials();
-     * List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
+     * List<String> terms = new ArrayList<>(Arrays.asList("BTC", "ETH"));
      * StreamSource<String> streamSource =
      *              TwitterSources.stream(
      *                      credentials,
@@ -106,7 +106,7 @@ public final class TwitterSources {
      *                      () -> new StatusesFilterEndpoint().trackTerms(terms)
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamStage<String> srcStage = p.readFrom(streamSource);
+     * StreamSourceStage<String> srcStage = p.readFrom(streamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists of
@@ -147,10 +147,10 @@ public final class TwitterSources {
      * StreamSource<String> timestampedStreamSource =
      *              TwitterSources.timestampedStream(
      *                      credentials,
-     *                      () -> new StatusesFilterEndpoint().followings(userIds),
+     *                      () -> new StatusesFilterEndpoint().followings(userIds)
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamStage<String> srcStage = p.readFrom(timestampedStreamSource);
+     * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists of
@@ -177,16 +177,16 @@ public final class TwitterSources {
      * <p>
      * Example usage:
      * <pre>{@code
-     * List<Long> userIds = new ArrayList<Long>(
+     * List<Long> userIds = new ArrayList<>(
      *              Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L));
      * StreamSource<String> timestampedStreamSource =
      *              TwitterSources.timestampedStream(
      *                      credentials,
      *                      Constants.STREAM_HOST,
-     *                      () -> new StatusesFilterEndpoint().followings(userIds),
+     *                      () -> new StatusesFilterEndpoint().followings(userIds)
      *              );
      * Pipeline p = Pipeline.create();
-     * StreamStage<String> srcStage = p.readFrom(timestampedStreamSource);
+     * StreamSourceStage<String> srcStage = p.readFrom(timestampedStreamSource);
      * }</pre>
      *
      * @param credentials      a Twitter OAuth1 credentials that consists of
@@ -230,7 +230,7 @@ public final class TwitterSources {
      *                      "Jet flies"
      *              );
      * Pipeline p = Pipeline.create();
-     * BatchStage<Status> srcStage = p.readFrom(streamSource);
+     * BatchStage<Status> srcStage = p.readFrom(twitterSearchSource);
      * }</pre>
      *
      * @param credentials a Twitter OAuth1 credentials that consists of
@@ -317,7 +317,6 @@ public final class TwitterSources {
             client.connect();
         }
 
-
         private void fillBuffer(SourceBuilder.SourceBuffer<String> sourceBuffer) {
             queue.drainTo(buffer, MAX_FILL_ELEMENTS);
             for (String item : buffer) {
@@ -341,7 +340,6 @@ public final class TwitterSources {
                 client.stop();
             }
         }
-
     }
 
     /**
