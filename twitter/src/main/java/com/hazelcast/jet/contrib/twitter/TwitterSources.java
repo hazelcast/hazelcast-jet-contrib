@@ -136,7 +136,9 @@ public final class TwitterSources {
      * The timestampedStream is almost same as
      * {@link TwitterSources#stream(Properties, SupplierEx)}. The only
      * difference is that the timestampedStream creates a timestamped stream
-     * source while the other creates without timestamps. This method uses
+     * source while the other creates without timestamps. If you do not use
+     * timestamps, prefer to use {@link #stream} to avoid the overhead of
+     * parsing the message. This method uses
      * {@link com.twitter.hbc.core.Constants#STREAM_HOST} as a default Twitter
      * Streaming API host.
      * <p>
@@ -261,18 +263,10 @@ public final class TwitterSources {
         String token = credentials.getProperty("token");
         String tokenSecret = credentials.getProperty("tokenSecret");
 
-        isMissing(consumerKey, "consumerKey");
-        isMissing(consumerSecret, "consumerSecret");
-        isMissing(token, "token");
-        isMissing(tokenSecret, "tokenSecret");
-    }
-
-    private static void isMissing(String key, String description) {
-        Objects.requireNonNull(key, description);
-        if ("REPLACE_THIS".equals(key)) {
-            throw new IllegalArgumentException("Twitter credentials key '" + description
-                    + "' contains the default placeholder");
-        }
+        Objects.requireNonNull(consumerKey, "consumerKey");
+        Objects.requireNonNull(consumerSecret, "consumerSecret");
+        Objects.requireNonNull(token, "token");
+        Objects.requireNonNull(tokenSecret, "tokenSecret");
     }
 
     /**

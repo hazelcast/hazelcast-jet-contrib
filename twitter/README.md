@@ -1,7 +1,13 @@
 # Twitter Source
 
-A Hazelcast Jet connector for Twitter Streaming API 
-which enables Hazelcast Jet pipelines to consume tweets.
+A Hazelcast Jet connector for Twitter Streaming API which 
+enables Hazelcast Jet pipelines to consume tweets from 
+multiple Twitter APIs:
+- Twitter’s Streaming API – Push from Twitter, real-time stream,
+ it samples tweets (1-40% of Tweets can be consumed this way)
+ 
+- Twitter’s Search API – result limited to 5000 tweets
+ per request, 180 requests in 15 minutes.
 
 
 
@@ -11,7 +17,7 @@ which enables Hazelcast Jet pipelines to consume tweets.
 |  Atrribute  | Value |
 |:-----------:|-------|
 | Has Source  |  Yes  |
-| Batch       |   No  |
+| Batch       |  Yes  |
 | Stream      |  Yes  |
 | Distributed |   No  |
 
