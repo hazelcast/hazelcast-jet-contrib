@@ -24,7 +24,6 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Constants;
 import com.twitter.hbc.core.endpoint.StreamingEndpoint;
@@ -104,7 +103,7 @@ public final class TwitterSources {
             @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
     ) {
         return SourceBuilder.stream("twitter-stream-source",
-                ctx -> new TwitterStreamSourceContext(credentials, host, endpointSupplier))
+                ctx -> new TwitterStreamSourceContext(ctx.logger(), credentials, host, endpointSupplier))
                             .fillBufferFn(TwitterStreamSourceContext::fillBuffer)
                             .destroyFn(TwitterStreamSourceContext::close)
                             .build();
@@ -140,7 +139,7 @@ public final class TwitterSources {
             @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
     ) {
         return SourceBuilder.timestampedStream("twitter-timestamped-stream-source",
-                ctx -> new TwitterStreamSourceContext(credentials, host, endpointSupplier))
+                ctx -> new TwitterStreamSourceContext(ctx.logger(), credentials, host, endpointSupplier))
                             .fillBufferFn(TwitterStreamSourceContext::fillTimestampedBuffer)
                             .destroyFn(TwitterStreamSourceContext::close)
                             .build();
@@ -206,17 +205,19 @@ public final class TwitterSources {
 
         private static final int QUEUE_CAPACITY = 1000;
         private static final int MAX_FILL_ELEMENTS = 250;
-        private static final ILogger LOGGER = Logger.getLogger(TwitterStreamSourceContext.class);
 
+        private final ILogger logger;
         private final BlockingQueue<String> queue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
-        private final ArrayList<String> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
+        private final List<String> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
         private final BasicClient client;
 
         private TwitterStreamSourceContext(
+                @Nonnull ILogger logger,
                 @Nonnull Properties credentials,
                 @Nonnull String host,
                 @Nonnull SupplierEx<? extends StreamingEndpoint> endpointSupplier
         ) {
+            this.logger = logger;
             checkTwitterCredentials(credentials);
             String consumerKey = credentials.getProperty("consumerKey");
             String consumerSecret = credentials.getProperty("consumerSecret");
@@ -244,17 +245,17 @@ public final class TwitterSources {
         private void fillTimestampedBuffer(SourceBuilder.TimestampedSourceBuffer<String> sourceBuffer) {
             queue.drainTo(buffer, MAX_FILL_ELEMENTS);
             for (String item : buffer) {
-                JsonObject object = Json.parse(item).asObject();
                 try {
-                    long timestamp = Long.parseLong(object.getString("timestamp_ms",
-                            Long.toString(Long.MIN_VALUE)));
-                    if (timestamp != Long.MIN_VALUE) {
+                    JsonObject object = Json.parse(item).asObject();
+                    String timestampStr = object.getString("timestamp_ms", null);
+                    if (timestampStr != null) {
+                        long timestamp = Long.parseLong(timestampStr);
                         sourceBuffer.add(item, timestamp);
                     } else {
-                        LOGGER.warning("An error occurred while getting the timestamp of a tweet.");
+                        logger.warning("The tweet doesn't contain 'timestamp_ms' field\n" + item);
                     }
-                } catch (NumberFormatException e) {
-                    LOGGER.warning("An error occurred while getting the timestamp of a tweet.");
+                } catch (Exception e) {
+                    logger.warning("Error getting 'timestamp_ms' field from the tweet: " + e + "\n" + item, e);
                 }
             }
             buffer.clear();
