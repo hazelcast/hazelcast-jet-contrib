@@ -6,15 +6,15 @@ multiple Twitter APIs:
 - Twitter’s Streaming API – Push from Twitter, real-time stream,
  it samples tweets (1-40% of Tweets can be consumed this way)
  
-- Twitter’s Search API – result limited to 5000 tweets
- per request, 180 requests in 15 minutes.
+- Twitter’s Search API – result limited to 15 tweets
+ per request, and 180 requests every 15 minutes.
 
 
 
 ## Connector Attributes
 
 ### Source Attributes
-|  Atrribute  | Value |
+|  Attribute  | Value |
 |:-----------:|-------|
 | Has Source  |  Yes  |
 | Batch       |  Yes  |
@@ -22,7 +22,7 @@ multiple Twitter APIs:
 | Distributed |   No  |
 
 ### Sink Attributes
-|  Atrribute  | Value |
+|  Attribute  | Value |
 |:-----------:|-------|
 | Has Sink    |   No  |
 | Distributed |   No  |
