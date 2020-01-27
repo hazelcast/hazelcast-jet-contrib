@@ -54,6 +54,11 @@ source for data ingestion to Jet pipelines.
 A Hazelcast Jet connector for [Debezium](https://debezium.io/) which
 enables Hazelcast Jet pipelines to consume CDC events from various databases.
 
+
+### [Twitter Connector](twitter) 
+
+A Hazelcast Jet connector for consuming data from Twitter stream sources in Jet pipelines.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations
