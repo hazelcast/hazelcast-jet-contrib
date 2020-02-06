@@ -56,7 +56,8 @@ create a source by calling `KafkaConnectSources.connect()` method with the
 `Properties` object. After that you can use your pipeline like any other source
 in the Jet pipeline. The source will emit items in `SourceRecord` type from
 Kafka Connect API, where you can access the key and value along with their
-corresponding schemas.
+corresponding schemas. Hazelcast Jet will instantiate a single task for the
+specified source in the cluster.
 
 Following is an example pipeline which stream events from RabbitMQ, maps the
 values to their string representation and logs them.

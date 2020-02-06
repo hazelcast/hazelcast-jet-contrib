@@ -63,6 +63,9 @@ public final class KafkaConnectSources {
      * In case of a failure; this source keeps track of the source partition
      * offsets, it will restore the partition offsets and resume the consumption
      * from where it left off.
+     * <p>
+     * Hazelcast Jet will instantiate a single task for the specified source in
+     * the cluster.
      *
      * @param properties Kafka connect properties
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
