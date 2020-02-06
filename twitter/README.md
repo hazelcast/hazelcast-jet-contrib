@@ -61,9 +61,13 @@ To use Twitter Streaming Endpoints as a source in your pipeline you need
 to create a source by calling the `TwitterSources.stream() or
 TwitterSources.timestampedStream()` methods with a `Properties` object
 that includes Twitter credentials, and a supplier function(`SupplierEx`)
-that provides a specific streaming endpoint.
+that provides a specific Twitter streaming endpoint.
 
-Here's an example which the Jet pipelines ingest Tweets from
+The Twitter Stream Source provides tweets as JSON formatted raw strings.
+You can extract related fields from tweets by parsing them into a JSON
+objects.
+
+Here's an example job which the Jet pipelines ingest tweets from
 Twitter's Filtered Stream Endpoint that filters the tweets by keywords.
 ```java
 Properties credentials = new Properties();
@@ -78,7 +82,12 @@ StreamSource<String> streamSource =
                      () -> new StatusesFilterEndpoint().trackTerms(terms)
              );
 Pipeline p = Pipeline.create();
-StreamSourceStage<String> srcStage = p.readFrom(streamSource);
+p.readFrom(streamSource)
+        .withoutTimestamps()
+        .writeTo(Sinks.logger());
+JetInstance jet = createJetMember();
+Job job = jet.newJob(p);
+job.join();
 ```
 
 For the demo application using Twitter Stream Source see:
@@ -99,14 +108,27 @@ of these search requests to 180 calls every 15 minutes. Twitter Connector
 repeatedly makes search requests until it gets all available pages or the
 rate-limit is exceeded.
 
-Here is an example which searches with the query `Jet flies`.
+The Search Source provides tweets as Status object that enables the user extract
+related fields of it by using its getter methods.
+
+Here is an example job which ingests tweets that are related to the `Jet flies`
+search query.
 
 ```java
-Properties credentials = loadCredentials(); // Load Twitter OAuth1 credentials
+Properties credentials = new Properties();
+properties.setProperty("consumerKey", "???"); // OAuth1 Consumer Key
+properties.setProperty("consumerSecret", "???"); // OAuth1 Consumer Secret
+properties.setProperty("token", "???"); // OAuth1 Token
+properties.setProperty("tokenSecret", "???"); // OAuth1 Token Secret
 String query = "Jet flies";
 BatchSource<Status> searchSource = TwitterSources.search(credentials, query);
-Pipeline pipeline = Pipeline.create();
-BatchStage<Status> srcStage = pipeline.readFrom(searchSource)
+Pipeline p = Pipeline.create();
+p.readFrom(searchSource)
+        .map(status -> "@" + status.getUser().getName() + " - " + status.getText())
+        .writeTo(Sinks.logger);
+JetInstance jet = createJetMember();
+Job job = jet.newJob(p);
+job.join(); 
 ```
 
 For more detail check out:
