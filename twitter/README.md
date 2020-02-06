@@ -9,8 +9,6 @@ multiple Twitter APIs:
 - Twitter’s Search API – result limited to 15 tweets
  per request, and 180 requests every 15 minutes.
 
-
-
 ## Connector Attributes
 
 ### Source Attributes
@@ -27,7 +25,6 @@ multiple Twitter APIs:
 | Has Sink    |   No  |
 | Distributed |   No  |
 
-
 ## Getting Started
 
 ### Installing
@@ -42,11 +39,13 @@ Add the following lines to your pom.xml to include it as a dependency to your pr
     <artifactId>twitter</artifactId>
     <version>${version}</version>
 </dependency>
+
 ```
 If you are using Gradle: 
 ```
 compile group: 'com.hazelcast.jet.contrib', name: 'twitter', version: ${version}
 ```
+
 ## Running the tests
 
 To run the tests run the command below: 
@@ -54,6 +53,66 @@ To run the tests run the command below:
 ```
 ./gradlew test
 ```
+
+## Usage
+
+### Reading from Twitter's Streaming API
+To use Twitter Streaming Endpoints as a source in your pipeline you need
+to create a source by calling the `TwitterSources.stream() or
+TwitterSources.timestampedStream()` methods with a `Properties` object
+that includes Twitter credentials, and a supplier function(`SupplierEx`)
+that provides a specific streaming endpoint.
+
+Here's an example which the Jet pipelines ingest Tweets from
+Twitter's Filtered Stream Endpoint that filters the tweets by keywords.
+```java
+Properties credentials = new Properties();
+properties.setProperty("consumerKey", "???"); // OAuth1 Consumer Key
+properties.setProperty("consumerSecret", "???"); // OAuth1 Consumer Secret
+properties.setProperty("token", "???"); // OAuth1 Token
+properties.setProperty("tokenSecret", "???"); // OAuth1 Token Secret
+List<String> terms = new ArrayList<>(Arrays.asList("BTC", "ETH"));
+StreamSource<String> streamSource =
+             TwitterSources.stream(
+                     credentials,
+                     () -> new StatusesFilterEndpoint().trackTerms(terms)
+             );
+Pipeline p = Pipeline.create();
+StreamSourceStage<String> srcStage = p.readFrom(streamSource);
+```
+
+For the demo application using Twitter Stream Source see:
+[Cryptocurrency Sentiment Analysis](https://github.com/hazelcast/hazelcast-jet-demos/tree/master/cryptocurrency-sentiment-analysis/)
+
+### Getting tweets From Twitter's Search API
+
+To use Twitter Search Endpoint as a source in your pipeline you need to
+create a source by calling the `TwitterSources.search()` method with a
+`Properties` object that includes Twitter credentials, and a `String`
+that includes search query. Twitter search source (`TwitterSources.search()`)
+executes the query and emits the results as they arrive.
+
+Because Twitter uses the pagination technique at this endpoint, Twitter Search
+Connector performs multiple requests for the same query to get all available
+pages. Twitter has a rate limit for the search endpoint that limits the number
+of these search requests to 180 calls every 15 minutes. Twitter Connector
+repeatedly makes search requests until it gets all available pages or the
+rate-limit is exceeded.
+
+Here is an example which searches with the query `Jet flies`.
+
+```java
+Properties credentials = loadCredentials(); // Load Twitter OAuth1 credentials
+String query = "Jet flies";
+BatchSource<Status> searchSource = TwitterSources.search(credentials, query);
+Pipeline pipeline = Pipeline.create();
+BatchStage<Status> srcStage = pipeline.readFrom(searchSource)
+```
+
+For more detail check out:
+[TwitterSources](src/main/java/com/hazelcast/jet/contrib/twitter/TwitterSources.java),
+[TwitterSourceTest](src/test/java/com/hazelcast/jet/contrib/twitter/TwitterSourceTest.java).
+
 
 ## Authors
 
