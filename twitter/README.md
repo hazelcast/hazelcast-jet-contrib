@@ -83,8 +83,8 @@ StreamSource<String> streamSource =
              );
 Pipeline p = Pipeline.create();
 p.readFrom(streamSource)
-        .withoutTimestamps()
-        .writeTo(Sinks.logger());
+ .withoutTimestamps()
+ .writeTo(Sinks.logger());
 JetInstance jet = createJetMember();
 Job job = jet.newJob(p);
 job.join();
@@ -124,8 +124,8 @@ String query = "Jet flies";
 BatchSource<Status> searchSource = TwitterSources.search(credentials, query);
 Pipeline p = Pipeline.create();
 p.readFrom(searchSource)
-        .map(status -> "@" + status.getUser().getName() + " - " + status.getText())
-        .writeTo(Sinks.logger);
+ .map(status -> "@" + status.getUser().getName() + " - " + status.getText())
+ .writeTo(Sinks.logger);
 JetInstance jet = createJetMember();
 Job job = jet.newJob(p);
 job.join(); 
