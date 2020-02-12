@@ -44,26 +44,6 @@ To run the tests run the command below:
 ```
 ./gradlew test
 ```
-## Usage
-
-Describe the module usage and how it interacts with the rest of the system. The
-entry point of the module must be included in this section like `InfluxDbSinks.influxDb()`.
-
-End with a very small example/snippet of getting some data out of the system 
-or using it for a little demo
-
-## Fault-Tolerance
-Describe F-T behavior, give information about whether the source is replayable, 
-talk about checkpointing and transactional reads. For sinks describe idempotence 
-and/or transactional writes.
-
-## Running the tests
-
-Explain how to run the automated tests for this system
-
-```
-./gradlew test
-```
 
 ## Authors
 
