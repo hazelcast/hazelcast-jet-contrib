@@ -59,6 +59,10 @@ enables Hazelcast Jet pipelines to consume CDC events from various databases.
 
 A Hazelcast Jet connector for consuming data from Twitter stream sources in Jet pipelines.
 
+### [Pulsar Connector](pulsar) 
+
+A Hazelcast Jet connector for consuming/producing messages from/to Apache Pulsar topics.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations
