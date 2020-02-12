@@ -49,13 +49,14 @@ import static com.hazelcast.jet.core.test.JetAssert.fail;
 
 public class PulsarSourceTest extends JetTestSupport {
 
+    @ClassRule
+    public static PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
+
     private static final int ITEM_COUNT = 100_000;
     private static PulsarTestSupport pulsarTestSupport;
 
-    private JetInstance jet;
 
-    @ClassRule
-    public static PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
+    private JetInstance jet;
 
     @BeforeClass
     public static void beforeClass() {

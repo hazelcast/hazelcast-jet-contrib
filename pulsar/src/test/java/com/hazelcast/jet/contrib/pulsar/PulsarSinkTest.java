@@ -45,18 +45,16 @@ import java.util.stream.IntStream;
 import static com.hazelcast.jet.core.test.JetAssert.assertTrue;
 
 public class PulsarSinkTest extends JetTestSupport {
-
     private static PulsarTestSupport pulsarTestSupport;
-
-    private String sourceImapName = randomMapName();
-    private String topic;
-    private IMap<String, String> sourceIMap;
     private static final int ITEM_COUNT = 100_000;
-    private JetInstance jet;
 
     @Rule
     public PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
 
+    private String sourceImapName = randomMapName();
+    private String topic;
+    private IMap<String, String> sourceIMap;
+    private JetInstance jet;
 
     @Before
     public void setup() {
