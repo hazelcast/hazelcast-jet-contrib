@@ -55,7 +55,7 @@ public final class PulsarSinks {
      * Convenience for {@link #builder(String, Map, SupplierEx)}.
      * It creates a basic Pulsar sink that connect the topic.
      */
-    public static <E, M> Sink<M> subscribe(
+    public static <E, M> Sink<M> pulsarSink(
             @Nonnull String topic,
             @Nonnull String serviceUrl,
             @Nonnull Map<String, Object> producerConfig,
