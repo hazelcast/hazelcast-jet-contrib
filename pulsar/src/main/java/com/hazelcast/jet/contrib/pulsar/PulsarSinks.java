@@ -37,6 +37,7 @@ public final class PulsarSinks {
     /**
      * Returns a builder object that offers a step-by-step fluent API to build
      * a custom Pulsar {@link Sink} for the Pipeline API.
+     *
      * @param topic              Pulsar topic name to publish to
      * @param producerConfig     The configurations are used to create the {@code PulsarProducer}
      * @param connectionSupplier Pulsar client supplier
@@ -63,12 +64,9 @@ public final class PulsarSinks {
             @Nonnull FunctionEx<? super E, M> extractValueFn
     ) {
 
-        return PulsarSinks
-                .<E, M>builder(topic,
-                        producerConfig,
-                        () -> PulsarClient.builder()
-                                          .serviceUrl(serviceUrl)
-                                          .build())
+        return PulsarSinks.<E, M>builder(topic, producerConfig, () -> PulsarClient.builder()
+                                                                                  .serviceUrl(serviceUrl)
+                                                                                  .build())
                 .schemaSupplier(schemaSupplier)
                 .extractValueFn(extractValueFn)
                 .build();

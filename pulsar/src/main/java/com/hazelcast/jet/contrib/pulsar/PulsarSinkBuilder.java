@@ -21,6 +21,7 @@ import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.core.Vertex;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
+import com.hazelcast.logging.ILogger;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -144,10 +145,9 @@ public final class PulsarSinkBuilder<E, M> {
         FunctionEx<? super E, Map<String, String>> localExtractPropertiesFn = extractPropertiesFn;
         FunctionEx<? super E, Long> localExtractTimestampFn = extractTimestampFn;
 
-        return SinkBuilder
-                .sinkBuilder("pulsar-sink", ctx -> new PulsarSinkContext(localTopic,
-                        localConnectionSupplier.get(), localProducerConfig, localSchemaSupplier, localExtractValueFn,
-                        localExtractKeyFn, localExtractPropertiesFn, localExtractTimestampFn))
+        return SinkBuilder.sinkBuilder("pulsar-sink", ctx -> new PulsarSinkContext(ctx.logger(), localTopic,
+                localConnectionSupplier.get(), localProducerConfig, localSchemaSupplier, localExtractValueFn,
+                localExtractKeyFn, localExtractPropertiesFn, localExtractTimestampFn))
                 .<M>receiveFn(PulsarSinkContext::add)
                 .destroyFn(PulsarSinkContext::destroy)
                 .preferredLocalParallelism(preferredLocalParallelism)
@@ -156,6 +156,7 @@ public final class PulsarSinkBuilder<E, M> {
 
 
     private static final class PulsarSinkContext<E, M> {
+        private final ILogger logger;
         private final PulsarClient client;
         private final Producer<M> producer;
         private final FunctionEx<? super E, M> extractValueFn;
@@ -164,6 +165,7 @@ public final class PulsarSinkBuilder<E, M> {
         private final FunctionEx<? super E, Long> extractTimestampFn;
 
         private PulsarSinkContext(
+                @Nonnull ILogger logger,
                 @Nonnull String topic,
                 @Nonnull PulsarClient client,
                 @Nonnull Map<String, Object> producerConfig,
@@ -173,6 +175,7 @@ public final class PulsarSinkBuilder<E, M> {
                 @Nullable FunctionEx<? super E, Map<String, String>> extractPropertiesFn,
                 @Nullable FunctionEx<? super E, Long> extractTimestampFn
         ) throws PulsarClientException {
+            this.logger = logger;
             this.client = client;
             this.producer = client
                     .newProducer(schemaSupplier.get())
@@ -204,12 +207,12 @@ public final class PulsarSinkBuilder<E, M> {
             try {
                 producer.close();
             } catch (PulsarClientException e) {
-                e.printStackTrace();
+                logger.warning("Error while closing the 'PulsarProducer'.", e);
             }
             try {
                 client.shutdown();
             } catch (PulsarClientException e) {
-                e.printStackTrace();
+                logger.warning("Error while shutting down the 'PulsarClient'.", e);
             }
         }
     }

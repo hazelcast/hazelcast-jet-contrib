@@ -21,6 +21,7 @@ import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
+import com.hazelcast.logging.ILogger;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
@@ -65,7 +66,7 @@ public final class PulsarSources {
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
         return SourceBuilder.timestampedStream("pulsar-ts-stream-source", ctx -> new PulsarSourceContext(
-                connectionSupplier.get(), topics, consumerConfig, schemaSupplier, projectionFn))
+                ctx.logger(), connectionSupplier.get(), topics, consumerConfig, schemaSupplier, projectionFn))
                 .<T>fillBufferFn(PulsarSourceContext::fillBuffer)
                 .destroyFn(PulsarSourceContext::destroy)
                 .build();
@@ -78,11 +79,13 @@ public final class PulsarSources {
      * @param <T> the type of the emitted item after projection.
      */
     private static final class PulsarSourceContext<M, T> {
+        private final ILogger logger;
         private final PulsarClient client;
         private final Consumer<M> consumer;
         private final FunctionEx<Message<M>, T> projectionFn;
 
         private PulsarSourceContext(
+                @Nonnull ILogger logger,
                 @Nonnull PulsarClient client,
                 @Nonnull List<String> topics,
                 @Nonnull Map<String, Object> consumerConfig,
@@ -91,13 +94,13 @@ public final class PulsarSources {
         ) throws PulsarClientException {
             checkSerializable(schemaSupplier, "schemaSupplier");
             checkSerializable(projectionFn, "projectionFn");
+            this.logger = logger;
             this.projectionFn = projectionFn;
             this.client = client;
-            this.consumer = client
-                    .newConsumer(schemaSupplier.get())
-                    .topics(topics)
-                    .loadConf(consumerConfig)
-                    .subscribe();
+            this.consumer = client.newConsumer(schemaSupplier.get())
+                                  .topics(topics)
+                                  .loadConf(consumerConfig)
+                                  .subscribe();
         }
 
         /**
@@ -121,12 +124,13 @@ public final class PulsarSources {
             try {
                 consumer.close();
             } catch (PulsarClientException e) {
-                e.printStackTrace();
+                logger.warning("Error while closing the 'PulsarProducer'.", e);
+
             }
             try {
                 client.shutdown();
             } catch (PulsarClientException e) {
-                e.printStackTrace();
+                logger.warning("Error while shutting down the 'PulsarClient'.", e);
             }
         }
     }
