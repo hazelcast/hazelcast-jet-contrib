@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ * Copyright (c) 2008-2020, Hazelcast, Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.hazelcast.jet.contrib.pulsar;
 
+import com.hazelcast.jet.core.JetTestSupport;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
@@ -24,25 +25,24 @@ import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.api.SubscriptionType;
+import org.junit.ClassRule;
+import org.testcontainers.containers.PulsarContainer;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 
-public class PulsarTestSupport {
+public class PulsarTestSupport extends JetTestSupport {
+    @ClassRule
+    public static PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
+
     private static final String TOPIC_NAME = "jet-test-topic";
     private static final int QUEUE_CAPACITY = 1000;
+    private static PulsarClient client;
+    private static Consumer<Integer> consumer;
+    private static Producer<byte[]> producer;
 
-    private static String serviceUrl;
-    private PulsarClient client;
-    private Consumer<Integer> consumer;
-    private Producer<byte[]> producer;
-
-    public PulsarTestSupport(String serviceUrl) {
-        this.serviceUrl = serviceUrl;
-    }
-
-    public void shutdown() throws PulsarClientException {
+    protected static void shutdown() throws PulsarClientException {
         if (producer != null) {
             producer.close();
         }
@@ -57,11 +57,11 @@ public class PulsarTestSupport {
         consumer = null;
     }
 
-    public String getServiceUrl() {
-        return serviceUrl;
+    protected static String getServiceUrl() {
+        return pulsarContainer.getPulsarBrokerUrl();
     }
 
-    private PulsarClient getClient() throws PulsarClientException {
+    private static PulsarClient getClient() throws PulsarClientException {
         if (client == null) {
             client = PulsarClient.builder()
                     .serviceUrl(getServiceUrl())
@@ -70,8 +70,7 @@ public class PulsarTestSupport {
         return client;
     }
 
-
-    private Producer<byte[]> getProducer() throws PulsarClientException {
+    private static Producer<byte[]> getProducer() throws PulsarClientException {
         if (producer == null) {
             producer = getClient()
                     .newProducer()
@@ -84,19 +83,33 @@ public class PulsarTestSupport {
         return producer;
     }
 
-    public CompletableFuture<MessageId> produceAsync(String message) throws PulsarClientException {
+    protected static void produceMessages(String message, int count) throws PulsarClientException {
+        for (int i = 0; i < count; i++) {
+            produceAsync(message);
+        }
+    }
+
+    protected static CompletableFuture<MessageId> produceAsync(String message) throws PulsarClientException {
         return getProducer().sendAsync(message.getBytes());
     }
 
-    public String getTopicName() {
+    protected static String getTopicName() {
         return TOPIC_NAME;
     }
 
-    public CompletableFuture<Message<Integer>> consumeAsync() throws PulsarClientException {
+    protected static CompletableFuture<Message<Integer>> consumeMessages(int count) throws PulsarClientException {
+        CompletableFuture<Message<Integer>> last = null;
+        for (int i = 0; i < count; i++) {
+            last = PulsarTestSupport.consumeAsync();
+        }
+        return last;
+    }
+
+    protected static CompletableFuture<Message<Integer>> consumeAsync() throws PulsarClientException {
         return getConsumer().receiveAsync();
     }
 
-    public Consumer<Integer> getConsumer() throws PulsarClientException {
+    protected static Consumer<Integer> getConsumer() throws PulsarClientException {
         if (consumer == null) {
             consumer = getClient()
                     .newConsumer(Schema.INT32)

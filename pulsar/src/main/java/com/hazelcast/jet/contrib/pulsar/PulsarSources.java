@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ * Copyright (c) 2008-2020, Hazelcast, Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.logging.ILogger;
+import org.apache.pulsar.client.api.BatchReceivePolicy;
+import org.apache.pulsar.client.api.Messages;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
@@ -32,7 +34,7 @@ import org.apache.pulsar.client.api.PulsarClientException;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
@@ -79,6 +81,9 @@ public final class PulsarSources {
      * @param <T> the type of the emitted item after projection.
      */
     private static final class PulsarSourceContext<M, T> {
+        private static final int MAX_NUM_MESSAGES = 512;
+        private static final int TIMEOUT_IN_MS = 1000;
+
         private final ILogger logger;
         private final PulsarClient client;
         private final Consumer<M> consumer;
@@ -100,24 +105,31 @@ public final class PulsarSources {
             this.consumer = client.newConsumer(schemaSupplier.get())
                                   .topics(topics)
                                   .loadConf(consumerConfig)
+                                  .batchReceivePolicy(BatchReceivePolicy.builder()
+                                                                        .maxNumMessages(MAX_NUM_MESSAGES)
+                                                                        .timeout(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS)
+                                                                        .build())
                                   .subscribe();
         }
 
         /**
-         * If there is an event time associated with the message, set the
-         * event time as the timestamp. Otherwise, it will set the publish time
-         * of this message as the timestamp.
+         * Receive the messages as a batch. The {@link BatchReceivePolicy} is
+         * configured while creating the Pulsar {@link Consumer}.
+         * In this method, emitted items are created by applying the projection function
+         * to the messages received from Pulsar client. If there is an event time
+         * associated with the message, it sets the event time as the timestamp of the
+         * emitted item. Otherwise, it sets the publish time(which always exists)
+         * of the message as the timestamp.
          */
-        private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer) {
-            CompletableFuture<Message<M>> messageFuture = consumer.receiveAsync();
-            messageFuture.thenAccept(message -> {
-                        if (message.getEventTime() != 0) {
-                            sourceBuffer.add(projectionFn.apply(message), message.getEventTime());
-                        } else {
-                            sourceBuffer.add(projectionFn.apply(message), message.getPublishTime());
-                        }
-                    }
-            );
+        private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer) throws PulsarClientException {
+            Messages<M> messages = consumer.batchReceive();
+            for (Message<M> message : messages) {
+                if (message.getEventTime() != 0) {
+                    sourceBuffer.add(projectionFn.apply(message), message.getEventTime());
+                } else {
+                    sourceBuffer.add(projectionFn.apply(message), message.getPublishTime());
+                }
+            }
         }
 
         private void destroy() {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ * Copyright (c) 2008-2020, Hazelcast, Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -177,11 +177,10 @@ public final class PulsarSinkBuilder<E, M> {
         ) throws PulsarClientException {
             this.logger = logger;
             this.client = client;
-            this.producer = client
-                    .newProducer(schemaSupplier.get())
-                    .topic(topic)
-                    .loadConf(producerConfig)
-                    .create();
+            this.producer = client.newProducer(schemaSupplier.get())
+                                  .topic(topic)
+                                  .loadConf(producerConfig)
+                                  .create();
             this.extractKeyFn = extractKeyFn;
             this.extractValueFn = extractValueFn;
             this.extractPropertiesFn = extractPropertiesFn;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2019, Hazelcast, Inc. All Rights Reserved.
+ * Copyright (c) 2008-2020, Hazelcast, Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package com.hazelcast.jet.contrib.pulsar;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
@@ -32,11 +31,7 @@ import org.apache.pulsar.client.api.SubscriptionType;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Test;
-
-import org.testcontainers.containers.PulsarContainer;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,21 +42,9 @@ import static com.hazelcast.jet.core.test.JetAssert.assertEquals;
 import static com.hazelcast.jet.core.test.JetAssert.assertTrue;
 import static com.hazelcast.jet.core.test.JetAssert.fail;
 
-public class PulsarSourceTest extends JetTestSupport {
-
-    @ClassRule
-    public static PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
-
+public class PulsarSourceTest extends PulsarTestSupport {
     private static final int ITEM_COUNT = 100_000;
-    private static PulsarTestSupport pulsarTestSupport;
-
-
     private JetInstance jet;
-
-    @BeforeClass
-    public static void beforeClass() {
-        pulsarTestSupport = new PulsarTestSupport(pulsarContainer.getPulsarBrokerUrl());
-    }
 
     @Before
     public void setup() {
@@ -75,34 +58,33 @@ public class PulsarSourceTest extends JetTestSupport {
 
     @AfterClass
     public static void afterClass() throws PulsarClientException {
-        pulsarTestSupport.shutdown();
-        pulsarTestSupport = null;
+        PulsarTestSupport.shutdown();
     }
+
 
     @Test
     public void testStream() {
         try {
-            produceMessages("hello-pulsar", ITEM_COUNT);
+            PulsarTestSupport.produceMessages("hello-pulsar", ITEM_COUNT);
         } catch (PulsarClientException e) {
             e.printStackTrace();
         }
         Map<String, Object> clientConfig = new HashMap<>();
-        clientConfig.put("serviceUrl", pulsarTestSupport.getServiceUrl());
+        clientConfig.put("serviceUrl", PulsarTestSupport.getServiceUrl());
 
         Map<String, Object> consumerConfig = new HashMap<>();
         consumerConfig.put("consumerName", "hazelcast-jet-consumer");
         consumerConfig.put("subscriptionInitialPosition", SubscriptionInitialPosition.Earliest);
         consumerConfig.put("subscriptionName", "hazelcast-jet-subscription");
-        consumerConfig.put("subscriptionType", String.valueOf(SubscriptionType.Exclusive));
+        consumerConfig.put("subscriptionType", SubscriptionType.Exclusive);
 
         final StreamSource<String> pulsarTestStream = PulsarSources.subscribe(
-                Collections.singletonList(pulsarTestSupport.getTopicName()),
+                Collections.singletonList(PulsarTestSupport.getTopicName()),
                 consumerConfig,
-                () -> PulsarClient.builder()
-                                  .serviceUrl(pulsarTestSupport.getServiceUrl())
-                                  .build(),
+                () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
                 () -> Schema.BYTES,
                 x -> new String(x.getData()));
+
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(pulsarTestStream)
                 .withoutTimestamps()
@@ -121,9 +103,5 @@ public class PulsarSourceTest extends JetTestSupport {
         }
     }
 
-    private void produceMessages(String message, int count) throws PulsarClientException {
-        for (int i = 0; i < count; i++) {
-            pulsarTestSupport.produceAsync(message);
-        }
-    }
+
 }
