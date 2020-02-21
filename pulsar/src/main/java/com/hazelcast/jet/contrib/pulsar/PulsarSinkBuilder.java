@@ -22,6 +22,7 @@ import com.hazelcast.jet.core.Vertex;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.logging.ILogger;
+import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -31,6 +32,7 @@ import org.apache.pulsar.client.api.TypedMessageBuilder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
@@ -149,6 +151,7 @@ public final class PulsarSinkBuilder<E, M> {
                 localConnectionSupplier.get(), localProducerConfig, localSchemaSupplier, localExtractValueFn,
                 localExtractKeyFn, localExtractPropertiesFn, localExtractTimestampFn))
                 .<M>receiveFn(PulsarSinkContext::add)
+                .flushFn(PulsarSinkContext::flush)
                 .destroyFn(PulsarSinkContext::destroy)
                 .preferredLocalParallelism(preferredLocalParallelism)
                 .build();
@@ -156,9 +159,12 @@ public final class PulsarSinkBuilder<E, M> {
 
 
     private static final class PulsarSinkContext<E, M> {
+        private static final int MAX_RETRIES = 10;
+
         private final ILogger logger;
         private final PulsarClient client;
         private final Producer<M> producer;
+
         private final FunctionEx<? super E, M> extractValueFn;
         private final FunctionEx<? super E, String> extractKeyFn;
         private final FunctionEx<? super E, Map<String, String>> extractPropertiesFn;
@@ -187,6 +193,37 @@ public final class PulsarSinkBuilder<E, M> {
             this.extractTimestampFn = extractTimestampFn;
         }
 
+        private boolean flush() throws PulsarClientException {
+            producer.flush();
+            return true;
+        }
+
+        public static <T> CompletableFuture<T> failedFuture(Throwable t) {
+            final CompletableFuture<T> cf = new CompletableFuture<>();
+            cf.completeExceptionally(t);
+            return cf;
+        }
+
+        public CompletableFuture<MessageId> sendWithRetryAsync(TypedMessageBuilder<M> messageBuilder) {
+            return messageBuilder.sendAsync()
+                                 .thenApply(CompletableFuture::completedFuture)
+                                 .exceptionally(t -> retry(t, messageBuilder, 0))
+                                 .thenCompose(FunctionEx.identity());
+        }
+
+        private CompletableFuture<MessageId> retry(Throwable first, TypedMessageBuilder<M> messageBuilder, int retry) {
+            if (retry >= MAX_RETRIES) {
+                return failedFuture(first);
+            }
+            return messageBuilder.sendAsync()
+                                 .thenApply(CompletableFuture::completedFuture)
+                                 .exceptionally(t -> {
+                                     first.addSuppressed(t);
+                                     return retry(first, messageBuilder, retry + 1);
+                                 })
+                                 .thenCompose(FunctionEx.identity());
+        }
+
         private void add(E item) {
             TypedMessageBuilder<M> messageBuilder = producer.newMessage()
                                                             .value(extractValueFn.apply(item));
@@ -199,7 +236,7 @@ public final class PulsarSinkBuilder<E, M> {
             if (extractTimestampFn != null) {
                 messageBuilder.eventTime(extractTimestampFn.apply(item));
             }
-            messageBuilder.sendAsync();
+            sendWithRetryAsync(messageBuilder);
         }
 
         private void destroy() {
