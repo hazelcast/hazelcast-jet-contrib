@@ -88,8 +88,8 @@ public class MsSqlIntegrationTest extends JetTestSupport {
 
         sleepAtLeastSeconds(30);
         // update record
-        try (Connection connection = DriverManager.getConnection(mssql.getJdbcUrl() + ";databaseName=MyDB", mssql.getUsername(),
-                mssql.getPassword())) {
+        try (Connection connection = DriverManager.getConnection(mssql.getJdbcUrl() + ";databaseName=MyDB",
+                mssql.getUsername(), mssql.getPassword())) {
             connection.setSchema("inventory");
             PreparedStatement preparedStatement = connection.prepareStatement("update MyDB.inventory.customers set " +
                     "first_name = 'Anne Marie' where id = 1001;");
