@@ -88,7 +88,6 @@ public class MySqlIntegrationTest extends JetTestSupport {
                     EventRecord eventRecord = deserializer.deserialize("", record.getBytes());
                     return eventRecord.isUpdate();
                 })
-                .peek()
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
                         list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));
 
