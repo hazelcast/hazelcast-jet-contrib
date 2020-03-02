@@ -1,0 +1,3 @@
+dependencies {
+    compile group: 'javax.jms', name: 'javax.jms-api', version: '2.0.1'
+}
