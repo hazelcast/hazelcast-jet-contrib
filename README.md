@@ -59,6 +59,11 @@ enables Hazelcast Jet pipelines to consume CDC events from various databases.
 
 A Hazelcast Jet connector for consuming data from Twitter stream sources in Jet pipelines.
 
+### [XA Tests](xa-test)
+
+Tests to check compatibility of the XA support in your JMS broker or
+JDBC database with Jet's fault tolerance.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations
