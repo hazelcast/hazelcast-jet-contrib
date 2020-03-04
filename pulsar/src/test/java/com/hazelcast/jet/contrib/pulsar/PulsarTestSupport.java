@@ -28,6 +28,8 @@ import org.apache.pulsar.client.api.SubscriptionType;
 import org.junit.ClassRule;
 import org.testcontainers.containers.PulsarContainer;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -35,26 +37,32 @@ import java.util.concurrent.TimeUnit;
 public class PulsarTestSupport extends JetTestSupport {
     @ClassRule
     public static PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
-
-    private static final String TOPIC_NAME = "jet-test-topic";
     private static final int QUEUE_CAPACITY = 1000;
     private static PulsarClient client;
-    private static Consumer<Integer> consumer;
-    private static Producer<byte[]> producer;
+
+    private static Map<String, Producer<byte[]>> producerMap = new HashMap<>();
+    private static Map<String, Consumer<Integer>> integerConsumerMap = new HashMap<>();
 
     protected static void shutdown() throws PulsarClientException {
-        if (producer != null) {
-            producer.close();
-        }
-        if (consumer != null) {
-            consumer.close();
-        }
+        producerMap.forEach((s, producer) -> {
+            try {
+                producer.close();
+            } catch (PulsarClientException e) {
+                e.printStackTrace();
+            }
+        });
+        integerConsumerMap.forEach((s, consumer) -> {
+            try {
+                consumer.close();
+            } catch (PulsarClientException e) {
+                e.printStackTrace();
+            }
+        });
+
         if (client != null) {
             client.close();
         }
         client = null;
-        producer = null;
-        consumer = null;
     }
 
     protected static String getServiceUrl() {
@@ -64,63 +72,69 @@ public class PulsarTestSupport extends JetTestSupport {
     private static PulsarClient getClient() throws PulsarClientException {
         if (client == null) {
             client = PulsarClient.builder()
-                    .serviceUrl(getServiceUrl())
-                    .build();
+                                 .serviceUrl(getServiceUrl())
+                                 .build();
         }
         return client;
     }
 
-    private static Producer<byte[]> getProducer() throws PulsarClientException {
-        if (producer == null) {
-            producer = getClient()
+    private static Producer<byte[]> getProducer(String topicName) throws PulsarClientException {
+        // If there exists a producer with same name returns it.
+        if (!producerMap.containsKey(topicName)) {
+            Producer<byte[]> newProducer = getClient()
                     .newProducer()
-                    .topic(TOPIC_NAME)
+                    .topic(topicName)
                     .batchingMaxPublishDelay(10, TimeUnit.MILLISECONDS)
                     .sendTimeout(10, TimeUnit.SECONDS)
                     .blockIfQueueFull(true)
                     .create();
+            producerMap.put(topicName, newProducer);
+            return newProducer;
+        } else {
+            return producerMap.get(topicName);
         }
-        return producer;
     }
 
-    protected static void produceMessages(String message, int count) throws PulsarClientException {
+    protected static void produceMessages(String message, String topicName, int count) throws PulsarClientException {
         for (int i = 0; i < count; i++) {
-            produceAsync(message);
+            produceAsync(message + "-" + i, topicName);
         }
     }
 
-    protected static CompletableFuture<MessageId> produceAsync(String message) throws PulsarClientException {
-        return getProducer().sendAsync(message.getBytes());
+    protected static CompletableFuture<MessageId> produceAsync(String message, String topicName)
+            throws PulsarClientException {
+        return getProducer(topicName).sendAsync(message.getBytes());
     }
 
-    protected static String getTopicName() {
-        return TOPIC_NAME;
-    }
 
-    protected static CompletableFuture<Message<Integer>> consumeMessages(int count) throws PulsarClientException {
+    protected static CompletableFuture<Message<Integer>> consumeMessages(String topicName, int count)
+            throws PulsarClientException {
         CompletableFuture<Message<Integer>> last = null;
         for (int i = 0; i < count; i++) {
-            last = PulsarTestSupport.consumeAsync();
+            last = PulsarTestSupport.consumeAsync(topicName);
         }
         return last;
     }
 
-    protected static CompletableFuture<Message<Integer>> consumeAsync() throws PulsarClientException {
-        return getConsumer().receiveAsync();
+    protected static CompletableFuture<Message<Integer>> consumeAsync(String topicName) throws PulsarClientException {
+        return getConsumer(topicName).receiveAsync();
     }
 
-    protected static Consumer<Integer> getConsumer() throws PulsarClientException {
-        if (consumer == null) {
-            consumer = getClient()
+    protected static Consumer<Integer> getConsumer(String topicName) throws PulsarClientException {
+        if (!integerConsumerMap.containsKey(topicName)) {
+            Consumer<Integer> newConsumer = getClient()
                     .newConsumer(Schema.INT32)
-                    .topic(TOPIC_NAME)
-                    .consumerName("hazelcast-jet-consumer")
+                    .topic(topicName)
+                    .consumerName("hazelcast-jet-consumer-" + topicName)
                     .subscriptionName("hazelcast-jet-subscription")
                     .subscriptionType(SubscriptionType.Exclusive)
                     .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
                     .receiverQueueSize(QUEUE_CAPACITY)
                     .subscribe();
+            integerConsumerMap.put(topicName, newConsumer);
+            return newConsumer;
+        } else {
+            return integerConsumerMap.get(topicName);
         }
-        return consumer;
     }
 }

@@ -213,6 +213,7 @@ public final class PulsarSinkBuilder<E, M> {
 
         private CompletableFuture<MessageId> retry(Throwable first, TypedMessageBuilder<M> messageBuilder, int retry) {
             if (retry >= MAX_RETRIES) {
+                logger.warning("Async Error: Cannot send the message.", first);
                 return failedFuture(first);
             }
             return messageBuilder.sendAsync()

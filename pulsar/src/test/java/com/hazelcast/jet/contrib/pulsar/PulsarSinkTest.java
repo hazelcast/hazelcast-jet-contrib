@@ -62,6 +62,7 @@ public class PulsarSinkTest extends PulsarTestSupport {
 
     @Test
     public void testPulsarSink() throws PulsarClientException {
+        String topicName = randomName();
         String sourceImapName = randomMapName();
         IMap<String, String> sourceIMap;
         sourceIMap = jet.getMap(sourceImapName);
@@ -71,7 +72,7 @@ public class PulsarSinkTest extends PulsarTestSupport {
         Map<String, Object> producerConfig = new HashMap<>();
         producerConfig.put("maxPendingMessages", 5000);
 
-        Sink<Integer> pulsarSink = PulsarSinks.<Integer, Integer>builder(PulsarTestSupport.getTopicName(),
+        Sink<Integer> pulsarSink = PulsarSinks.<Integer, Integer>builder(topicName,
                 producerConfig,
                 () -> PulsarClient.builder()
                                   .serviceUrl(PulsarTestSupport.getServiceUrl())
@@ -87,11 +88,11 @@ public class PulsarSinkTest extends PulsarTestSupport {
 
         sleepAtLeastSeconds(5);
 
-        PulsarTestSupport.consumeMessages(ITEM_COUNT).thenRun(
+        PulsarTestSupport.consumeMessages(topicName, ITEM_COUNT).thenRun(
                 () -> {
                     try {
                         assertTrue("It should reach end of topic after consuming produced number of messages",
-                                PulsarTestSupport.getConsumer().hasReachedEndOfTopic());
+                                PulsarTestSupport.getConsumer(topicName).hasReachedEndOfTopic());
                     } catch (PulsarClientException e) {
                         e.printStackTrace();
                     }
