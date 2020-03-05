@@ -52,7 +52,7 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        jetVersion = '4.0-SNAPSHOT'
+        jetVersion = '4.0'
         hazelcastVersion = '4.0'
     }
 
