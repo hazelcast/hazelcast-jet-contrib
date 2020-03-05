@@ -59,7 +59,14 @@ public final class PulsarSources {
      * messages from Pulsar topics for data ingestion to Jet pipelines.
      * This source does not have fault-tolerance support. It uses the
      * Consumer API of the Pulsar client. It can be used to subscribe
-     * partitioned topics.
+     * partitioned topics. It uses higher level abstraction of Pulsar that
+     * is called "shared subscription" that allows multiple consumers to consume
+     * from the topic at the same time. The messages are sent round-robin to each
+     * connected consumer. Broker determines which consumer will receive a
+     * message from which topic partition. It does not require one-to-one
+     * mapping between partitions and consumers. Multiple consumers can get
+     * messages from same partition. With this source, the message ordering is
+     * not preserved.
      * <p>
      * Example usage:
      * <pre>{@code
@@ -95,7 +102,7 @@ public final class PulsarSources {
      * @param <T> the type of data emitted from {@code StreamSource}
      * @return a stream source to use in {@link Pipeline#readFrom}
      */
-    public static <M, T> StreamSource<T> pulsarDistributed(
+    public static <M, T> StreamSource<T> pulsarConsumer(
             @Nonnull List<String> topics,
             @Nonnull int preferredLocalParallelism,
             @Nonnull Map<String, Object> consumerConfig,
@@ -138,7 +145,7 @@ public final class PulsarSources {
      * @return a stream source to use in {@link Pipeline#readFrom}
      */
 
-    public static <M, T> StreamSource<T> pulsarFT(
+    public static <M, T> StreamSource<T> pulsarReader(
             @Nonnull String topic,
             @Nonnull Map<String, Object> readerConfig,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
@@ -279,7 +286,7 @@ public final class PulsarSources {
         private final Queue<Message<M>> messageBuffer = new LinkedList<>();
         private final FunctionEx<Message<M>, T> projectionFn;
 
-        private MessageId offset;
+        private MessageId offset = MessageId.earliest;
 
         private ReaderContext(
                 @Nonnull ILogger logger,
