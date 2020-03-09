@@ -1,14 +1,11 @@
 buildscript {
     dependencies {
-        classpath 'gradle.plugin.org.hibernate.build:gradle-maven-publish-auth:3.0.0'
+        classpath 'org.hibernate.build.gradle:gradle-maven-publish-auth:2.0.1'
         classpath 'net.researchgate:gradle-release:2.8.1'
 
     }
     repositories {
         mavenCentral()
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
         jcenter()
     }
 }
@@ -20,7 +17,7 @@ subprojects {
     apply plugin: 'idea'
     apply plugin: 'checkstyle'
     apply plugin: 'maven-publish'
-    apply plugin: 'org.hibernate.build.maven-repo-auth'
+    apply plugin: 'maven-publish-auth'
     apply plugin: "maven"
     apply plugin: 'signing'
     apply plugin: 'net.researchgate.release'
@@ -169,7 +166,7 @@ subprojects {
             !it.project.version.endsWith('SNAPSHOT')
         }
     }
-    
+
     tasks.withType(Test) {
         maxParallelForks = 1
     }
@@ -177,7 +174,7 @@ subprojects {
 
     build.dependsOn javadoc
     test.finalizedBy jacocoTestReport
-    
+
     release {
         failOnCommitNeeded = true
         failOnPublishNeeded = true
