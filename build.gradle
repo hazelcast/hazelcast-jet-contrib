@@ -1,6 +1,6 @@
 buildscript {
     dependencies {
-        classpath 'org.hibernate.build.gradle:gradle-maven-publish-auth:2.0.1'
+        classpath 'gradle.plugin.org.hibernate.build:gradle-maven-publish-auth:3.0.0'
         classpath 'net.researchgate:gradle-release:2.8.1'
 
     }
@@ -17,7 +17,7 @@ subprojects {
     apply plugin: 'idea'
     apply plugin: 'checkstyle'
     apply plugin: 'maven-publish'
-    apply plugin: 'maven-publish-auth'
+    apply plugin: 'org.hibernate.build.maven-repo-auth'
     apply plugin: "maven"
     apply plugin: 'signing'
     apply plugin: 'net.researchgate.release'
