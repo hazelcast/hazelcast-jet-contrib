@@ -16,8 +16,28 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
+import com.hazelcast.jet.pipeline.BatchSource;
+import com.hazelcast.jet.pipeline.SourceBuilder;
+
+import java.util.List;
+
 /**
  * Contains methods to create MQTT sources.
  */
 public class MqttSources {
+
+    public static BatchSource<String> testList(List<String> inputList) {
+
+        return SourceBuilder
+                .batch("list-source", x -> inputList)
+                .<String>fillBufferFn((str, buf) -> {
+                    for (String entry : inputList) {
+                        buf.add(entry);
+                    }
+                    buf.close();
+                })
+                .build();
+
+    }
+
 }
