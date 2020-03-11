@@ -24,8 +24,17 @@ import java.util.List;
 /**
  * Contains methods to create MQTT sources.
  */
-public class MqttSources {
+public final class MqttSources {
 
+    private MqttSources() {
+    }
+
+    /**
+     * Creates a {@link BatchSource} which reads strings from an input list.
+     *
+     * @param inputList list of strings
+     * @return a batch source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(BatchSource)}
+     */
     public static BatchSource<String> testList(List<String> inputList) {
 
         return SourceBuilder
