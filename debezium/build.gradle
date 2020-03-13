@@ -1,5 +1,5 @@
 dependencies {
-    compile "com.hazelcast.jet.contrib:kafka-connect:0.2-SNAPSHOT"
+    compile project(':kafka-connect')
     compile group: 'io.debezium', name: 'debezium-core', version: '1.0.0.Final'
     testCompile "org.testcontainers:mysql:1.12.3"
     testCompile "org.testcontainers:postgresql:1.12.3"
