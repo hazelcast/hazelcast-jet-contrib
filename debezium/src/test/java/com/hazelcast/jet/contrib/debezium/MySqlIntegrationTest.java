@@ -16,9 +16,10 @@
 
 package com.hazelcast.jet.contrib.debezium;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
@@ -27,21 +28,14 @@ import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
-import io.debezium.serde.DebeziumSerdes;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serde;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.containers.MySQLContainer;
-import org.testcontainers.shaded.com.fasterxml.jackson.annotation.JsonIgnore;
-import org.testcontainers.shaded.com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
-import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
@@ -78,21 +72,19 @@ public class MySqlIntegrationTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .filterUsingService(ServiceFactories.sharedService(context -> {
-                    Serde<EventRecord> serde = DebeziumSerdes.payloadJson(EventRecord.class);
-                    serde.configure(Collections.emptyMap(), false);
-                    return serde.deserializer();
-                }, Deserializer::close), (deserializer, record) -> {
-                    EventRecord eventRecord = deserializer.deserialize("", record.getBytes());
-                    return eventRecord.isUpdate();
-                })
+                .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
+                        (parser, json) -> {
+                            ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
+                            Customer customer = changeEventValue.getAfter(Customer.class);
+                            return changeEventValue.isUpdate() && customer.id == 1004;
+                        })
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
                         list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
-                                                          .getClassLoader()
-                                                          .getResource("debezium-connector-mysql.zip")));
+                .getClassLoader()
+                .getResource("debezium-connector-mysql.zip")));
 
         // when
         JetInstance jet = createJetMember();
@@ -108,7 +100,6 @@ public class MySqlIntegrationTest extends JetTestSupport {
             preparedStatement.executeUpdate();
         }
 
-
         // then
         try {
             job.join();
@@ -118,39 +109,6 @@ public class MySqlIntegrationTest extends JetTestSupport {
             Assert.assertTrue("Job was expected to complete with " +
                             "AssertionCompletedException, but completed with: " + e.getCause(),
                     errorMsg.contains(AssertionCompletedException.class.getName()));
-        }
-    }
-
-    private static final class EventRecord implements Serializable {
-
-        @JsonIgnore
-        public JsonNode source;
-
-        @JsonIgnore
-        public JsonNode after;
-
-        @JsonIgnore
-        public JsonNode before;
-
-        @JsonIgnore
-        public long ts_ms;
-
-        @JsonProperty
-        public String op;
-
-        EventRecord() {
-        }
-
-        EventRecord(String operation) {
-            this.op = operation;
-        }
-
-        public boolean isUpdate() {
-            return "u".equals(op);
-        }
-
-        public boolean isCreate() {
-            return "c".equals(op);
         }
     }
 
