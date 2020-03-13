@@ -25,7 +25,6 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
-import org.apache.kafka.connect.data.Values;
 import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.containers.BindMode;
@@ -74,7 +73,6 @@ public class MsSqlIntegrationTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .map(record -> Values.convertToString(record.valueSchema(), record.value()))
                 .writeTo(AssertionSinks.assertCollectedEventually(60,
                         list -> assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));
 

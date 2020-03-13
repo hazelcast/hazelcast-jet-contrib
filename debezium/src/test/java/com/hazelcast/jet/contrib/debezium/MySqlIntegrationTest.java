@@ -30,7 +30,6 @@ import io.debezium.config.Configuration;
 import io.debezium.serde.DebeziumSerdes;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
-import org.apache.kafka.connect.data.Values;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -79,7 +78,6 @@ public class MySqlIntegrationTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .map(record -> Values.convertToString(record.valueSchema(), record.value()))
                 .filterUsingService(ServiceFactories.sharedService(context -> {
                     Serde<EventRecord> serde = DebeziumSerdes.payloadJson(EventRecord.class);
                     serde.configure(Collections.emptyMap(), false);

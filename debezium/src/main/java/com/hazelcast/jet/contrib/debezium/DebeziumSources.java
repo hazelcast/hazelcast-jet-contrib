@@ -19,7 +19,7 @@ package com.hazelcast.jet.contrib.debezium;
 import com.hazelcast.jet.contrib.connect.KafkaConnectSources;
 import com.hazelcast.jet.pipeline.StreamSource;
 import io.debezium.config.Configuration;
-import org.apache.kafka.connect.source.SourceRecord;
+import org.apache.kafka.connect.data.Values;
 
 import java.util.Properties;
 
@@ -39,12 +39,13 @@ public final class DebeziumSources {
      *                      properties of the Debezium connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<SourceRecord> cdc(Configuration configuration) {
+    public static StreamSource<String> cdc(Configuration configuration) {
         Properties properties = configuration.edit()
                                              .with("database.history", HazelcastListDatabaseHistory.class.getName())
                                              .build()
                                              .asProperties();
-        return KafkaConnectSources.connect(properties);
+        return KafkaConnectSources.connect(properties,
+                record -> Values.convertToString(record.valueSchema(), record.value()));
     }
 
 
