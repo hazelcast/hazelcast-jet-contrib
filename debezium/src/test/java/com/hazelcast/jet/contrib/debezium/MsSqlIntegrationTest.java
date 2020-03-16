@@ -29,6 +29,7 @@ import org.apache.kafka.connect.data.Values;
 import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.MSSQLServerContainer;
 
 import java.sql.Connection;
@@ -46,12 +47,21 @@ public class MsSqlIntegrationTest extends JetTestSupport {
     @Rule
     public MSSQLServerContainer mssql = new MSSQLServerContainer<>().withEnv("MSSQL_AGENT_ENABLED", "true")
                                                                     .withClasspathResourceMapping("mssql/setup.sql",
-                                                                            "/tmp/setup.sql", BindMode.READ_ONLY);
+                                                                            "/tmp/setup.sql", BindMode.READ_ONLY)
+                                                                    .withClasspathResourceMapping("mssql/check.sql",
+                                                                            "/tmp/check.sql", BindMode.READ_ONLY);
 
     @Test
     public void readFromMsSql() throws Exception {
         mssql.execInContainer("/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", mssql.getUsername(),
                 "-P", mssql.getPassword(), "-d", "master", "-i", "/tmp/setup.sql");
+
+        assertTrueEventually(() -> {
+            ExecResult result = mssql.execInContainer("/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", mssql.getUsername(),
+                    "-P", mssql.getPassword(), "-d", "master", "-i", "/tmp/check.sql");
+            assertContains(result.getStdout(), "MyDB");
+            assertContains(result.getStdout(), "Running");
+        });
 
         Configuration configuration = Configuration
                 .create()
