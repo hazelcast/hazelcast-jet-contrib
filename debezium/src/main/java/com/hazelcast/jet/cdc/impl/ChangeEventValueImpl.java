@@ -36,13 +36,8 @@ public class ChangeEventValueImpl implements ChangeEventValue {
     }
 
     @Override
-    public boolean isUpdate() {
-        return "u".equals(content.operation);
-    }
-
-    @Override
-    public boolean isCreate() {
-        return "c".equals(content.operation);
+    public String getOperation() {
+        return content.operation;
     }
 
     @Override

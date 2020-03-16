@@ -75,8 +75,9 @@ public class MySqlIntegrationTest extends JetTestSupport {
                 .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
                         (parser, json) -> {
                             ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
+                            String operation = changeEventValue.getOperation();
                             Customer customer = changeEventValue.getAfter(Customer.class);
-                            return changeEventValue.isUpdate() && customer.id == 1004;
+                            return "u".equals(operation) && customer.id == 1004;
                         })
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
                         list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));

@@ -26,12 +26,7 @@ public interface ChangeEventValue {
     /**
      * TODO: javadoc
      */
-    boolean isUpdate();
-
-    /**
-     * TODO: javadoc
-     */
-    boolean isCreate();
+    String getOperation();
 
     /**
      * TODO: javadoc
