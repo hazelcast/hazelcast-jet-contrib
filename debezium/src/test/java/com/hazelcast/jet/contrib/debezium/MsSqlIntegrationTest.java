@@ -57,8 +57,8 @@ public class MsSqlIntegrationTest extends JetTestSupport {
                 "-P", mssql.getPassword(), "-d", "master", "-i", "/tmp/setup.sql");
 
         assertTrueEventually(() -> {
-            ExecResult result = mssql.execInContainer("/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", mssql.getUsername(),
-                    "-P", mssql.getPassword(), "-d", "master", "-i", "/tmp/check.sql");
+            ExecResult result = mssql.execInContainer("/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U",
+                    mssql.getUsername(),  "-P", mssql.getPassword(), "-d", "master", "-i", "/tmp/check.sql");
             assertContains(result.getStdout(), "MyDB");
             assertContains(result.getStdout(), "Running");
         });
