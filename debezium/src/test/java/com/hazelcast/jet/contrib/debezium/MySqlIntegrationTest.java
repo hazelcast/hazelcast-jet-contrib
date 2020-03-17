@@ -19,6 +19,7 @@ package com.hazelcast.jet.contrib.debezium;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.cdc.Operation;
 import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JetTestSupport;
@@ -39,6 +40,7 @@ import java.sql.PreparedStatement;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.cdc.Operation.DELETE;
 import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 
 public class MySqlIntegrationTest extends JetTestSupport {
@@ -75,9 +77,9 @@ public class MySqlIntegrationTest extends JetTestSupport {
                 .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
                         (parser, json) -> {
                             ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
-                            String operation = changeEventValue.getOperation();
+                            Operation operation = changeEventValue.getOperation();
                             Customer customer = changeEventValue.getAfter(Customer.class);
-                            return "u".equals(operation) && customer.id == 1004;
+                            return !DELETE.equals(operation) && customer.id == 1004;
                         })
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
                         list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));

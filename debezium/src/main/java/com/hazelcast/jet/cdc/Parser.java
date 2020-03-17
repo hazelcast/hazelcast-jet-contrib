@@ -17,20 +17,43 @@
 package com.hazelcast.jet.cdc;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hazelcast.jet.cdc.impl.ChangeEventValueImpl;
+import com.hazelcast.jet.cdc.impl.ChangeEventValueMongoImpl;
+import com.hazelcast.jet.cdc.impl.ChangeEventValueRelationalImpl;
 
 /**
  * TODO: javadoc
  */
 public final class Parser {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
+
+    /**
+     * TODO: javadoc
+     */
+    public Parser() {
+        this.objectMapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     /**
      * TODO: javadoc
      */
     public ChangeEventValue getChangeEventValue(String json) throws JsonProcessingException {
-        return new ChangeEventValueImpl(json, objectMapper);
+        JsonNode jsonNode = objectMapper.readTree(json);
+        String source = getSource(jsonNode);
+        if ("mongodb".equals(source)) {
+            return new ChangeEventValueMongoImpl(jsonNode);
+        } else {
+            return new ChangeEventValueRelationalImpl(objectMapper, jsonNode);
+        }
+    }
+
+    private static String getSource(JsonNode jsonNode) {
+        JsonNode sourceNode = jsonNode.get("source");
+        JsonNode connectorNode = sourceNode.get("connector");
+        return connectorNode.textValue();
     }
 }

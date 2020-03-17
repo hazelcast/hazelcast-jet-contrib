@@ -16,62 +16,55 @@
 
 package com.hazelcast.jet.cdc.impl;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.cdc.Operation;
+import org.bson.Document;
 
-public class ChangeEventValueImpl implements ChangeEventValue {
+public class ChangeEventValueMongoImpl implements ChangeEventValue {
 
-    private final ObjectMapper objectMapper;
-    private final Content content;
+    private final JsonNode jsonNode;
 
+    private Operation operation;
     private Object before;
     private Object after;
 
-    public ChangeEventValueImpl(String json, ObjectMapper objectMapper) throws JsonProcessingException {
-        this.objectMapper = objectMapper;
-        this.content = objectMapper.readValue(json, Content.class);
+    public ChangeEventValueMongoImpl(JsonNode jsonNode) {
+        this.jsonNode = jsonNode;
     }
 
     @Override
-    public String getOperation() {
-        return content.operation;
+    public Operation getOperation() {
+        if (operation == null) {
+            operation = Operation.get(jsonNode.get("op").textValue());
+        }
+        return operation;
     }
 
     @Override
     public <T> T getBefore(Class<T> clazz) throws JsonProcessingException {
+        if (!clazz.equals(Document.class)) {
+            throw new IllegalArgumentException("Content provided only as `org.bson.Document`");
+            //todo: use POJO from BSON instead of Document
+        }
         if (before == null) {
-            before = objectMapper.treeToValue(content.before, clazz);
+            before = Document.parse(jsonNode.get("before").asText());
         }
         return (T) before;
     }
 
     @Override
     public <T> T getAfter(Class<T> clazz) throws JsonProcessingException {
+        if (!clazz.equals(Document.class)) {
+            throw new IllegalArgumentException("Content provided only as `org.bson.Document`");
+            //todo: use POJO from BSON instead of Document
+        }
         if (after == null) {
-            after = objectMapper.treeToValue(content.after, clazz);
+            after = Document.parse(jsonNode.get("after").asText());
         }
         return (T) after;
     }
 
-    private static class Content {
-
-        @JsonProperty("source")
-        public JsonNode source;
-
-        @JsonProperty("after")
-        public JsonNode after;
-
-        @JsonProperty("before")
-        public JsonNode before;
-
-        @JsonProperty("ts_ms")
-        public long timestamp;
-
-        @JsonProperty("op")
-        public String operation;
-
-    }
+    //todo: deal with the "patch" field in update events
 }

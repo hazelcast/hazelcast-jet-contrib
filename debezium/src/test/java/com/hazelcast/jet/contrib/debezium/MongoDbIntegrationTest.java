@@ -18,14 +18,19 @@ package com.hazelcast.jet.contrib.debezium;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.contrib.mongodb.MongoDBContainer;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
+import org.bson.Document;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +62,7 @@ public class MongoDbIntegrationTest extends JetTestSupport {
                 .with("mongodb.user", "debezium")
                 .with("mongodb.password", "dbz")
                 .with("mongodb.members.auto.discover", "false")
-                .with("collection.whitelist", "inventory.*")
+                .with("collection.whitelist", "inventory.customers")
                 .with("database.history.hazelcast.list.name", "test")
                 .build();
 
@@ -66,7 +71,15 @@ public class MongoDbIntegrationTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .writeTo(AssertionSinks.assertCollectedEventually(60,
+                .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
+                        (parser, json) -> {
+                            ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
+                            Operation operation = changeEventValue.getOperation();
+                            Document customer = changeEventValue.getAfter(Document.class);
+                            Long id = customer.getLong("_id");
+                            return !Operation.DELETE.equals(operation) && id == 1005L;
+                        })
+                .writeTo(AssertionSinks.assertCollectedEventually(30,
                         list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Jason")))));
 
         JobConfig jobConfig = new JobConfig();

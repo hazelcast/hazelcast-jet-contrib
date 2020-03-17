@@ -16,26 +16,43 @@
 
 package com.hazelcast.jet.cdc;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 /**
  * TODO: javadoc
  */
-public interface ChangeEventValue {
+public enum Operation {
+    /**
+     * TODO: javadoc
+     */
+    SYNC("r"),
+    /**
+     * TODO: javadoc
+     */
+    INSERT("c"),
+    /**
+     * TODO: javadoc
+     */
+    UPDATE("u"),
+    /**
+     * TODO: javadoc
+     */
+    DELETE("d");
+
+    private final String id;
+
+    Operation(String id) {
+        this.id = id;
+    }
 
     /**
      * TODO: javadoc
      */
-    Operation getOperation();
-
-    /**
-     * TODO: javadoc
-     */
-    <T> T getBefore(Class<T> clazz) throws JsonProcessingException;
-
-    /**
-     * TODO: javadoc
-     */
-    <T> T getAfter(Class<T> clazz) throws JsonProcessingException;
-
+    public static Operation get(String id) {
+        Operation[] values = values();
+        for (Operation value : values) {
+            if (value.id.equals(id)) {
+                return value;
+            }
+        }
+        throw new IllegalArgumentException(id + " is not a valid operation id");
+    }
 }
