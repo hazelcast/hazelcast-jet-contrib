@@ -18,13 +18,18 @@ package com.hazelcast.jet.contrib.debezium;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.containers.BindMode;
@@ -37,6 +42,7 @@ import java.sql.PreparedStatement;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.cdc.Operation.DELETE;
 import static com.hazelcast.jet.core.test.JetAssert.fail;
 import static org.junit.Assert.assertTrue;
 import static org.testcontainers.containers.MSSQLServerContainer.MS_SQL_SERVER_PORT;
@@ -79,8 +85,15 @@ public class MsSqlIntegrationTest extends JetTestSupport {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .writeTo(AssertionSinks.assertCollectedEventually(60,
-                        list -> assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));
+                .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
+                        (parser, json) -> {
+                            ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
+                            Operation operation = changeEventValue.getOperation();
+                            Customer customer = changeEventValue.getAfter(Customer.class);
+                            return !DELETE.equals(operation) && customer.id == 1001;
+                        })
+                .writeTo(AssertionSinks.assertCollectedEventually(30,
+                        list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
@@ -90,7 +103,7 @@ public class MsSqlIntegrationTest extends JetTestSupport {
         Job job = jet.newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
-        sleepAtLeastSeconds(30);
+        sleepAtLeastSeconds(10);
         // update record
         try (Connection connection = DriverManager.getConnection(mssql.getJdbcUrl() + ";databaseName=MyDB",
                 mssql.getUsername(), mssql.getPassword())) {

@@ -18,3 +18,5 @@
  * Contains classes needed for processing CDC data.
  */
 package com.hazelcast.jet.cdc;
+
+//todo: this whole package should probably be somewhere else

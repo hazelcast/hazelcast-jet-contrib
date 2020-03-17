@@ -28,6 +28,8 @@ import java.util.Properties;
  */
 public final class DebeziumSources {
 
+    //todo: should be independent CDCSources, no debezium exposed
+
     private DebeziumSources() {
     }
 

@@ -24,6 +24,8 @@ import org.bson.Document;
 
 public class ChangeEventValueMongoImpl implements ChangeEventValue {
 
+    //todo: is the mongodb java driver dependency a problem?
+
     private final JsonNode jsonNode;
 
     private Operation operation;
