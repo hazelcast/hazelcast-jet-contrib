@@ -18,11 +18,10 @@ package com.hazelcast.jet.contrib.debezium;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.accumulator.LongAccumulator;
 import com.hazelcast.jet.cdc.Operation;
 import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.ServiceFactories;
@@ -36,14 +35,12 @@ import org.testcontainers.containers.MySQLContainer;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
-import static com.hazelcast.jet.cdc.Operation.DELETE;
 import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 
-public class MySqlIntegrationTest extends JetTestSupport {
+public class MySqlIntegrationTest extends AbstractIntegrationTest {
 
     @Rule
     public MySQLContainer mysql = new MySQLContainer("debezium/example-mysql")
@@ -71,18 +68,32 @@ public class MySqlIntegrationTest extends JetTestSupport {
                 .with("database.history.hazelcast.list.name", "test")
                 .build();
 
+        String[] expectedEvents = {
+                "1001/0:INSERT:Customer {id=1001, firstName=Sally, lastName=Thomas, email=sally.thomas@acme.com}",
+                "1002/0:INSERT:Customer {id=1002, firstName=George, lastName=Bailey, email=gbailey@foobar.com}",
+                "1003/0:INSERT:Customer {id=1003, firstName=Edward, lastName=Walker, email=ed@walker.com}",
+                "1004/0:INSERT:Customer {id=1004, firstName=Anne, lastName=Kretchmar, email=annek@noanswer.org}",
+                "1004/1:UPDATE:Customer {id=1004, firstName=Anne Marie, lastName=Kretchmar, email=annek@noanswer.org}",
+                "1005/0:INSERT:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}",
+                "1005/1:DELETE:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}"
+        };
+
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
-                        (parser, json) -> {
-                            ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
+                .mapUsingService(ServiceFactories.nonSharedService(context -> new Parser()), Parser::getChangeEventValue)
+                .groupingKey(changeEventValue -> changeEventValue.getLatest(Customer.class).id)
+                .mapStateful(
+                        LongAccumulator::new,
+                        (accumulator, customerId, changeEventValue) -> {
+                            long count = accumulator.get();
+                            accumulator.add(1);
                             Operation operation = changeEventValue.getOperation();
-                            Customer customer = changeEventValue.getAfter(Customer.class);
-                            return !DELETE.equals(operation) && customer.id == 1004;
+                            Customer customer = changeEventValue.getLatest(Customer.class);
+                            return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
-                        list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Anne Marie")))));
+                        assertListFn(expectedEvents)));
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
@@ -98,9 +109,15 @@ public class MySqlIntegrationTest extends JetTestSupport {
         // update a record
         try (Connection connection = DriverManager.getConnection(mysql.withDatabaseName("inventory").getJdbcUrl(),
                 mysql.getUsername(), mysql.getPassword())) {
-            PreparedStatement preparedStatement = connection
-                    .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004;");
-            preparedStatement.executeUpdate();
+            connection
+                    .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004;")
+                    .executeUpdate();
+            connection
+                    .prepareStatement("INSERT INTO customers VALUES (1005, 'Jason', 'Bourne', 'jason@bourne.org')")
+                    .executeUpdate();
+            connection
+                    .prepareStatement("DELETE FROM customers WHERE id=1005;")
+                    .executeUpdate();
         }
 
         // then

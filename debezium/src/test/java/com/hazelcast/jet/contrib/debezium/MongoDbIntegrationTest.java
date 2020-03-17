@@ -18,12 +18,11 @@ package com.hazelcast.jet.contrib.debezium;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.cdc.ChangeEventValue;
+import com.hazelcast.jet.accumulator.LongAccumulator;
 import com.hazelcast.jet.cdc.Operation;
 import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.contrib.mongodb.MongoDBContainer;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.ServiceFactories;
@@ -39,12 +38,12 @@ import org.testcontainers.utility.MountableFile;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
-public class MongoDbIntegrationTest extends JetTestSupport {
+public class MongoDbIntegrationTest extends AbstractIntegrationTest {
 
     @Rule
     public MongoDBContainer mongo = new MongoDBContainer("debezium/example-mongodb")
-            .withCopyFileToContainer(MountableFile.forClasspathResource("insertData.sh", 777),
-                    "/usr/local/bin/insertData.sh");
+            .withCopyFileToContainer(MountableFile.forClasspathResource("alterMongoData.sh", 777),
+                    "/usr/local/bin/alterData.sh");
 
     @Test
     public void readFromMongoDb() throws Exception {
@@ -69,29 +68,39 @@ public class MongoDbIntegrationTest extends JetTestSupport {
         JetInstance jet = createJetMember();
 
         Pipeline pipeline = Pipeline.create();
+        String[] expectedEvents = {
+                "1001/0:SYNC:Document{{_id=1001, first_name=Sally, last_name=Thomas, email=sally.thomas@acme.com}}",
+                "1002/0:SYNC:Document{{_id=1002, first_name=George, last_name=Bailey, email=gbailey@foobar.com}}",
+                "1003/0:SYNC:Document{{_id=1003, first_name=Edward, last_name=Walker, email=ed@walker.com}}",
+                "1004/0:SYNC:Document{{_id=1004, first_name=Anne, last_name=Kretchmar, email=annek@noanswer.org}}",
+                "1005/0:SYNC:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}"
+        };
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .filterUsingService(ServiceFactories.nonSharedService(context -> new Parser()),
-                        (parser, json) -> {
-                            ChangeEventValue changeEventValue = parser.getChangeEventValue(json);
+                .mapUsingService(ServiceFactories.nonSharedService(context -> new Parser()), Parser::getChangeEventValue)
+                .groupingKey(changeEventValue -> changeEventValue.getAfter(Document.class).getLong("_id"))
+                .mapStateful(
+                        LongAccumulator::new,
+                        (accumulator, customerId, changeEventValue) -> {
+                            long count = accumulator.get();
                             Operation operation = changeEventValue.getOperation();
                             Document customer = changeEventValue.getAfter(Document.class);
-                            Long id = customer.getLong("_id");
-                            return !Operation.DELETE.equals(operation) && id == 1005L;
+                            accumulator.add(1);
+                            return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
-                        list -> Assert.assertTrue(list.stream().anyMatch(s -> s.contains("Jason")))));
+                        assertListFn(expectedEvents)));
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
-                                                          .getClassLoader()
-                                                          .getResource("debezium-connector-mongodb.zip")));
+                .getClassLoader()
+                .getResource("debezium-connector-mongodb.zip")));
 
         Job job = jet.newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
         // update record
-        mongo.execInContainer("sh", "-c", "/usr/local/bin/insertData.sh");
+        mongo.execInContainer("sh", "-c", "/usr/local/bin/alterData.sh");
 
         try {
             job.join();

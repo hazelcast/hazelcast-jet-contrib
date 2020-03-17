@@ -175,9 +175,12 @@ public final class KafkaConnectSources {
                 }
 
                 for (SourceRecord record : records) {
-                    long ts = record.timestamp() == null ? 0 : record.timestamp();
-                    buf.add(projectionFn.apply(record), ts);
-                    partitionsToOffset.put(record.sourcePartition(), record.sourceOffset());
+                    T projection = projectionFn.apply(record);
+                    if (projection != null) {
+                        long ts = record.timestamp() == null ? 0 : record.timestamp();
+                        buf.add(projection, ts);
+                        partitionsToOffset.put(record.sourcePartition(), record.sourceOffset());
+                    }
                 }
             } catch (InterruptedException e) {
                 throw rethrow(e);

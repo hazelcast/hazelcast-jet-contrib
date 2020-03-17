@@ -38,4 +38,14 @@ public interface ChangeEventValue {
      */
     <T> T getAfter(Class<T> clazz) throws JsonProcessingException;
 
+    /**
+     * TODO: javadoc
+     */
+    default <T> T getLatest(Class<T> clazz) throws JsonProcessingException {
+        T latest = getAfter(clazz);
+        if (latest == null) {
+            latest = getBefore(clazz);
+        }
+        return latest;
+    }
 }
