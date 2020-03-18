@@ -197,7 +197,17 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    private static Properties loadCredentials() {
+    void containsKey(String key, Properties credentials) {
+        if (!credentials.containsKey(key) ||
+                credentials.getProperty(key).equals("REPLACE_THIS")) {
+            throw new IllegalArgumentException("The Twitter credentials," + key + ", should not be null.\n" +
+                    "Set the parameter \"" +  key + "\" in twitter-security.properties OR " +
+                    "Set the corresponding environment variable. (e.g. JET_TWITTER_CONNECTOR_CONSUMER_KEY" +
+                    " for consumerKey.)");
+        }
+    }
+
+    private Properties loadCredentials() {
         Properties credentials = new Properties();
         String consumerKey = System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY");
         String consumerSecret = System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET");
@@ -209,44 +219,20 @@ public class TwitterSourceTest extends JetTestSupport {
             credentials.put("consumerSecret", consumerSecret);
             credentials.put("token", token);
             credentials.put("tokenSecret", tokenSecret);
-            System.out.println("Twitter credentials are loaded from environment variables");
         } else {
             try {
                 credentials.load(Thread.currentThread().getContextClassLoader()
                                        .getResourceAsStream("twitter-security.properties"));
-                System.out.println("Twitter credentials are loaded from twitter-security.properties file");
-
             } catch (IOException e) {
                 System.out.println("Exception is thrown while loading Twitter credentials from" +
                         "twitter-security.properties file");
                 throw rethrow(e);
             }
         }
-
-        if (!credentials.containsKey("consumerKey") ||
-                credentials.getProperty("consumerKey").equals("REPLACE_THIS")) {
-            throw new NullPointerException("The Twitter credentials, consumerKey, should not be null. " +
-                    "Set the parameter \"consumerKey\" in the twitter-security.properties or " +
-                    "Set the environment variable \"JET_TWITTER_CONNECTOR_CONSUMER_KEY\".");
-        }
-        if (!credentials.containsKey("consumerSecret") ||
-                credentials.getProperty("consumerSecret").equals("REPLACE_THIS")) {
-            throw new NullPointerException("The Twitter credentials, consumerSecret, should not be null. " +
-                    "Set the parameter \"consumerSecret\" in twitter-security.properties or " +
-                    "Set the environment variable \"JET_TWITTER_CONNECTOR_CONSUMER_SECRET\".");
-        }
-        if (!credentials.containsKey("token") ||
-                credentials.getProperty("token").equals("REPLACE_THIS")) {
-            throw new NullPointerException("The Twitter credentials, token, should not be null. " +
-                    "Set the parameter \"token\" in twitter-security.properties or " +
-                    "Set the environment variable \"JET_TWITTER_CONNECTOR_TOKEN\".");
-        }
-        if (!credentials.containsKey("consumerKey") ||
-                credentials.getProperty("consumerKey").equals("REPLACE_THIS")) {
-            throw new NullPointerException("The Twitter credentials, tokenSecret, should not be null. " +
-                    "Set the parameter \"tokenSecret\" in twitter-security.properties or " +
-                    "Set the environment variable \"JET_TWITTER_CONNECTOR_TOKEN_SECRET\".");
-        }
+        containsKey("consumerKey", credentials);
+        containsKey("consumerSecret", credentials);
+        containsKey("token", credentials);
+        containsKey("tokenSecret", credentials);
         return credentials;
     }
 }
