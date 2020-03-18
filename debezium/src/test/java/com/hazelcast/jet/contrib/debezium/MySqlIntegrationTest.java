@@ -43,7 +43,7 @@ import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 public class MySqlIntegrationTest extends AbstractIntegrationTest {
 
     @Rule
-    public MySQLContainer mysql = new MySQLContainer("debezium/example-mysql")
+    public MySQLContainer<?> mysql = new MySQLContainer<>("debezium/example-mysql")
             .withUsername("mysqluser")
             .withPassword("mysqlpw");
 
@@ -76,7 +76,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                 "1004/1:UPDATE:Customer {id=1004, firstName=Anne Marie, lastName=Kretchmar, email=annek@noanswer.org}",
                 "1005/0:INSERT:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}",
                 "1005/1:DELETE:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}"
-        };
+        }; //todo: why aren't the first 4 SYNCs instead of INSERTs
 
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
@@ -97,8 +97,8 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
-                .getClassLoader()
-                .getResource("debezium-connector-mysql.zip")));
+                                                          .getClassLoader()
+                                                          .getResource("debezium-connector-mysql.zip")));
 
         // when
         JetInstance jet = createJetMember();
@@ -110,13 +110,13 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         try (Connection connection = DriverManager.getConnection(mysql.withDatabaseName("inventory").getJdbcUrl(),
                 mysql.getUsername(), mysql.getPassword())) {
             connection
-                    .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004;")
+                    .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004")
                     .executeUpdate();
             connection
                     .prepareStatement("INSERT INTO customers VALUES (1005, 'Jason', 'Bourne', 'jason@bourne.org')")
                     .executeUpdate();
             connection
-                    .prepareStatement("DELETE FROM customers WHERE id=1005;")
+                    .prepareStatement("DELETE FROM customers WHERE id=1005")
                     .executeUpdate();
         }
 
