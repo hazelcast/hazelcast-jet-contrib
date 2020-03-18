@@ -29,29 +29,35 @@ import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import twitter4j.Status;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.rethrow;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
 
 public class TwitterSourceTest extends JetTestSupport {
 
     private JetInstance jet;
     private Properties credentials;
 
+
     @Before
     public void setup() {
         jet = createJetMember();
-        credentials = loadCredentialsFromEnv();
+        credentials = loadCredentials();
     }
 
+    @Ignore
     @Test
     public void testStream_withTermFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -62,8 +68,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
 
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.", list.size(), 20)));
@@ -79,6 +85,7 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
+    @Ignore
     @Test
     public void testStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -90,8 +97,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
                         list.size(), 15)));
@@ -107,6 +114,7 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
+    @Ignore
     @Test
     public void testTimestampedStream_termFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -118,8 +126,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withNativeTimestamps(0)
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
                         list.size(), 20)));
@@ -135,6 +143,7 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
+    @Ignore
     @Test
     public void testTimestampedStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -146,8 +155,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withNativeTimestamps(1)
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
                         list.size(), 15)));
@@ -163,6 +172,7 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
+    @Ignore
     @Test
     public void testBatch() {
         Pipeline pipeline = Pipeline.create();
@@ -187,12 +197,56 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    private static Properties loadCredentialsFromEnv() {
+    private static Properties loadCredentials() {
         Properties credentials = new Properties();
-        credentials.put("consumerKey", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY"));
-        credentials.put("consumerSecret", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET"));
-        credentials.put("token", System.getenv("JET_TWITTER_CONNECTOR_TOKEN"));
-        credentials.put("tokenSecret", System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET"));
+        String consumerKey = System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY");
+        String consumerSecret = System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET");
+        String token = System.getenv("JET_TWITTER_CONNECTOR_TOKEN");
+        String tokenSecret = System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET");
+
+        if (consumerKey != null || consumerSecret != null | token != null || tokenSecret != null) {
+            credentials.put("consumerKey", consumerKey);
+            credentials.put("consumerSecret", consumerSecret);
+            credentials.put("token", token);
+            credentials.put("tokenSecret", tokenSecret);
+            System.out.println("Twitter credentials are loaded from environment variables");
+        } else {
+            try {
+                credentials.load(Thread.currentThread().getContextClassLoader()
+                                       .getResourceAsStream("twitter-security.properties"));
+                System.out.println("Twitter credentials are loaded from twitter-security.properties file");
+
+            } catch (IOException e) {
+                System.out.println("Exception is thrown while loading Twitter credentials from" +
+                        "twitter-security.properties file");
+                throw rethrow(e);
+            }
+        }
+
+        if (!credentials.containsKey("consumerKey") ||
+                credentials.getProperty("consumerKey").equals("REPLACE_THIS")) {
+            throw new NullPointerException("The Twitter credentials, consumerKey, should not be null. " +
+                    "Set the parameter \"consumerKey\" in the twitter-security.properties or " +
+                    "Set the environment variable \"JET_TWITTER_CONNECTOR_CONSUMER_KEY\".");
+        }
+        if (!credentials.containsKey("consumerSecret") ||
+                credentials.getProperty("consumerSecret").equals("REPLACE_THIS")) {
+            throw new NullPointerException("The Twitter credentials, consumerSecret, should not be null. " +
+                    "Set the parameter \"consumerSecret\" in twitter-security.properties or " +
+                    "Set the environment variable \"JET_TWITTER_CONNECTOR_CONSUMER_SECRET\".");
+        }
+        if (!credentials.containsKey("token") ||
+                credentials.getProperty("token").equals("REPLACE_THIS")) {
+            throw new NullPointerException("The Twitter credentials, token, should not be null. " +
+                    "Set the parameter \"token\" in twitter-security.properties or " +
+                    "Set the environment variable \"JET_TWITTER_CONNECTOR_TOKEN\".");
+        }
+        if (!credentials.containsKey("consumerKey") ||
+                credentials.getProperty("consumerKey").equals("REPLACE_THIS")) {
+            throw new NullPointerException("The Twitter credentials, tokenSecret, should not be null. " +
+                    "Set the parameter \"tokenSecret\" in twitter-security.properties or " +
+                    "Set the environment variable \"JET_TWITTER_CONNECTOR_TOKEN_SECRET\".");
+        }
         return credentials;
     }
 }
