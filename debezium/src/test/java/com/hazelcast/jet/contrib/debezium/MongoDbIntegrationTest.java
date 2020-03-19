@@ -88,6 +88,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             accumulator.add(1);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
+                .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
                         assertListFn(expectedEvents)));
 

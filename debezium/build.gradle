@@ -2,16 +2,20 @@ dependencies {
     compile project(':kafka-connect')
     compile 'io.debezium:debezium-core:1.0.0.Final'
     compile 'org.mongodb:mongodb-driver-sync:3.11.1'
-    testCompile "org.testcontainers:mysql:1.12.3"
-    testCompile "org.testcontainers:postgresql:1.12.3"
-    testCompile "org.testcontainers:mssqlserver:1.12.3"
-    testCompile 'com.microsoft.sqlserver:mssql-jdbc:8.2.0.jre8'
-    testCompile 'org.postgresql:postgresql:42.2.8'
+
     testCompile 'junit:junit:4.12'
-    testCompile 'mysql:mysql-connector-java:5.1.34'
-    testCompile project(':mongodb').sourceSets.test.output
     testCompile "org.slf4j:slf4j-log4j12:1.7.26"
 
+    //testcontainers
+    testCompile "org.testcontainers:mysql:1.12.3"
+    testCompile "org.testcontainers:postgresql:1.12.3"
+    testCompile "org.testcontainers:mssqlserver:1.13.0"
+    testCompile project(':mongodb').sourceSets.test.output
+
+    //jdbc
+    testCompile 'com.microsoft.sqlserver:mssql-jdbc:8.2.0.jre8'
+    testCompile 'org.postgresql:postgresql:42.2.8'
+    testCompile 'mysql:mysql-connector-java:5.1.34'
 }
 
 test {

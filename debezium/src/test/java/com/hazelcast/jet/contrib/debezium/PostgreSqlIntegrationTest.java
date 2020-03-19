@@ -28,7 +28,6 @@ import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
-import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -38,6 +37,8 @@ import java.sql.DriverManager;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
@@ -92,6 +93,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
                             Customer customer = changeEventValue.getLatest(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
+                .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
                         assertListFn(expectedEvents)));
 
@@ -124,10 +126,10 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
         // then
         try {
             job.join();
-            Assert.fail("Job should have completed with an AssertionCompletedException, but completed normally");
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
         } catch (CompletionException e) {
             String errorMsg = e.getCause().getMessage();
-            Assert.assertTrue("Job was expected to complete with " +
+            assertTrue("Job was expected to complete with " +
                             "AssertionCompletedException, but completed with: " + e.getCause(),
                     errorMsg.contains(AssertionCompletedException.class.getName()));
         }
