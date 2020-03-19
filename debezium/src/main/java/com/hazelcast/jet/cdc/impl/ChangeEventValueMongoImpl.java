@@ -16,57 +16,74 @@
 
 package com.hazelcast.jet.cdc.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.util.LazySupplier;
 import org.bson.Document;
+
+import java.util.Optional;
+import java.util.function.Supplier;
 
 public class ChangeEventValueMongoImpl implements ChangeEventValue {
 
     //todo: is the mongodb java driver dependency a problem?
+    //todo: use POJO from BSON instead of Document?
 
-    private final JsonNode jsonNode;
+    private final Supplier<Operation> operation;
+    private final Supplier<Optional<Document>> before;
+    private final Supplier<Optional<Document>> after;
+    private final Supplier<String> printForm;
 
-    private Operation operation;
-    private Object before;
-    private Object after;
+    public ChangeEventValueMongoImpl(String valueJson) {
+        Document document = Document.parse(valueJson);
+        this.operation = new LazySupplier<>(() -> Operation.get(document.getString("op")));
+        this.before = new LazySupplier<>(() -> subDocument(document, "before"));
+        this.after = new LazySupplier<>(() -> subDocument(document, "after"));
+        this.printForm = () -> valueJson;
+    }
 
-    public ChangeEventValueMongoImpl(JsonNode jsonNode) {
-        this.jsonNode = jsonNode;
+    private static boolean isNullNode(JsonNode node) {
+        if (node == null) {
+            return true;
+        }
+        JsonNodeType nodeType = node.getNodeType();
+        if (nodeType == null) {
+            return true;
+        }
+        return JsonNodeType.NULL.equals(nodeType);
     }
 
     @Override
     public Operation getOperation() {
-        if (operation == null) {
-            operation = Operation.get(jsonNode.get("op").textValue());
-        }
-        return operation;
+        return operation.get();
     }
 
     @Override
-    public <T> T getBefore(Class<T> clazz) throws JsonProcessingException {
+    public <T> Optional<T> getBefore(Class<T> clazz) {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as `org.bson.Document`");
-            //todo: use POJO from BSON instead of Document
         }
-        if (before == null) {
-            before = Document.parse(jsonNode.get("before").asText());
-        }
-        return (T) before;
+        return (Optional<T>) before.get();
     }
 
     @Override
-    public <T> T getAfter(Class<T> clazz) throws JsonProcessingException {
+    public <T> Optional<T> getAfter(Class<T> clazz) {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as `org.bson.Document`");
-            //todo: use POJO from BSON instead of Document
         }
-        if (after == null) {
-            after = Document.parse(jsonNode.get("after").asText());
-        }
-        return (T) after;
+        return (Optional<T>) after.get();
     }
 
-    //todo: deal with the "patch" field in update events
+    @Override
+    public String toString() {
+        return printForm.get();
+    }
+
+    private Optional<Document> subDocument(Document parent, String key) {
+        String json = parent.getString(key);
+        return Optional.ofNullable(json == null ? null : Document.parse(json));
+    }
+
 }

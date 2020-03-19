@@ -19,12 +19,11 @@ package com.hazelcast.jet.contrib.debezium;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.accumulator.LongAccumulator;
+import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
-import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
@@ -67,6 +66,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                 .with("table.whitelist", "inventory.customers")
                 .with("include.schema.changes", "false")
                 .with("database.history.hazelcast.list.name", "test")
+                .with("tombstones.on.delete", "false")
                 .build();
 
         String[] expectedEvents = {
@@ -82,15 +82,15 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .mapUsingService(ServiceFactories.nonSharedService(context -> new Parser()), Parser::getChangeEventValue)
-                .groupingKey(changeEventValue -> changeEventValue.getLatest(Customer.class).id)
+                .groupingKey(event -> event.key().id())
                 .mapStateful(
                         LongAccumulator::new,
-                        (accumulator, customerId, changeEventValue) -> {
+                        (accumulator, customerId, event) -> {
                             long count = accumulator.get();
                             accumulator.add(1);
-                            Operation operation = changeEventValue.getOperation();
-                            Customer customer = changeEventValue.getLatest(Customer.class);
+                            ChangeEventValue eventValue = event.value().get();
+                            Operation operation = eventValue.getOperation();
+                            Customer customer = eventValue.getLatest(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

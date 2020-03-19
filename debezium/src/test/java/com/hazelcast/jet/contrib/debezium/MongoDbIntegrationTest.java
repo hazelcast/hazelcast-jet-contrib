@@ -19,13 +19,12 @@ package com.hazelcast.jet.contrib.debezium;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.accumulator.LongAccumulator;
+import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
-import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.contrib.mongodb.MongoDBContainer;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
@@ -36,6 +35,7 @@ import org.junit.Test;
 import org.testcontainers.utility.MountableFile;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 
 public class MongoDbIntegrationTest extends AbstractIntegrationTest {
@@ -63,6 +63,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .with("mongodb.members.auto.discover", "false")
                 .with("collection.whitelist", "inventory.customers")
                 .with("database.history.hazelcast.list.name", "test")
+                .with("tombstones.on.delete", "false")
                 .build();
 
         JetInstance jet = createJetMember();
@@ -73,20 +74,30 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 "1002/0:SYNC:Document{{_id=1002, first_name=George, last_name=Bailey, email=gbailey@foobar.com}}",
                 "1003/0:SYNC:Document{{_id=1003, first_name=Edward, last_name=Walker, email=ed@walker.com}}",
                 "1004/0:SYNC:Document{{_id=1004, first_name=Anne, last_name=Kretchmar, email=annek@noanswer.org}}",
-                "1005/0:SYNC:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}"
+                "1004/1:UPDATE:PATCH", //todo
+                "1005/0:INSERT:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}",
+                "1005/1:DELETE:PATCH" //todo
         };
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .mapUsingService(ServiceFactories.nonSharedService(context -> new Parser()), Parser::getChangeEventValue)
-                .groupingKey(changeEventValue -> changeEventValue.getAfter(Document.class).getLong("_id"))
+                .peek() //todo: remove
+                .groupingKey(event -> event.key().id())
                 .mapStateful(
                         LongAccumulator::new,
-                        (accumulator, customerId, changeEventValue) -> {
+                        (accumulator, customerId, event) -> {
                             long count = accumulator.get();
-                            Operation operation = changeEventValue.getOperation();
-                            Document customer = changeEventValue.getAfter(Document.class);
                             accumulator.add(1);
-                            return customerId + "/" + count + ":" + operation + ":" + customer;
+                            ChangeEventValue eventValue = event.value().get();
+                            Operation operation = eventValue.getOperation();
+                            Optional<Document> customer = eventValue.getAfter(Document.class);
+                            if (!customer.isPresent()) {
+                                customer = eventValue.getBefore(Document.class);
+                            }
+                            if (customer.isPresent()) {
+                                return customerId + "/" + count + ":" + operation + ":" + customer.get();
+                            } else {
+                                return customerId + "/" + count + ":" + operation + ":PATCH";
+                            }
                         })
                 .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
@@ -100,6 +111,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         Job job = jet.newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
+        sleepAtLeastSeconds(10);
         // update record
         mongo.execInContainer("sh", "-c", "/usr/local/bin/alterData.sh");
 

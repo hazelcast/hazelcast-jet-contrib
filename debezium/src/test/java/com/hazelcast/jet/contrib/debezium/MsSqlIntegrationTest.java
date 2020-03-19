@@ -20,11 +20,9 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.accumulator.LongAccumulator;
 import com.hazelcast.jet.cdc.Operation;
-import com.hazelcast.jet.cdc.Parser;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.ServiceFactories;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import io.debezium.config.Configuration;
@@ -39,6 +37,8 @@ import java.sql.DriverManager;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.Traversers.empty;
+import static com.hazelcast.jet.Traversers.singleton;
 import static com.hazelcast.jet.core.test.JetAssert.fail;
 import static org.junit.Assert.assertTrue;
 import static org.testcontainers.containers.MSSQLServerContainer.MS_SQL_SERVER_PORT;
@@ -75,6 +75,7 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
                 .with("database.server.name", "fulfillment")
                 .with("table.whitelist", "inventory.customers")
                 .with("database.history.hazelcast.list.name", "test")
+                .with("tombstones.on.delete", "false")
                 .build();
 
         String[] expectedEvents = {
@@ -90,15 +91,15 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .mapUsingService(ServiceFactories.nonSharedService(context -> new Parser()), Parser::getChangeEventValue)
-                .groupingKey(changeEventValue -> changeEventValue.getLatest(Customer.class).id)
+                .flatMap(event -> event.value().isPresent() ? singleton(event.value().get()) : empty())
+                .groupingKey(eventValue -> eventValue.getLatest(Customer.class).id)
                 .mapStateful(
                         LongAccumulator::new,
-                        (accumulator, customerId, changeEventValue) -> {
+                        (accumulator, customerId, eventValue) -> {
                             long count = accumulator.get();
                             accumulator.add(1);
-                            Operation operation = changeEventValue.getOperation();
-                            Customer customer = changeEventValue.getLatest(Customer.class);
+                            Operation operation = eventValue.getOperation();
+                            Customer customer = eventValue.getLatest(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

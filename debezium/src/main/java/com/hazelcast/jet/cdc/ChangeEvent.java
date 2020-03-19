@@ -21,38 +21,16 @@ import java.util.Optional;
 /**
  * TODO: javadoc
  */
-public interface ChangeEventValue {
+public interface ChangeEvent {
 
     /**
      * TODO: javadoc
      */
-    Operation getOperation();
+    ChangeEventKey key() throws ParsingException;
 
     /**
      * TODO: javadoc
      */
-    <T> Optional<T> getBefore(Class<T> clazz) throws ParsingException;
+    Optional<ChangeEventValue> value() throws ParsingException;
 
-    /**
-     * TODO: javadoc
-     */
-    <T> Optional<T> getAfter(Class<T> clazz) throws ParsingException;
-
-    /**
-     * TODO: javadoc
-     */
-    default <T> T getLatest(Class<T> clazz) throws ParsingException {
-        Optional<T> after = getAfter(clazz);
-        if (after.isPresent()) {
-            return after.get();
-        }
-
-        Optional<T> before = getBefore(clazz);
-        if (before.isPresent()) {
-            return before.get();
-        }
-
-        throw new IllegalStateException(ChangeEventValue.class.getSimpleName() +
-                " should have either a before or after value");
-    }
 }

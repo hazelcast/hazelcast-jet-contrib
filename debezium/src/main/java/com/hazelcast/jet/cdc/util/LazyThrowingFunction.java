@@ -14,45 +14,41 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.cdc;
+package com.hazelcast.jet.cdc.util;
 
+import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
  * TODO: javadoc
+ * @param <T>
+ * @param <R>
+ * @param <E>
  */
-public interface ChangeEventValue {
+@SuppressWarnings({"OptionalAssignedToNull", "OptionalUsedAsFieldOrParameterType"})
+public class LazyThrowingFunction<T, R, E extends Exception> implements ThrowingFunction<T, R, E> {
+
+    @Nonnull
+    private final ThrowingFunction<T, R, E> expensiveFunction;
+
+    private Optional<R> value;
 
     /**
      * TODO: javadoc
      */
-    Operation getOperation();
+    public LazyThrowingFunction(@Nonnull ThrowingFunction<T, R, E> expensiveFunction) {
+        this.expensiveFunction = Objects.requireNonNull(expensiveFunction);
+    }
 
     /**
      * TODO: javadoc
      */
-    <T> Optional<T> getBefore(Class<T> clazz) throws ParsingException;
-
-    /**
-     * TODO: javadoc
-     */
-    <T> Optional<T> getAfter(Class<T> clazz) throws ParsingException;
-
-    /**
-     * TODO: javadoc
-     */
-    default <T> T getLatest(Class<T> clazz) throws ParsingException {
-        Optional<T> after = getAfter(clazz);
-        if (after.isPresent()) {
-            return after.get();
+    @Override
+    public Optional<R> apply(T t) throws E {
+        if (value == null) {
+            value = expensiveFunction.apply(t);
         }
-
-        Optional<T> before = getBefore(clazz);
-        if (before.isPresent()) {
-            return before.get();
-        }
-
-        throw new IllegalStateException(ChangeEventValue.class.getSimpleName() +
-                " should have either a before or after value");
+        return value;
     }
 }

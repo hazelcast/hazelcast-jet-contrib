@@ -16,6 +16,11 @@
 
 package com.hazelcast.jet.contrib.debezium;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hazelcast.jet.cdc.ChangeEvent;
+import com.hazelcast.jet.cdc.impl.ChangeEventMongoImpl;
+import com.hazelcast.jet.cdc.impl.ChangeEventRelationalImpl;
 import com.hazelcast.jet.contrib.connect.KafkaConnectSources;
 import com.hazelcast.jet.pipeline.StreamSource;
 import io.debezium.config.Configuration;
@@ -27,6 +32,10 @@ import java.util.Properties;
  * Contains factory methods for creating Debezium connector sources
  */
 public final class DebeziumSources {
+
+    //todo: should have one object mapper per CDC source instance
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     //todo: should be independent CDCSources, no debezium exposed
 
@@ -41,13 +50,25 @@ public final class DebeziumSources {
      *                      properties of the Debezium connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<String> cdc(Configuration configuration) {
+    public static StreamSource<ChangeEvent> cdc(Configuration configuration) {
         Properties properties = configuration.edit()
                                              .with("database.history", HazelcastListDatabaseHistory.class.getName())
                                              .build()
                                              .asProperties();
+        //todo: timestamps
+        boolean mongodb = isMongoDB(properties);
         return KafkaConnectSources.connect(properties,
-                record -> Values.convertToString(record.valueSchema(), record.value()));
+                record -> {
+                    String keyJson = Values.convertToString(record.keySchema(), record.key());
+                    String valueJson = Values.convertToString(record.valueSchema(), record.value());
+                    return mongodb ? new ChangeEventMongoImpl(keyJson, valueJson) :
+                            new ChangeEventRelationalImpl(keyJson, valueJson, OBJECT_MAPPER);
+                }
+        );
+    }
+
+    private static boolean isMongoDB(Properties properties) { //todo: ugly hack, but lacking alternatives...
+        return properties.getProperty("connector.class").toLowerCase().contains("mongodb");
     }
 
 

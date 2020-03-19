@@ -22,43 +22,66 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.ParsingException;
+import com.hazelcast.jet.cdc.util.LazySupplier;
+import com.hazelcast.jet.cdc.util.LazyThrowingFunction;
+import com.hazelcast.jet.cdc.util.ThrowingFunction;
+
+import java.util.Optional;
+import java.util.function.Supplier;
 
 public class ChangeEventValueRelationalImpl implements ChangeEventValue {
 
-    private final ObjectMapper objectMapper;
-    private final Content content;
+    private final Supplier<Operation> operation;
+    private final ThrowingFunction<Class<?>, Object, ParsingException> before;
+    private final ThrowingFunction<Class<?>, Object, ParsingException> after;
+    private final Supplier<String> printForm;
 
-    private Operation operation;
-    private Object before;
-    private Object after;
+    public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper objectMapper) throws ParsingException {
+        this.printForm = () -> valueJson;
 
-    public ChangeEventValueRelationalImpl(ObjectMapper objectMapper, JsonNode jsonNode) throws JsonProcessingException {
-        this.objectMapper = objectMapper;
-        this.content = objectMapper.treeToValue(jsonNode, Content.class);
+        Content content = parseContent(valueJson, objectMapper);
+        this.operation = new LazySupplier<>(() -> Operation.get(content.operation));
+        this.after = new LazyThrowingFunction<>((clazz) -> toObject(content.after, clazz, objectMapper));
+        this.before = new LazyThrowingFunction<>((clazz) -> toObject(content.before, clazz, objectMapper));
     }
 
     @Override
     public Operation getOperation() {
-        if (operation == null) {
-            operation = Operation.get(content.operation);
-        }
-        return operation;
+        return operation.get();
     }
 
     @Override
-    public <T> T getBefore(Class<T> clazz) throws JsonProcessingException {
-        if (before == null) {
-            before = objectMapper.treeToValue(content.before, clazz);
-        }
-        return (T) before;
+    public <T> Optional<T> getBefore(Class<T> clazz) throws ParsingException {
+        return (Optional<T>) before.apply(clazz);
     }
 
     @Override
-    public <T> T getAfter(Class<T> clazz) throws JsonProcessingException {
-        if (after == null) {
-            after = objectMapper.treeToValue(content.after, clazz);
+    public <T> Optional<T> getAfter(Class<T> clazz) throws ParsingException {
+        return (Optional<T>) after.apply(clazz);
+    }
+
+    @Override
+    public String toString() {
+        return printForm.get();
+    }
+
+    private static Optional<Object> toObject(JsonNode node, Class<?> clazz, ObjectMapper objectMapper)
+                                                                                        throws ParsingException {
+        try {
+            Object value = objectMapper.treeToValue(node, clazz);
+            return value == null ? Optional.empty() : Optional.of(value);
+        } catch (JsonProcessingException e) {
+            throw new ParsingException(e.getMessage(), e);
         }
-        return (T) after;
+    }
+
+    private static Content parseContent(String valueJson, ObjectMapper objectMapper) throws ParsingException {
+        try {
+            return objectMapper.readValue(valueJson, Content.class);
+        } catch (JsonProcessingException e) {
+            throw new ParsingException(e.getMessage(), e);
+        }
     }
 
     private static class Content {
