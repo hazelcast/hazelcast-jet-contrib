@@ -96,16 +96,9 @@ public class TwitterSourceMockTest extends JetTestSupport {
         }
         responseBuilder.append("\r\n");
         String response = responseBuilder.toString();
-        MockResponse mockResponse = new MockResponse()
-                .addHeader("Content-Type", "application/json; charset=utf-8")
-                .addHeader("Transfer-encoding", "chunked")
-                .setResponseCode(200)
-                .setChunkedBody(response, 4096);
-        server.enqueue(mockResponse);
-
+        stubMockResponse(response);
 
         Pipeline pipeline = Pipeline.create();
-
         List<String> terms = new ArrayList<>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
 
         final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream(credentials,
@@ -137,15 +130,16 @@ public class TwitterSourceMockTest extends JetTestSupport {
     @Test
     public void testBatchMock() {
         System.setProperty("twitter4j.restBaseURL", "http://" + server.getHostName() + ":" + server.getPort() + "/");
-        String responseText = new Scanner(Objects.requireNonNull(
+        String responseText1 = new Scanner(Objects.requireNonNull(
                 Thread.currentThread()
                       .getContextClassLoader()
-                      .getResourceAsStream("search-response.json")), "UTF-8").useDelimiter("\\A").next();
-        MockResponse mockResponse = new MockResponse()
-                .addHeader("Content-Type", "application/json; charset=utf-8")
-                .setResponseCode(200)
-                .setChunkedBody(responseText, 4096);
-        server.enqueue(mockResponse);
+                      .getResourceAsStream("search-response1.json")), "UTF-8").useDelimiter("\\A").next();
+        String responseText2 = new Scanner(Objects.requireNonNull(
+                Thread.currentThread()
+                      .getContextClassLoader()
+                      .getResourceAsStream("search-response2.json")), "UTF-8").useDelimiter("\\A").next();
+        stubMockResponse(responseText1);
+        stubMockResponse(responseText2);
 
         Pipeline pipeline = Pipeline.create();
         String query = "Jet flies";
@@ -156,8 +150,8 @@ public class TwitterSourceMockTest extends JetTestSupport {
                 .map(status -> "@" + status.getUser().getName() + " - " + status.getText());
 
         tweets.writeTo(AssertionSinks.assertCollectedEventually(10,
-                list -> assertGreaterOrEquals("Emits at least 15 tweets in 10 secs.",
-                        list.size(), 15)));
+                list -> assertGreaterOrEquals("Emits at least 30 tweets in 10 secs.",
+                        list.size(), 30)));
         Job job = jet.newJob(pipeline);
         sleepAtLeastSeconds(2);
         try {
@@ -176,6 +170,13 @@ public class TwitterSourceMockTest extends JetTestSupport {
             assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
                     + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
+    }
+    private void stubMockResponse(String response) {
+        MockResponse mockResponse = new MockResponse()
+                .addHeader("Content-Type", "application/json; charset=utf-8")
+                .setResponseCode(200)
+                .setChunkedBody(response, 4096);
+        server.enqueue(mockResponse);
     }
 
 }
