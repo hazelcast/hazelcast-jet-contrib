@@ -27,10 +27,11 @@ import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
+import com.hazelcast.test.annotation.NightlyTest;
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import twitter4j.Status;
 
 import java.io.IOException;
@@ -45,6 +46,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 
+@Category(NightlyTest.class)
 public class TwitterSourceTest extends JetTestSupport {
 
     private JetInstance jet;
@@ -57,7 +59,6 @@ public class TwitterSourceTest extends JetTestSupport {
         credentials = loadCredentials();
     }
 
-    @Ignore
     @Test
     public void testStream_withTermFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -85,7 +86,6 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    @Ignore
     @Test
     public void testStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -114,7 +114,6 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    @Ignore
     @Test
     public void testTimestampedStream_termFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -143,7 +142,6 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    @Ignore
     @Test
     public void testTimestampedStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
@@ -172,13 +170,11 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    @Ignore
     @Test
     public void testBatch() {
         Pipeline pipeline = Pipeline.create();
         String query = "Jet flies";
-        BatchSource<Status> twitterSearch = TwitterSources.search(
-                credentials, query);
+        BatchSource<Status> twitterSearch = TwitterSources.search(credentials, query);
         BatchStage<String> tweets = pipeline
                 .readFrom(twitterSearch)
                 .map(status -> "@" + status.getUser() + " - " + status.getText());
