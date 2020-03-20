@@ -20,6 +20,8 @@ import com.hazelcast.internal.json.Json;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.core.JetTestSupport;
+import com.hazelcast.jet.pipeline.BatchSource;
+import com.hazelcast.jet.pipeline.BatchStage;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
@@ -31,6 +33,7 @@ import okhttp3.mockwebserver.MockWebServer;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import twitter4j.Status;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,15 +48,21 @@ import static org.junit.Assert.fail;
 
 
 public class TwitterSourceMockTest extends JetTestSupport {
+
     @Rule
     public final MockWebServer server = new MockWebServer();
 
-
     private JetInstance jet;
+    private Properties credentials;
 
     @Before
     public void setup() {
         jet = createJetMember();
+        credentials = new Properties();
+        credentials.put("consumerKey", "mock_consumerKey");
+        credentials.put("consumerSecret", "mock_consumerSecret");
+        credentials.put("token", "mock_token");
+        credentials.put("tokenSecret", "mock_tokenSecret");
     }
 
     /*
@@ -87,18 +96,13 @@ public class TwitterSourceMockTest extends JetTestSupport {
         }
         responseBuilder.append("\r\n");
         String response = responseBuilder.toString();
-
-        Properties credentials = new Properties();
-        credentials.put("consumerKey", "mock_consumerKey");
-        credentials.put("consumerSecret", "mock_consumerSecret");
-        credentials.put("token", "mock_token");
-        credentials.put("tokenSecret", "mock_tokenSecret");
         MockResponse mockResponse = new MockResponse()
                 .addHeader("Content-Type", "application/json; charset=utf-8")
                 .addHeader("Transfer-encoding", "chunked")
                 .setResponseCode(200)
                 .setChunkedBody(response, 4096);
         server.enqueue(mockResponse);
+
 
         Pipeline pipeline = Pipeline.create();
 
@@ -120,6 +124,50 @@ public class TwitterSourceMockTest extends JetTestSupport {
         Job job = jet.newJob(pipeline);
         sleepAtLeastSeconds(5);
 
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
+                    + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+    }
+
+    @Test
+    public void testBatchMock() {
+        System.setProperty("twitter4j.restBaseURL", "http://" + server.getHostName() + ":" + server.getPort() + "/");
+        String responseText = new Scanner(Objects.requireNonNull(
+                Thread.currentThread()
+                      .getContextClassLoader()
+                      .getResourceAsStream("search-response.json")), "UTF-8").useDelimiter("\\A").next();
+        MockResponse mockResponse = new MockResponse()
+                .addHeader("Content-Type", "application/json; charset=utf-8")
+                .setResponseCode(200)
+                .setChunkedBody(responseText, 4096);
+        server.enqueue(mockResponse);
+
+        Pipeline pipeline = Pipeline.create();
+        String query = "Jet flies";
+        BatchSource<Status> twitterSearch = TwitterSources.search(
+                credentials, query);
+        BatchStage<String> tweets = pipeline
+                .readFrom(twitterSearch)
+                .map(status -> "@" + status.getUser().getName() + " - " + status.getText());
+
+        tweets.writeTo(AssertionSinks.assertCollectedEventually(10,
+                list -> assertGreaterOrEquals("Emits at least 15 tweets in 10 secs.",
+                        list.size(), 15)));
+        Job job = jet.newJob(pipeline);
+        sleepAtLeastSeconds(2);
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
+                    + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
         try {
             job.join();
             fail("Job should have completed with an AssertionCompletedException, but completed normally");
