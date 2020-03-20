@@ -73,8 +73,20 @@ subprojects {
 
         minHeapSize = "1g"
         maxHeapSize = "1g"
-
     }
+
+    task testUnit(type: Test) {
+        useJUnit {
+            excludeCategories 'com.hazelcast.test.annotation.NightlyTest'
+        }
+    }
+
+    task testIntegration(type: Test) {
+        useJUnit {
+            includeCategories 'com.hazelcast.test.annotation.NightlyTest'
+        }
+    }
+
 
     task sourcesJar(type: Jar) {
         from sourceSets.main.allJava
