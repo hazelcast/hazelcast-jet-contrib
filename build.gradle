@@ -166,7 +166,7 @@ subprojects {
             !it.project.version.endsWith('SNAPSHOT')
         }
     }
-    
+
     tasks.withType(Test) {
         maxParallelForks = 1
     }
@@ -174,7 +174,7 @@ subprojects {
 
     build.dependsOn javadoc
     test.finalizedBy jacocoTestReport
-    
+
     release {
         failOnCommitNeeded = true
         failOnPublishNeeded = true
