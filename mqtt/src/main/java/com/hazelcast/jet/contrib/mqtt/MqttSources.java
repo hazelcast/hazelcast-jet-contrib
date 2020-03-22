@@ -18,6 +18,7 @@ package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
+import com.hazelcast.jet.pipeline.StreamSource;
 
 import java.util.List;
 
@@ -35,7 +36,7 @@ public final class MqttSources {
      * @param inputList list of strings
      * @return a batch source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(BatchSource)}
      */
-    public static BatchSource<String> testList(List<String> inputList) {
+    public static BatchSource<String> testListBatch(List<String> inputList) {
 
         return SourceBuilder
                 .batch("list-source", x -> inputList)
@@ -44,6 +45,25 @@ public final class MqttSources {
                         buf.add(entry);
                     }
                     buf.close();
+                })
+                .build();
+
+    }
+
+    /**
+     * Creates a {@link StreamSource} which reads strings from an input list.
+     *
+     * @param inputList list of strings
+     * @return a stream source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
+     */
+    public static StreamSource<String> testListStream(List<String> inputList) {
+
+        return SourceBuilder
+                .stream("list-source-stream", x -> inputList)
+                .<String>fillBufferFn((str, buf) -> {
+                    for (String entry : inputList) {
+                        buf.add(entry);
+                    }
                 })
                 .build();
 

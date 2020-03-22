@@ -22,14 +22,20 @@ import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.BatchStage;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.StreamSource;
+import com.hazelcast.jet.pipeline.StreamStage;
+import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class MqttSourcesTest extends JetTestSupport {
 
@@ -43,11 +49,11 @@ public class MqttSourcesTest extends JetTestSupport {
     }
 
     @Test
-    public void testList() {
+    public void testListBatchSource() {
 
         Pipeline pipeline = Pipeline.create();
 
-        BatchSource<String> testSource = MqttSources.testList(inputList);
+        BatchSource<String> testSource = MqttSources.testListBatch(inputList);
 
         BatchStage<String> testStage = pipeline.readFrom(testSource);
         testStage.writeTo(AssertionSinks.assertCollected(s -> assertNotNull(s)));
@@ -55,6 +61,29 @@ public class MqttSourcesTest extends JetTestSupport {
         Job job = jet.newJob(pipeline);
 
         job.join();
+
+    }
+
+    @Test
+    public void testListStreamSource() {
+
+        Pipeline pipeline = Pipeline.create();
+
+        StreamSource<String> testSource = MqttSources.testListStream(inputList);
+
+        StreamStage<String> testStage = pipeline.readFrom(testSource).withoutTimestamps();
+        testStage.writeTo(AssertionSinks.assertCollectedEventually(5, s -> assertNotNull(s)));
+
+        Job job = jet.newJob(pipeline);
+
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
+                    + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
 
     }
 }
