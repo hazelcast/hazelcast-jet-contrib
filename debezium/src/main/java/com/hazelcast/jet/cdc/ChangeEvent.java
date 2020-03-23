@@ -16,8 +16,6 @@
 
 package com.hazelcast.jet.cdc;
 
-import java.util.Optional;
-
 /**
  * TODO: javadoc
  */
@@ -31,6 +29,6 @@ public interface ChangeEvent {
     /**
      * TODO: javadoc
      */
-    Optional<ChangeEventValue> value() throws ParsingException;
+    ChangeEventValue value() throws ParsingException;
 
 }

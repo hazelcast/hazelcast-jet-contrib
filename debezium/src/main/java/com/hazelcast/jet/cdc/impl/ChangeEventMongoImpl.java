@@ -26,13 +26,12 @@ import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ChangeEventMongoImpl implements ChangeEvent {
 
-    private final ThrowingSupplier<Optional<ChangeEventKey>, ParsingException> key;
-    private final ThrowingSupplier<Optional<ChangeEventValue>, ParsingException> value;
+    private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
+    private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
     private final Supplier<String> printForm;
 
     public ChangeEventMongoImpl(@Nullable String keyJson, @Nullable String valueJson) {
@@ -43,11 +42,11 @@ public class ChangeEventMongoImpl implements ChangeEvent {
 
     @Override
     public ChangeEventKey key() throws ParsingException {
-        return key.get().get();
+        return key.get();
     }
 
     @Override
-    public Optional<ChangeEventValue> value() throws ParsingException {
+    public ChangeEventValue value() throws ParsingException {
         return value.get();
     }
 
@@ -57,13 +56,13 @@ public class ChangeEventMongoImpl implements ChangeEvent {
     }
 
     @Nonnull
-    private static Optional<ChangeEventKey> getChangeEventKey(String keyJson) {
-        return Optional.ofNullable(keyJson == null ? null : new ChangeEventKeyMongoImpl(keyJson));
+    private static ChangeEventKey getChangeEventKey(String keyJson) {
+        return new ChangeEventKeyMongoImpl(keyJson);
     }
 
     @Nonnull
-    private static Optional<ChangeEventValue> getChangeEventValue(String valueJson) {
-        return Optional.ofNullable(valueJson == null ? null : new ChangeEventValueMongoImpl(valueJson));
+    private static ChangeEventValue getChangeEventValue(String valueJson) {
+        return new ChangeEventValueMongoImpl(valueJson);
     }
 
 }

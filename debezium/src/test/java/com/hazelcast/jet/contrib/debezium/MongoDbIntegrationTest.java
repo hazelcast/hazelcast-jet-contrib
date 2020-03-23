@@ -83,15 +83,15 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .mapStateful(
                         State::new,
                         (state, customerId, event) -> {
-                            ChangeEventValue eventValue = event.value().get();
+                            ChangeEventValue eventValue = event.value();
                             Operation operation = eventValue.getOperation();
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.getAfter(Document.class).get());
+                                    state.set(eventValue.getImage(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.getCustom("patch", Document.class).get());
+                                    state.update(eventValue.getUpdate(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();

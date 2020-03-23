@@ -19,6 +19,7 @@ package com.hazelcast.jet.contrib.debezium;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.accumulator.LongAccumulator;
+import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JobStatus;
@@ -37,8 +38,6 @@ import java.sql.DriverManager;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
-import static com.hazelcast.jet.Traversers.empty;
-import static com.hazelcast.jet.Traversers.singleton;
 import static com.hazelcast.jet.core.test.JetAssert.fail;
 import static org.junit.Assert.assertTrue;
 import static org.testcontainers.containers.MSSQLServerContainer.MS_SQL_SERVER_PORT;
@@ -91,15 +90,15 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .flatMap(event -> event.value().isPresent() ? singleton(event.value().get()) : empty())
-                .groupingKey(eventValue -> eventValue.getLatest(Customer.class).id)
+                .groupingKey(event -> event.key().id())
                 .mapStateful(
                         LongAccumulator::new,
-                        (accumulator, customerId, eventValue) -> {
+                        (accumulator, customerId, event) -> {
                             long count = accumulator.get();
                             accumulator.add(1);
+                            ChangeEventValue eventValue = event.value();
                             Operation operation = eventValue.getOperation();
-                            Customer customer = eventValue.getLatest(Customer.class);
+                            Customer customer = eventValue.getImage(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

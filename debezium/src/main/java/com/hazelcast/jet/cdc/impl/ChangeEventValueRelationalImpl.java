@@ -52,17 +52,23 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> Optional<T> getBefore(Class<T> clazz) throws ParsingException {
-        return (Optional<T>) before.apply(clazz);
+    public <T> T getImage(Class<T> clazz) throws ParsingException {
+        Optional<T> after = (Optional<T>) this.after.apply(clazz);
+        if (after.isPresent()) {
+            return after.get();
+        }
+
+        Optional<T> before = (Optional<T>) this.before.apply(clazz);
+        if (before.isPresent()) {
+            return before.get();
+        }
+
+        throw new IllegalStateException(ChangeEventValueRelationalImpl.class.getSimpleName() +
+                " should have either a 'before' or 'after' value");
     }
 
     @Override
-    public <T> Optional<T> getAfter(Class<T> clazz) throws ParsingException {
-        return (Optional<T>) after.apply(clazz);
-    }
-
-    @Override
-    public <T> Optional<T> getCustom(String name, Class<T> clazz) throws ParsingException {
+    public <T> T getUpdate(Class<T> clazz) {
         throw new UnsupportedOperationException("Not supported for relational databases");
     }
 

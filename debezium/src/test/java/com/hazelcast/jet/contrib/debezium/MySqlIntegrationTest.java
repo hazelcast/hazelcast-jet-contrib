@@ -88,9 +88,9 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                         (accumulator, customerId, event) -> {
                             long count = accumulator.get();
                             accumulator.add(1);
-                            ChangeEventValue eventValue = event.value().get();
+                            ChangeEventValue eventValue = event.value();
                             Operation operation = eventValue.getOperation();
-                            Customer customer = eventValue.getLatest(Customer.class);
+                            Customer customer = eventValue.getImage(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

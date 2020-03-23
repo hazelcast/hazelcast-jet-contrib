@@ -20,7 +20,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
-import com.hazelcast.jet.cdc.ParsingException;
 import com.hazelcast.jet.cdc.util.LazySupplier;
 import org.bson.Document;
 
@@ -64,30 +63,38 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> Optional<T> getBefore(Class<T> clazz) {
+    public <T> T getImage(Class<T> clazz) {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
-        return (Optional<T>) before.get();
+
+        Optional<Document> after = this.after.get();
+        if (after.isPresent()) {
+            return (T) after.get();
+        }
+
+        Optional<Document> before = this.before.get();
+        if (before.isPresent()) {
+            return (T) before.get();
+        }
+
+        throw new UnsupportedOperationException(ChangeEventValueMongoImpl.class.getSimpleName() +
+                "for operation '" + operation + "' doesn't have either a 'before' or 'after' image");
     }
 
     @Override
-    public <T> Optional<T> getAfter(Class<T> clazz) {
+    public <T> T getUpdate(Class<T> clazz) {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
-        return (Optional<T>) after.get();
-    }
 
-    @Override
-    public <T> Optional<T> getCustom(String name, Class<T> clazz) throws ParsingException {
-        if (!clazz.equals(Document.class)) {
-            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
+        Optional<Document> patch = this.patch.get();
+        if (patch.isPresent()) {
+            return (T) patch.get();
         }
-        if (!"patch".equals(name)) {
-            throw new IllegalArgumentException("Only custom content supported is 'patch'");
-        }
-        return (Optional<T>) patch.get();
+
+        throw new UnsupportedOperationException(ChangeEventValueMongoImpl.class.getSimpleName() +
+                "for operation '" + operation + "' doesn't have an update patch");
     }
 
     @Override

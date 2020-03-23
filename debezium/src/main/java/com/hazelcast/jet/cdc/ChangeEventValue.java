@@ -16,8 +16,6 @@
 
 package com.hazelcast.jet.cdc;
 
-import java.util.Optional;
-
 /**
  * TODO: javadoc
  */
@@ -31,33 +29,11 @@ public interface ChangeEventValue {
     /**
      * TODO: javadoc
      */
-    <T> Optional<T> getBefore(Class<T> clazz) throws ParsingException;
+    <T> T getImage(Class<T> clazz) throws ParsingException;
 
     /**
      * TODO: javadoc
      */
-    <T> Optional<T> getAfter(Class<T> clazz) throws ParsingException;
+    <T> T getUpdate(Class<T> clazz) throws ParsingException;
 
-    /**
-     * TODO: javadoc
-     */
-    <T> Optional<T> getCustom(String name, Class<T> clazz) throws ParsingException;
-
-    /**
-     * TODO: javadoc
-     */
-    default <T> T getLatest(Class<T> clazz) throws ParsingException {
-        Optional<T> after = getAfter(clazz);
-        if (after.isPresent()) {
-            return after.get();
-        }
-
-        Optional<T> before = getBefore(clazz);
-        if (before.isPresent()) {
-            return before.get();
-        }
-
-        throw new IllegalStateException(ChangeEventValue.class.getSimpleName() +
-                " should have either a before or after value");
-    }
 }

@@ -28,13 +28,12 @@ import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ChangeEventRelationalImpl implements ChangeEvent {
 
-    private final ThrowingSupplier<Optional<ChangeEventKey>, ParsingException> key;
-    private final ThrowingSupplier<Optional<ChangeEventValue>, ParsingException> value;
+    private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
+    private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
     private final Supplier<String> printForm;
 
     public ChangeEventRelationalImpl(@Nullable String keyJson,
@@ -48,11 +47,11 @@ public class ChangeEventRelationalImpl implements ChangeEvent {
 
     @Override
     public ChangeEventKey key() throws ParsingException {
-        return key.get().get();
+        return key.get();
     }
 
     @Override
-    public Optional<ChangeEventValue> value() throws ParsingException {
+    public ChangeEventValue value() throws ParsingException {
         return value.get();
     }
 
@@ -62,17 +61,13 @@ public class ChangeEventRelationalImpl implements ChangeEvent {
     }
 
     @Nonnull
-    private static Optional<ChangeEventKey> getChangeEventKey(String keyJson, ObjectMapper objectMapper) {
-        return Optional.ofNullable(keyJson == null ? null : new ChangeEventKeyRelationalImpl(keyJson, objectMapper));
+    private static ChangeEventKey getChangeEventKey(String keyJson, ObjectMapper objectMapper) {
+        return new ChangeEventKeyRelationalImpl(keyJson, objectMapper);
     }
 
     @Nonnull
-    private static Optional<ChangeEventValue> getChangeEventValue(String valueJson, ObjectMapper objectMapper)
+    private static ChangeEventValue getChangeEventValue(String valueJson, ObjectMapper objectMapper)
                                                                                             throws ParsingException {
-        if (valueJson == null) {
-            return Optional.empty();
-        } else {
-            return Optional.of(new ChangeEventValueRelationalImpl(valueJson, objectMapper));
-        }
+        return new ChangeEventValueRelationalImpl(valueJson, objectMapper);
     }
 }
