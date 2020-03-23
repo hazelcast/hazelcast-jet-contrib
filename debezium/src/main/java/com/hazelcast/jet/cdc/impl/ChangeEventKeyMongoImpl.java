@@ -22,35 +22,41 @@ import com.hazelcast.jet.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
-import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.Objects;
 
 public class ChangeEventKeyMongoImpl implements ChangeEventKey {
 
-    private final ThrowingSupplier<Optional<Integer>, ParsingException> id;
-    private final Supplier<String> printForm;
+    private final String json;
+    private final ThrowingSupplier<Integer, ParsingException> id;
 
     public ChangeEventKeyMongoImpl(String keyJson) {
+        Objects.requireNonNull(keyJson, "keyJson");
+
+        this.json = keyJson;
         this.id = new LazyThrowingSupplier<>(() -> toId(keyJson));
-        this.printForm = () -> keyJson;
     }
 
     @Override
     public int id() throws ParsingException {
-        return id.get().get();
+        return id.get();
+    }
+
+    @Override
+    public String asJson() {
+        return json;
     }
 
     @Override
     public String toString() {
-        return printForm.get();
+        return asJson();
     }
 
-    private static Optional<Integer> toId(String keyJson) throws ParsingException {
-        String stringId = Document.parse(keyJson).getString("id");
+    private static Integer toId(String keyJson) throws ParsingException {
         try {
-            return Optional.of(new Integer(stringId));
-        } catch (NumberFormatException e) {
-            throw new ParsingException(String.format("'%s' not a number", stringId));
+            String stringId = Document.parse(keyJson).getString("id");
+            return Integer.valueOf(stringId);
+        } catch (Exception e) {
+            throw new ParsingException(e.getMessage(), e);
         }
     }
 }

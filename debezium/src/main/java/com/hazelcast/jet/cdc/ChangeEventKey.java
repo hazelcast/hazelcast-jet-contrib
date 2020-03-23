@@ -26,4 +26,8 @@ public interface ChangeEventKey {
      */
     int id() throws ParsingException;
 
+    /**
+     * TODO: javadoc
+     */
+    String asJson();
 }

@@ -26,18 +26,22 @@ import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class ChangeEventMongoImpl implements ChangeEvent {
 
+    private final Supplier<String> json;
     private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
     private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
-    private final Supplier<String> printForm;
 
     public ChangeEventMongoImpl(@Nullable String keyJson, @Nullable String valueJson) {
+        Objects.requireNonNull(keyJson, "keyJson");
+        Objects.requireNonNull(valueJson, "valueJson");
+
         this.key = new LazyThrowingSupplier<>(() -> getChangeEventKey(keyJson));
         this.value = new LazyThrowingSupplier<>(() -> getChangeEventValue(valueJson));
-        this.printForm = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
+        this.json = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
     }
 
     @Override
@@ -51,8 +55,13 @@ public class ChangeEventMongoImpl implements ChangeEvent {
     }
 
     @Override
+    public String asJson() {
+        return json.get();
+    }
+
+    @Override
     public String toString() {
-        return printForm.get();
+        return asJson();
     }
 
     @Nonnull

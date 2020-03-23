@@ -36,4 +36,9 @@ public interface ChangeEventValue {
      */
     <T> T getUpdate(Class<T> clazz) throws ParsingException;
 
+    /**
+     * TODO: javadoc
+     */
+    String asJson();
+
 }

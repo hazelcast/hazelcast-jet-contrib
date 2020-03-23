@@ -17,7 +17,6 @@
 package com.hazelcast.jet.cdc.impl;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.cdc.ChangeEventValue;
@@ -27,23 +26,26 @@ import com.hazelcast.jet.cdc.util.LazySupplier;
 import com.hazelcast.jet.cdc.util.LazyThrowingFunction;
 import com.hazelcast.jet.cdc.util.ThrowingFunction;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ChangeEventValueRelationalImpl implements ChangeEventValue {
 
+    private final String json;
     private final Supplier<Operation> operation;
     private final ThrowingFunction<Class<?>, Object, ParsingException> before;
     private final ThrowingFunction<Class<?>, Object, ParsingException> after;
-    private final Supplier<String> printForm;
 
-    public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper objectMapper) throws ParsingException {
-        this.printForm = () -> valueJson;
+    public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper mapper) throws ParsingException {
+        Objects.requireNonNull(valueJson, "valueJson");
+        Objects.requireNonNull(mapper, "mapper");
 
-        Content content = parseContent(valueJson, objectMapper);
+        Content content = parseContent(valueJson, mapper);
         this.operation = new LazySupplier<>(() -> Operation.get(content.operation));
-        this.after = new LazyThrowingFunction<>((clazz) -> toObject(content.after, clazz, objectMapper));
-        this.before = new LazyThrowingFunction<>((clazz) -> toObject(content.before, clazz, objectMapper));
+        this.after = new LazyThrowingFunction<>((clazz) -> toObject(content.after, clazz, mapper));
+        this.before = new LazyThrowingFunction<>((clazz) -> toObject(content.before, clazz, mapper));
+        this.json = valueJson;
     }
 
     @Override
@@ -73,24 +75,28 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public String toString() {
-        return printForm.get();
+    public String asJson() {
+        return json;
     }
 
-    private static Optional<Object> toObject(JsonNode node, Class<?> clazz, ObjectMapper objectMapper)
-                                                                                        throws ParsingException {
+    @Override
+    public String toString() {
+        return asJson();
+    }
+
+    private static Optional<Object> toObject(JsonNode node, Class<?> clazz, ObjectMapper mapper) throws ParsingException {
         try {
-            Object value = objectMapper.treeToValue(node, clazz);
+            Object value = mapper.treeToValue(node, clazz);
             return value == null ? Optional.empty() : Optional.of(value);
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw new ParsingException(e.getMessage(), e);
         }
     }
 
-    private static Content parseContent(String valueJson, ObjectMapper objectMapper) throws ParsingException {
+    private static Content parseContent(String valueJson, ObjectMapper mapper) throws ParsingException {
         try {
-            return objectMapper.readValue(valueJson, Content.class);
-        } catch (JsonProcessingException e) {
+            return mapper.readValue(valueJson, Content.class);
+        } catch (Exception e) {
             throw new ParsingException(e.getMessage(), e);
         }
     }

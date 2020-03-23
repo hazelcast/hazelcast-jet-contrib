@@ -32,17 +32,20 @@ import java.util.function.Supplier;
 
 public class ChangeEventRelationalImpl implements ChangeEvent {
 
+    private final Supplier<String> json;
     private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
     private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
-    private final Supplier<String> printForm;
 
     public ChangeEventRelationalImpl(@Nullable String keyJson,
                                      @Nullable String valueJson,
-                                     @Nonnull ObjectMapper objectMapper) {
-        Objects.requireNonNull(objectMapper);
-        this.key = new LazyThrowingSupplier<>(() -> getChangeEventKey(keyJson, objectMapper));
-        this.value = new LazyThrowingSupplier<>(() -> getChangeEventValue(valueJson, objectMapper));
-        this.printForm = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
+                                     @Nonnull ObjectMapper mapper) {
+        Objects.requireNonNull(keyJson, "keyJson");
+        Objects.requireNonNull(valueJson, "valueJson");
+        Objects.requireNonNull(mapper, "mapper");
+
+        this.key = new LazyThrowingSupplier<>(() -> getChangeEventKey(keyJson, mapper));
+        this.value = new LazyThrowingSupplier<>(() -> getChangeEventValue(valueJson, mapper));
+        this.json = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
     }
 
     @Override
@@ -56,18 +59,22 @@ public class ChangeEventRelationalImpl implements ChangeEvent {
     }
 
     @Override
+    public String asJson() {
+        return json.get();
+    }
+
+    @Override
     public String toString() {
-        return printForm.get();
+        return asJson();
     }
 
     @Nonnull
-    private static ChangeEventKey getChangeEventKey(String keyJson, ObjectMapper objectMapper) {
-        return new ChangeEventKeyRelationalImpl(keyJson, objectMapper);
+    private static ChangeEventKey getChangeEventKey(String keyJson, ObjectMapper mapper) {
+        return new ChangeEventKeyRelationalImpl(keyJson, mapper);
     }
 
     @Nonnull
-    private static ChangeEventValue getChangeEventValue(String valueJson, ObjectMapper objectMapper)
-                                                                                            throws ParsingException {
-        return new ChangeEventValueRelationalImpl(valueJson, objectMapper);
+    private static ChangeEventValue getChangeEventValue(String valueJson, ObjectMapper mapper) throws ParsingException {
+        return new ChangeEventValueRelationalImpl(valueJson, mapper);
     }
 }

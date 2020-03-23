@@ -31,4 +31,8 @@ public interface ChangeEvent {
      */
     ChangeEventValue value() throws ParsingException;
 
+    /**
+     * TODO: javadoc
+     */
+    String asJson();
 }

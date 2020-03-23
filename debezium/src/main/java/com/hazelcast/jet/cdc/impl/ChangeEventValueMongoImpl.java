@@ -16,45 +16,35 @@
 
 package com.hazelcast.jet.cdc.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.ParsingException;
 import com.hazelcast.jet.cdc.util.LazySupplier;
+import com.hazelcast.jet.cdc.util.LazyThrowingSupplier;
+import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ChangeEventValueMongoImpl implements ChangeEventValue {
 
-    //todo: is the mongodb java driver dependency a problem?
-    //todo: use POJO from BSON instead of Document?
-
+    private final String json;
     private final Supplier<Operation> operation;
-    private final Supplier<Optional<Document>> before;
-    private final Supplier<Optional<Document>> after;
-    private final Supplier<Optional<Document>> patch;
-    private final Supplier<String> printForm;
+    private final ThrowingSupplier<Optional<Document>, ParsingException> before;
+    private final ThrowingSupplier<Optional<Document>, ParsingException> after;
+    private final ThrowingSupplier<Optional<Document>, ParsingException> patch;
 
     public ChangeEventValueMongoImpl(String valueJson) {
+        Objects.requireNonNull(valueJson, "valueJson");
+
         Document document = Document.parse(valueJson);
         this.operation = new LazySupplier<>(() -> Operation.get(document.getString("op")));
-        this.before = new LazySupplier<>(() -> subDocument(document, "before"));
-        this.after = new LazySupplier<>(() -> subDocument(document, "after"));
-        this.patch = new LazySupplier<>(() -> subDocument(document, "patch"));
-        this.printForm = () -> valueJson;
-    }
-
-    private static boolean isNullNode(JsonNode node) {
-        if (node == null) {
-            return true;
-        }
-        JsonNodeType nodeType = node.getNodeType();
-        if (nodeType == null) {
-            return true;
-        }
-        return JsonNodeType.NULL.equals(nodeType);
+        this.before = new LazyThrowingSupplier<>(() -> subDocument(document, "before"));
+        this.after = new LazyThrowingSupplier<>(() -> subDocument(document, "after"));
+        this.patch = new LazyThrowingSupplier<>(() -> subDocument(document, "patch"));
+        this.json = valueJson;
     }
 
     @Override
@@ -63,7 +53,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T getImage(Class<T> clazz) {
+    public <T> T getImage(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
@@ -83,7 +73,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T getUpdate(Class<T> clazz) {
+    public <T> T getUpdate(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
@@ -98,13 +88,22 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public String toString() {
-        return printForm.get();
+    public String asJson() {
+        return json;
     }
 
-    private Optional<Document> subDocument(Document parent, String key) {
-        String json = parent.getString(key);
-        return Optional.ofNullable(json == null ? null : Document.parse(json));
+    @Override
+    public String toString() {
+        return asJson();
+    }
+
+    private Optional<Document> subDocument(Document parent, String key) throws ParsingException {
+        try {
+            String json = parent.getString(key);
+            return Optional.ofNullable(json == null ? null : Document.parse(json));
+        } catch (Exception e) {
+            throw new ParsingException(e.getMessage(), e);
+        }
     }
 
 }
