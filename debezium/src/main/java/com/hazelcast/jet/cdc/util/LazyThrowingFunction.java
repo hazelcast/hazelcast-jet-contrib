@@ -18,7 +18,6 @@ package com.hazelcast.jet.cdc.util;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * TODO: javadoc
@@ -26,13 +25,12 @@ import java.util.Optional;
  * @param <R>
  * @param <E>
  */
-@SuppressWarnings({"OptionalAssignedToNull", "OptionalUsedAsFieldOrParameterType"})
 public class LazyThrowingFunction<T, R, E extends Exception> implements ThrowingFunction<T, R, E> {
 
     @Nonnull
     private final ThrowingFunction<T, R, E> expensiveFunction;
 
-    private Optional<R> value;
+    private R value;
 
     /**
      * TODO: javadoc
@@ -45,7 +43,7 @@ public class LazyThrowingFunction<T, R, E extends Exception> implements Throwing
      * TODO: javadoc
      */
     @Override
-    public Optional<R> apply(T t) throws E {
+    public R apply(T t) throws E {
         if (value == null) {
             value = expensiveFunction.apply(t);
         }

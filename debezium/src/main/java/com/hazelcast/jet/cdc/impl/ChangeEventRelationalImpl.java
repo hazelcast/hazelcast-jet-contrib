@@ -33,8 +33,8 @@ import java.util.function.Supplier;
 
 public class ChangeEventRelationalImpl implements ChangeEvent {
 
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
-    private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
+    private final ThrowingSupplier<Optional<ChangeEventKey>, ParsingException> key;
+    private final ThrowingSupplier<Optional<ChangeEventValue>, ParsingException> value;
     private final Supplier<String> printForm;
 
     public ChangeEventRelationalImpl(@Nullable String keyJson,

@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 
 public class ChangeEventKeyMongoImpl implements ChangeEventKey {
 
-    private final ThrowingSupplier<Integer, ParsingException> id;
+    private final ThrowingSupplier<Optional<Integer>, ParsingException> id;
     private final Supplier<String> printForm;
 
     public ChangeEventKeyMongoImpl(String keyJson) {

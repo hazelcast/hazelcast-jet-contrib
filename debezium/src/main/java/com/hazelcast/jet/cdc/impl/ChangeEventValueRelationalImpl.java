@@ -62,6 +62,11 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
+    public <T> Optional<T> getCustom(String name, Class<T> clazz) throws ParsingException {
+        throw new UnsupportedOperationException("Not supported for relational databases");
+    }
+
+    @Override
     public String toString() {
         return printForm.get();
     }

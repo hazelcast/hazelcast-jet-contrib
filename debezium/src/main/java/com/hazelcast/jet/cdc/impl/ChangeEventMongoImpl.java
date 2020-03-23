@@ -31,8 +31,8 @@ import java.util.function.Supplier;
 
 public class ChangeEventMongoImpl implements ChangeEvent {
 
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
-    private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
+    private final ThrowingSupplier<Optional<ChangeEventKey>, ParsingException> key;
+    private final ThrowingSupplier<Optional<ChangeEventValue>, ParsingException> value;
     private final Supplier<String> printForm;
 
     public ChangeEventMongoImpl(@Nullable String keyJson, @Nullable String valueJson) {

@@ -17,6 +17,7 @@
 package com.hazelcast.jet.cdc.util;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -34,7 +35,7 @@ public class LazySupplier<T> implements Supplier<T> {
      * TODO: javadoc
      */
     public LazySupplier(@Nonnull Supplier<T> expensiveSupplier) {
-        this.expensiveSupplier = expensiveSupplier;
+        this.expensiveSupplier = Objects.requireNonNull(expensiveSupplier);
     }
 
     /**

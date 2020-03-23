@@ -41,6 +41,11 @@ public interface ChangeEventValue {
     /**
      * TODO: javadoc
      */
+    <T> Optional<T> getCustom(String name, Class<T> clazz) throws ParsingException;
+
+    /**
+     * TODO: javadoc
+     */
     default <T> T getLatest(Class<T> clazz) throws ParsingException {
         Optional<T> after = getAfter(clazz);
         if (after.isPresent()) {

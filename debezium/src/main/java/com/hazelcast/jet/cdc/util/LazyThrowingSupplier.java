@@ -18,20 +18,18 @@ package com.hazelcast.jet.cdc.util;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * TODO: javadoc
  * @param <T>
  * @param <E>
  */
-@SuppressWarnings({"OptionalAssignedToNull", "OptionalUsedAsFieldOrParameterType"})
 public class LazyThrowingSupplier<T, E extends Exception> implements ThrowingSupplier<T, E> {
 
     @Nonnull
     private final ThrowingSupplier<T, E> expensiveSupplier;
 
-    private Optional<T> value;
+    private T value;
 
     /**
      * TODO: javadoc
@@ -43,7 +41,7 @@ public class LazyThrowingSupplier<T, E extends Exception> implements ThrowingSup
     /**
      * TODO: javadoc
      */
-    public Optional<T> get() throws E {
+    public T get() throws E {
         if (value == null) {
             value = expensiveSupplier.get();
         }

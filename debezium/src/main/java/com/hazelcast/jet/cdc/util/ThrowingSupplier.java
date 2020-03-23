@@ -16,8 +16,6 @@
 
 package com.hazelcast.jet.cdc.util;
 
-import java.util.Optional;
-
 /**
  * TODO: javadoc
  * @param <T>
@@ -29,6 +27,6 @@ public interface ThrowingSupplier<T, E extends Exception> {
     /**
      * TODO: javadoc
      */
-    Optional<T> get() throws E;
+    T get() throws E;
 
 }

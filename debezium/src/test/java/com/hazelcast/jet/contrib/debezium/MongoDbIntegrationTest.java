@@ -18,7 +18,6 @@ package com.hazelcast.jet.contrib.debezium;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.accumulator.LongAccumulator;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
 import com.hazelcast.jet.config.JobConfig;
@@ -34,8 +33,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.utility.MountableFile;
 
+import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletionException;
 
 public class MongoDbIntegrationTest extends AbstractIntegrationTest {
@@ -74,30 +73,33 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 "1002/0:SYNC:Document{{_id=1002, first_name=George, last_name=Bailey, email=gbailey@foobar.com}}",
                 "1003/0:SYNC:Document{{_id=1003, first_name=Edward, last_name=Walker, email=ed@walker.com}}",
                 "1004/0:SYNC:Document{{_id=1004, first_name=Anne, last_name=Kretchmar, email=annek@noanswer.org}}",
-                "1004/1:UPDATE:PATCH", //todo
+                "1004/1:UPDATE:Document{{_id=1004, first_name=Anne Marie, last_name=Kretchmar, email=annek@noanswer.org}}",
                 "1005/0:INSERT:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}",
-                "1005/1:DELETE:PATCH" //todo
+                "1005/1:DELETE:Document{{}}"
         };
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .peek() //todo: remove
                 .groupingKey(event -> event.key().id())
                 .mapStateful(
-                        LongAccumulator::new,
-                        (accumulator, customerId, event) -> {
-                            long count = accumulator.get();
-                            accumulator.add(1);
+                        State::new,
+                        (state, customerId, event) -> {
                             ChangeEventValue eventValue = event.value().get();
                             Operation operation = eventValue.getOperation();
-                            Optional<Document> customer = eventValue.getAfter(Document.class);
-                            if (!customer.isPresent()) {
-                                customer = eventValue.getBefore(Document.class);
+                            switch (operation) {
+                                case SYNC:
+                                case INSERT:
+                                    state.set(eventValue.getAfter(Document.class).get());
+                                    break;
+                                case UPDATE:
+                                    state.update(eventValue.getCustom("patch", Document.class).get());
+                                    break;
+                                case DELETE:
+                                    state.clear();
+                                    break;
+                                default:
+                                    throw new UnsupportedOperationException(operation.name());
                             }
-                            if (customer.isPresent()) {
-                                return customerId + "/" + count + ":" + operation + ":" + customer.get();
-                            } else {
-                                return customerId + "/" + count + ":" + operation + ":PATCH";
-                            }
+                            return customerId + "/" + state.updateCount() + ":" + operation + ":" + state.get();
                         })
                 .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30,
@@ -125,5 +127,36 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         }
 
 
+    }
+
+    private static class State {
+
+        private int updates = -1;
+
+        @Nonnull
+        private Document document = new Document();
+
+        Document get() {
+            return document;
+        }
+
+        int updateCount() {
+            return updates;
+        }
+
+        void set(@Nonnull Document document) {
+            this.document = Objects.requireNonNull(document);
+            updates++;
+        }
+
+        void update(@Nonnull Document document) {
+            this.document.putAll((Document) document.get("$set")); //todo: blasphemy!
+            updates++;
+        }
+
+        void clear() {
+            document = new Document();
+            updates++;
+        }
     }
 }

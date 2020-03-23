@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 
 public class ChangeEventKeyRelationalImpl implements ChangeEventKey {
 
-    private final ThrowingSupplier<Integer, ParsingException> id;
+    private final ThrowingSupplier<Optional<Integer>, ParsingException> id;
     private final Supplier<String> printForm;
 
     public ChangeEventKeyRelationalImpl(String keyJson, ObjectMapper objectMapper) {

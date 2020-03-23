@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.ParsingException;
 import com.hazelcast.jet.cdc.util.LazySupplier;
 import org.bson.Document;
 
@@ -34,6 +35,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     private final Supplier<Operation> operation;
     private final Supplier<Optional<Document>> before;
     private final Supplier<Optional<Document>> after;
+    private final Supplier<Optional<Document>> patch;
     private final Supplier<String> printForm;
 
     public ChangeEventValueMongoImpl(String valueJson) {
@@ -41,6 +43,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
         this.operation = new LazySupplier<>(() -> Operation.get(document.getString("op")));
         this.before = new LazySupplier<>(() -> subDocument(document, "before"));
         this.after = new LazySupplier<>(() -> subDocument(document, "after"));
+        this.patch = new LazySupplier<>(() -> subDocument(document, "patch"));
         this.printForm = () -> valueJson;
     }
 
@@ -63,7 +66,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     @Override
     public <T> Optional<T> getBefore(Class<T> clazz) {
         if (!clazz.equals(Document.class)) {
-            throw new IllegalArgumentException("Content provided only as `org.bson.Document`");
+            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
         return (Optional<T>) before.get();
     }
@@ -71,9 +74,20 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     @Override
     public <T> Optional<T> getAfter(Class<T> clazz) {
         if (!clazz.equals(Document.class)) {
-            throw new IllegalArgumentException("Content provided only as `org.bson.Document`");
+            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
         return (Optional<T>) after.get();
+    }
+
+    @Override
+    public <T> Optional<T> getCustom(String name, Class<T> clazz) throws ParsingException {
+        if (!clazz.equals(Document.class)) {
+            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
+        }
+        if (!"patch".equals(name)) {
+            throw new IllegalArgumentException("Only custom content supported is 'patch'");
+        }
+        return (Optional<T>) patch.get();
     }
 
     @Override
