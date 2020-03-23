@@ -51,11 +51,11 @@ public final class DebeziumSources {
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
     public static StreamSource<ChangeEvent> cdc(Configuration configuration) {
+        //todo: configuration shouldn't be debezium based either
         Properties properties = configuration.edit()
                                              .with("database.history", HazelcastListDatabaseHistory.class.getName())
                                              .build()
                                              .asProperties();
-        //todo: timestamps
         boolean mongodb = isMongoDB(properties);
         return KafkaConnectSources.connect(properties,
                 record -> {

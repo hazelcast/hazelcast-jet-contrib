@@ -90,7 +90,7 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .groupingKey(event -> event.key().id())
+                .groupingKey(event -> event.key().id("id"))
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, customerId, event) -> {

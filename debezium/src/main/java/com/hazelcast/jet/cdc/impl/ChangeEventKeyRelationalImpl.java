@@ -16,32 +16,45 @@
 
 package com.hazelcast.jet.cdc.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.cdc.ChangeEventKey;
 import com.hazelcast.jet.cdc.ParsingException;
+import com.hazelcast.jet.cdc.util.LazyThrowingFunction;
 import com.hazelcast.jet.cdc.util.LazyThrowingSupplier;
+import com.hazelcast.jet.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
 import javax.ws.rs.ProcessingException;
 import java.util.Objects;
+import java.util.Optional;
 
 public class ChangeEventKeyRelationalImpl implements ChangeEventKey {
 
     private final String json;
-    private final ThrowingSupplier<Integer, ParsingException> id;
+    private final ThrowingSupplier<JsonNode, ParsingException> node;
+    private final ThrowingFunction<String, Integer, ParsingException> id;
+    private final ThrowingFunction<Class<?>, Object, ParsingException> object;
 
     public ChangeEventKeyRelationalImpl(@Nonnull String keyJson, @Nonnull ObjectMapper mapper) {
         Objects.requireNonNull(keyJson);
         Objects.requireNonNull(mapper);
 
         this.json = keyJson;
-        this.id = new LazyThrowingSupplier<>(() -> parseId(keyJson, mapper));
+        this.node = new LazyThrowingSupplier<>(() -> toNode(keyJson, mapper));
+        this.id = new LazyThrowingFunction<>((idName) -> parseId(node.get(), idName));
+        this.object = new LazyThrowingFunction<>((clazz) -> toObject(node.get(), clazz, mapper));
     }
 
     @Override
-    public int id() throws ParsingException {
-        return id.get();
+    public <T> T get(Class<T> clazz) throws ParsingException {
+        return (T) object.apply(clazz);
+    }
+
+    @Override
+    public int id(String idName) throws ParsingException {
+        return id.apply(idName);
     }
 
     @Override
@@ -54,11 +67,28 @@ public class ChangeEventKeyRelationalImpl implements ChangeEventKey {
         return asJson();
     }
 
-    private Integer parseId(String keyJson, ObjectMapper objectMapper) throws ProcessingException {
+    private static JsonNode toNode(String keyJson, ObjectMapper mapper) throws ProcessingException {
         try {
-            return objectMapper.readTree(keyJson).get("id").asInt();
+            return mapper.readTree(keyJson);
         } catch (Exception e) {
             throw new ProcessingException(e.getMessage(), e);
+        }
+    }
+
+    private static Integer parseId(JsonNode keyNode, String idName) throws ProcessingException {
+        try {
+            return keyNode.get(idName).asInt();
+        } catch (Exception e) {
+            throw new ProcessingException(e.getMessage(), e);
+        }
+    }
+
+    private static Optional<Object> toObject(JsonNode node, Class<?> clazz, ObjectMapper mapper) throws ParsingException {
+        try {
+            Object value = mapper.treeToValue(node, clazz);
+            return value == null ? Optional.empty() : Optional.of(value);
+        } catch (Exception e) {
+            throw new ParsingException(e.getMessage(), e);
         }
     }
 

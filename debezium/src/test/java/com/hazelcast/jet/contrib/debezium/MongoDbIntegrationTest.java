@@ -79,7 +79,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         };
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .groupingKey(event -> event.key().id())
+                .groupingKey(event -> event.key().id("id"))
                 .mapStateful(
                         State::new,
                         (state, customerId, event) -> {

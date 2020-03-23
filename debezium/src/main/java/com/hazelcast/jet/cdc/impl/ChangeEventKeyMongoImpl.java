@@ -18,27 +18,40 @@ package com.hazelcast.jet.cdc.impl;
 
 import com.hazelcast.jet.cdc.ChangeEventKey;
 import com.hazelcast.jet.cdc.ParsingException;
+import com.hazelcast.jet.cdc.util.LazyThrowingFunction;
 import com.hazelcast.jet.cdc.util.LazyThrowingSupplier;
+import com.hazelcast.jet.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
+import javax.ws.rs.ProcessingException;
 import java.util.Objects;
 
 public class ChangeEventKeyMongoImpl implements ChangeEventKey {
 
     private final String json;
-    private final ThrowingSupplier<Integer, ParsingException> id;
+    private final ThrowingSupplier<Document, ParsingException> document;
+    private final ThrowingFunction<String, Integer, ParsingException> id;
 
     public ChangeEventKeyMongoImpl(String keyJson) {
         Objects.requireNonNull(keyJson, "keyJson");
 
         this.json = keyJson;
-        this.id = new LazyThrowingSupplier<>(() -> toId(keyJson));
+        this.document = new LazyThrowingSupplier<>(() -> toDocument(keyJson));
+        this.id = new LazyThrowingFunction<>((idName) -> parseId(document.get(), idName));
     }
 
     @Override
-    public int id() throws ParsingException {
-        return id.get();
+    public <T> T get(Class<T> clazz) throws ParsingException {
+        if (!clazz.equals(Document.class)) {
+            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
+        }
+        return (T) document.get();
+    }
+
+    @Override
+    public int id(String idName) throws ParsingException {
+        return id.apply(idName);
     }
 
     @Override
@@ -51,12 +64,20 @@ public class ChangeEventKeyMongoImpl implements ChangeEventKey {
         return asJson();
     }
 
-    private static Integer toId(String keyJson) throws ParsingException {
+    private static Document toDocument(String keyJson) throws ParsingException {
         try {
-            String stringId = Document.parse(keyJson).getString("id");
-            return Integer.valueOf(stringId);
+            return Document.parse(keyJson);
         } catch (Exception e) {
             throw new ParsingException(e.getMessage(), e);
+        }
+    }
+
+    private static Integer parseId(Document document, String idName) throws ProcessingException {
+        try {
+            String stringId = document.getString(idName);
+            return Integer.valueOf(stringId);
+        } catch (Exception e) {
+            throw new ProcessingException(e.getMessage(), e);
         }
     }
 }

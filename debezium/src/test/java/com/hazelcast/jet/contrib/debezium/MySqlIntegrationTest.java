@@ -49,7 +49,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
 
 
     @Test
-    public void readFromMySql() throws Exception {
+    public void customers() throws Exception {
         // given
         Configuration configuration = Configuration
                 .create()
@@ -77,12 +77,12 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                 "1004/1:UPDATE:Customer {id=1004, firstName=Anne Marie, lastName=Kretchmar, email=annek@noanswer.org}",
                 "1005/0:INSERT:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}",
                 "1005/1:DELETE:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}"
-        }; //todo: why aren't the first 4 SYNCs instead of INSERTs
+        }; //todo: MySQL doesn't have SYNC operations...
 
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .groupingKey(event -> event.key().id())
+                .groupingKey(event -> event.key().id("id"))
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, customerId, event) -> {
@@ -121,6 +121,79 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                     .prepareStatement("DELETE FROM customers WHERE id=1005")
                     .executeUpdate();
         }
+
+        // then
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with " +
+                            "AssertionCompletedException, but completed with: " + e.getCause(),
+                    errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+    }
+
+
+    @Test
+    public void orders() throws Exception {
+        // given
+        Configuration configuration = Configuration
+                .create()
+                .with("name", "mysql-inventory-connector")
+                .with("connector.class", "io.debezium.connector.mysql.MySqlConnector")
+                /* begin connector properties */
+                .with("database.hostname", mysql.getContainerIpAddress())
+                .with("database.port", mysql.getMappedPort(MYSQL_PORT))
+                .with("database.user", "debezium")
+                .with("database.password", "dbz")
+                .with("database.server.id", "184054")
+                .with("database.server.name", "dbserver1")
+                .with("database.whitelist", "inventory")
+                .with("table.whitelist", "inventory.orders")
+                .with("include.schema.changes", "false")
+                .with("database.history.hazelcast.list.name", "test")
+                .with("tombstones.on.delete", "false")
+                .build();
+
+        String[] expectedEvents = {
+                "10001/0:INSERT:Order {orderNumber=10001, orderDate=Sat Jan 16 02:00:00 EET 2016, quantity=1, " +
+                        "productId=102}",
+                "10002/0:INSERT:Order {orderNumber=10002, orderDate=Sun Jan 17 02:00:00 EET 2016, quantity=2, " +
+                        "productId=105}",
+                "10003/0:INSERT:Order {orderNumber=10003, orderDate=Fri Feb 19 02:00:00 EET 2016, quantity=2, " +
+                        "productId=106}",
+                "10004/0:INSERT:Order {orderNumber=10004, orderDate=Sun Feb 21 02:00:00 EET 2016, quantity=1, " +
+                        "productId=107}",
+        };
+
+        Pipeline pipeline = Pipeline.create();
+        pipeline.readFrom(DebeziumSources.cdc(configuration))
+                .withoutTimestamps()
+                .groupingKey(event -> event.key().id("order_number"))
+                .mapStateful(
+                        LongAccumulator::new,
+                        (accumulator, orderId, event) -> {
+                            long count = accumulator.get();
+                            accumulator.add(1);
+                            ChangeEventValue eventValue = event.value();
+                            Operation operation = eventValue.getOperation();
+                            Order order = eventValue.getImage(Order.class);
+                            return orderId + "/" + count + ":" + operation + ":" + order;
+                        })
+                .setLocalParallelism(1)
+                .writeTo(AssertionSinks.assertCollectedEventually(30,
+                        assertListFn(expectedEvents)));
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
+                                                          .getClassLoader()
+                                                          .getResource("debezium-connector-mysql.zip")));
+
+        // when
+        JetInstance jet = createJetMember();
+        Job job = jet.newJob(pipeline, jobConfig);
+        assertJobStatusEventually(job, JobStatus.RUNNING);
 
         // then
         try {

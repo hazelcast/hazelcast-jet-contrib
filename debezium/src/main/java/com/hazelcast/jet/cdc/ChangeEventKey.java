@@ -24,7 +24,12 @@ public interface ChangeEventKey {
     /**
      * TODO: javadoc
      */
-    int id() throws ParsingException;
+    <T> T get(Class<T> clazz) throws ParsingException;
+
+    /**
+     * TODO: javadoc
+     */
+    int id(String name) throws ParsingException;
 
     /**
      * TODO: javadoc
