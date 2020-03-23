@@ -68,6 +68,8 @@ subprojects {
     }
 
     test {
+        ignoreFailures = project.findProperty('testFailureIgnore') ? project.testFailureIgnore : false
+
         systemProperty "hazelcast.phone.home.enabled", "false"
         systemProperty "hazelcast.logging.type", "log4j"
 
@@ -80,6 +82,7 @@ subprojects {
     }
 
     task testIntegration(type: Test) {
+        ignoreFailures = project.findProperty('testFailureIgnore') ? project.testFailureIgnore : false
         useJUnit {
             includeCategories 'com.hazelcast.test.annotation.NightlyTest'
         }
