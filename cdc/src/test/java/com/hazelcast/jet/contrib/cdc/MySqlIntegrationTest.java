@@ -34,6 +34,7 @@ import org.testcontainers.containers.MySQLContainer;
 import javax.annotation.Nonnull;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.Date;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletionException;
@@ -123,14 +124,14 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
     public void orders() {
         // given
         String[] expectedEvents = {
-                "10001/0:INSERT:Order {orderNumber=10001, orderDate=Sat Jan 16 02:00:00 EET 2016, quantity=1, " +
-                        "productId=102}",
-                "10002/0:INSERT:Order {orderNumber=10002, orderDate=Sun Jan 17 02:00:00 EET 2016, quantity=2, " +
-                        "productId=105}",
-                "10003/0:INSERT:Order {orderNumber=10003, orderDate=Fri Feb 19 02:00:00 EET 2016, quantity=2, " +
-                        "productId=106}",
-                "10004/0:INSERT:Order {orderNumber=10004, orderDate=Sun Feb 21 02:00:00 EET 2016, quantity=1, " +
-                        "productId=107}",
+                "10001/0:INSERT:Order {orderNumber=10001, orderDate=" + new Date(1452902400000L) +
+                        ", quantity=1, productId=102}",
+                "10002/0:INSERT:Order {orderNumber=10002, orderDate=" + new Date(1452988800000L) +
+                        ", quantity=2, productId=105}",
+                "10003/0:INSERT:Order {orderNumber=10003, orderDate=" + new Date(1455840000000L) +
+                        ", quantity=2, productId=106}",
+                "10004/0:INSERT:Order {orderNumber=10004, orderDate=" + new Date(1456012800000L) +
+                        ", quantity=1, productId=107}",
         };
 
         Pipeline pipeline = Pipeline.create();

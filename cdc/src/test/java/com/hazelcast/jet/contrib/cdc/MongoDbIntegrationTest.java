@@ -31,6 +31,7 @@ import org.junit.Test;
 import org.testcontainers.utility.MountableFile;
 
 import javax.annotation.Nonnull;
+import java.util.Date;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletionException;
@@ -120,17 +121,18 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
 
         Pipeline pipeline = Pipeline.create();
         String[] expectedEvents = {
-                "10001/0:SYNC:Document{{_id=10001, order_date=Sat Jan 16 02:00:00 EET 2016, purchaser_id=1001, " +
-                        "quantity=1, product_id=102}}",
-                "10002/0:SYNC:Document{{_id=10002, order_date=Sun Jan 17 02:00:00 EET 2016, purchaser_id=1002, " +
-                        "quantity=2, product_id=105}}",
-                "10003/0:SYNC:Document{{_id=10003, order_date=Fri Feb 19 02:00:00 EET 2016, purchaser_id=1002, " +
-                        "quantity=2, product_id=106}}",
-                "10004/0:SYNC:Document{{_id=10004, order_date=Sun Feb 21 02:00:00 EET 2016, purchaser_id=1003, " +
-                        "quantity=1, product_id=107}}",
+                "10001/0:SYNC:Document{{_id=10001, order_date=" + new Date(1452902400000L) +
+                        ", purchaser_id=1001, quantity=1, product_id=102}}",
+                "10002/0:SYNC:Document{{_id=10002, order_date=" + new Date(1452988800000L) +
+                        ", purchaser_id=1002, quantity=2, product_id=105}}",
+                "10003/0:SYNC:Document{{_id=10003, order_date=" + new Date(1455840000000L) +
+                        ", purchaser_id=1002, quantity=2, product_id=106}}",
+                "10004/0:SYNC:Document{{_id=10004, order_date=" + new Date(1456012800000L) +
+                        ", purchaser_id=1003, quantity=1, product_id=107}}",
         };
         pipeline.readFrom(CdcSources.mongo("orders", connectorProperties("orders")))
                 .withoutTimestamps()
+                .peek() //todo: remove
                 .groupingKey(event -> getOrderNumber(event, "id"))
                 .mapStateful(
                         State::new,
@@ -164,10 +166,6 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
 
         Job job = jet.newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
-
-        sleepAtLeastSeconds(10);
-        // update record
-        mongo.execInContainer("sh", "-c", "/usr/local/bin/alterData.sh");
 
         try {
             job.join();
