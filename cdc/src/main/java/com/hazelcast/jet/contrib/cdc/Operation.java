@@ -21,18 +21,23 @@ package com.hazelcast.jet.contrib.cdc;
  */
 public enum Operation {
     /**
+     * Just like {@link #INSERT}, but coming from the DB snapshot (as
+     * opposed to trailing the DB changelog).
      * TODO: javadoc
      */
     SYNC("r"),
     /**
+     * Record insertion, sourced from the DB changelog.
      * TODO: javadoc
      */
     INSERT("c"),
     /**
+     * Record update, sourced from the DB changelog.
      * TODO: javadoc
      */
     UPDATE("u"),
     /**
+     * Record deletion, sourced from the DB changelog.
      * TODO: javadoc
      */
     DELETE("d");

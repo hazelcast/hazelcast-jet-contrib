@@ -48,7 +48,7 @@ public class ChangeEventKeyRelationalImpl implements ChangeEventKey {
     }
 
     @Override
-    public <T> T get(Class<T> clazz) throws ParsingException {
+    public <T> T map(Class<T> clazz) throws ParsingException {
         Optional<T> o = (Optional<T>) object.apply(clazz);
         if (o.isPresent()) {
             return o.get();

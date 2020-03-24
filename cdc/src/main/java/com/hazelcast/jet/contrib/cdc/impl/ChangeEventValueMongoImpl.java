@@ -53,7 +53,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T getImage(Class<T> clazz) throws ParsingException {
+    public <T> T mapImage(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
@@ -73,7 +73,7 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T getUpdate(Class<T> clazz) throws ParsingException {
+    public <T> T mapUpdate(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }

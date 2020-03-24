@@ -75,7 +75,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                             accumulator.add(1);
                             ChangeEventValue eventValue = event.value();
                             Operation operation = eventValue.getOperation();
-                            Customer customer = eventValue.getImage(Customer.class);
+                            Customer customer = eventValue.mapImage(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)
@@ -145,7 +145,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                             accumulator.add(1);
                             ChangeEventValue eventValue = event.value();
                             Operation operation = eventValue.getOperation();
-                            Order order = eventValue.getImage(Order.class);
+                            Order order = eventValue.mapImage(Order.class);
                             return orderId + "/" + count + ":" + operation + ":" + order;
                         })
                 .setLocalParallelism(1)
@@ -194,7 +194,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         if (primitive) {
             return event.key().id("order_number");
         } else {
-            return event.key().get(OrderPrimaryKey.class).id;
+            return event.key().map(OrderPrimaryKey.class).id;
         }
     }
 

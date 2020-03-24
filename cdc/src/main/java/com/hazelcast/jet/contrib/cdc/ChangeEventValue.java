@@ -16,6 +16,8 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import org.bson.Document;
+
 /**
  * TODO: javadoc
  */
@@ -27,16 +29,37 @@ public interface ChangeEventValue {
     Operation getOperation();
 
     /**
-     * TODO: javadoc
+     * For RELATIONAL DATABASES returns the content of the entire row
+     * affected by the change event. Present in all events.
+     *
+     * For MongoDB returns the entire {@link Document} affected by the
+     * change event. Not present for all events, only for
+     * {@link Operation#INSERT} and {@link Operation#SYNC}.
+     *
+     * TODO: proper javadoc
      */
-    <T> T getImage(Class<T> clazz) throws ParsingException;
+    <T> T mapImage(Class<T> clazz) throws ParsingException;
 
     /**
+     * Unsupported operation for RELATIONAL DATABASES.
+     *
+     * Patch expression for MongoDB, idempotent form of MongoDB update
+     * operation, to be applied over a {@link Document}. Can be parsed
+     * as a {@code Document} itself and contains operation description
+     * like {@code "{\"$set\":{\"first_name\":\"Anne Marie\"}}"}.
+     *
      * TODO: javadoc
      */
-    <T> T getUpdate(Class<T> clazz) throws ParsingException;
+    <T> T mapUpdate(Class<T> clazz) throws ParsingException;
 
     /**
+     * Returns raw JSON string on which the content of this event is
+     * based. To be used when parsing fails for some reason (for example
+     * on some untested DB-connector version combination).
+     *
+     * While the format is standard for RELATIONAL DATABASES, for
+     * MongoDB it's MongoDB Extended JSON v2 format and needs to be
+     * parsed accordingly.
      * TODO: javadoc
      */
     String asJson();

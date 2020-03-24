@@ -42,7 +42,7 @@ public class ChangeEventKeyMongoImpl implements ChangeEventKey {
     }
 
     @Override
-    public <T> T get(Class<T> clazz) throws ParsingException {
+    public <T> T map(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }

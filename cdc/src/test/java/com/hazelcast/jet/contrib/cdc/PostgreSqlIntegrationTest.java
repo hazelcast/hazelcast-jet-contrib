@@ -72,7 +72,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
                             accumulator.add(1);
                             ChangeEventValue eventValue = event.value();
                             Operation operation = eventValue.getOperation();
-                            Customer customer = eventValue.getImage(Customer.class);
+                            Customer customer = eventValue.mapImage(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

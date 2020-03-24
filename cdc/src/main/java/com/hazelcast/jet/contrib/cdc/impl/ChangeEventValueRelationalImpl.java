@@ -54,7 +54,7 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T getImage(Class<T> clazz) throws ParsingException {
+    public <T> T mapImage(Class<T> clazz) throws ParsingException {
         Optional<T> after = (Optional<T>) this.after.apply(clazz);
         if (after.isPresent()) {
             return after.get();
@@ -70,7 +70,7 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T getUpdate(Class<T> clazz) {
+    public <T> T mapUpdate(Class<T> clazz) {
         throw new UnsupportedOperationException("Not supported for relational databases");
     }
 

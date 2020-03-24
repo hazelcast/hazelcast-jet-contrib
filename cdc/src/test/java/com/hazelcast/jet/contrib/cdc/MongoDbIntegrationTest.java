@@ -72,10 +72,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.getImage(Document.class));
+                                    state.set(eventValue.mapImage(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.getUpdate(Document.class));
+                                    state.update(eventValue.mapUpdate(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -142,10 +142,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.getImage(Document.class));
+                                    state.set(eventValue.mapImage(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.getUpdate(Document.class));
+                                    state.update(eventValue.mapUpdate(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -197,7 +197,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         if (primitive) {
             return event.key().id(idName);
         } else {
-            Document document = event.key().get(Document.class);
+            Document document = event.key().map(Document.class);
             return Integer.parseInt(document.getString(idName));
         }
     }
