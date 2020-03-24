@@ -14,32 +14,18 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.debezium;
+package com.hazelcast.jet.contrib.debezium.data;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Objects;
+public class OrderPrimaryKey {
 
-public class Customer {
-
-    @JsonProperty("id")
+    @JsonProperty("order_number")
     public int id;
-
-    @JsonProperty("first_name")
-    public String firstName;
-
-    @JsonProperty("last_name")
-    public String lastName;
-
-    @JsonProperty("email")
-    public String email;
-
-    public Customer() {
-    }
 
     @Override
     public int hashCode() {
-        return Objects.hash(email, firstName, id, lastName);
+        return id;
     }
 
     @Override
@@ -50,15 +36,12 @@ public class Customer {
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        Customer other = (Customer) obj;
-        return id == other.id
-                && Objects.equals(firstName, other.firstName)
-                && Objects.equals(lastName, other.lastName)
-                && Objects.equals(email, other.email);
+        OrderPrimaryKey other = (OrderPrimaryKey) obj;
+        return id == other.id;
     }
 
     @Override
     public String toString() {
-        return "Customer {id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email + '}';
+        return "OrderPrimaryKey {id=" + id + '}';
     }
 }

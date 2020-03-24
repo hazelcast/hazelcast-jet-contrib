@@ -22,6 +22,7 @@ import com.hazelcast.jet.accumulator.LongAccumulator;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
 import com.hazelcast.jet.config.JobConfig;
+import com.hazelcast.jet.contrib.debezium.data.Customer;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
@@ -48,9 +49,9 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
             .withUsername("postgres")
             .withPassword("postgres");
 
-
     @Test
-    public void readFromPostgres() throws Exception {
+    public void customers() throws Exception {
+        // given
         Configuration configuration = Configuration
                 .create()
                 .with("name", "postgres-inventory-connector")

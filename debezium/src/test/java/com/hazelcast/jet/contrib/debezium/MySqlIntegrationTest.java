@@ -19,9 +19,14 @@ package com.hazelcast.jet.contrib.debezium;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.accumulator.LongAccumulator;
+import com.hazelcast.jet.cdc.ChangeEvent;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.ParsingException;
 import com.hazelcast.jet.config.JobConfig;
+import com.hazelcast.jet.contrib.debezium.data.Customer;
+import com.hazelcast.jet.contrib.debezium.data.Order;
+import com.hazelcast.jet.contrib.debezium.data.OrderPrimaryKey;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
@@ -35,6 +40,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -46,7 +52,6 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
     public MySQLContainer<?> mysql = new MySQLContainer<>("debezium/example-mysql")
             .withUsername("mysqluser")
             .withPassword("mysqlpw");
-
 
     @Test
     public void customers() throws Exception {
@@ -134,9 +139,8 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         }
     }
 
-
     @Test
-    public void orders() throws Exception {
+    public void orders() {
         // given
         Configuration configuration = Configuration
                 .create()
@@ -170,7 +174,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(DebeziumSources.cdc(configuration))
                 .withoutTimestamps()
-                .groupingKey(event -> event.key().id("order_number"))
+                .groupingKey(MySqlIntegrationTest::getOrderNumber)
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, orderId, event) -> {
@@ -207,5 +211,14 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         }
     }
 
+    private static int getOrderNumber(ChangeEvent event) throws ParsingException {
+        //pick random method for extracting ID in order to test all code paths
+        boolean primitive = ThreadLocalRandom.current().nextBoolean();
+        if (primitive) {
+            return event.key().id("order_number");
+        } else {
+            return event.key().get(OrderPrimaryKey.class).id;
+        }
+    }
 
 }

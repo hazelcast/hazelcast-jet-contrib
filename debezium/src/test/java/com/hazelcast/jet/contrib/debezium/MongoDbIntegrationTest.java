@@ -18,8 +18,10 @@ package com.hazelcast.jet.contrib.debezium;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.cdc.ChangeEvent;
 import com.hazelcast.jet.cdc.ChangeEventValue;
 import com.hazelcast.jet.cdc.Operation;
+import com.hazelcast.jet.cdc.ParsingException;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.contrib.mongodb.MongoDBContainer;
 import com.hazelcast.jet.core.JobStatus;
@@ -36,6 +38,7 @@ import org.testcontainers.utility.MountableFile;
 import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MongoDbIntegrationTest extends AbstractIntegrationTest {
 
@@ -45,7 +48,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                     "/usr/local/bin/alterData.sh");
 
     @Test
-    public void readFromMongoDb() throws Exception {
+    public void customers() throws Exception {
         // populate initial data
         mongo.execInContainer("sh", "-c", "/usr/local/bin/init-inventory.sh");
 
@@ -126,7 +129,102 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                     "but completed with: " + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
 
+    }
 
+    @Test
+    public void orders() throws Exception {
+        // populate initial data
+        mongo.execInContainer("sh", "-c", "/usr/local/bin/init-inventory.sh");
+
+        Configuration configuration = Configuration
+                .create()
+                .with("name", "mongodb-inventory-connector")
+                .with("connector.class", "io.debezium.connector.mongodb.MongoDbConnector")
+                /* begin connector properties */
+                .with("mongodb.hosts", "rs0/" + mongo.getContainerIpAddress() + ":"
+                        + mongo.getMappedPort(MongoDBContainer.MONGODB_PORT))
+                .with("mongodb.name", "fullfillment")
+                .with("mongodb.user", "debezium")
+                .with("mongodb.password", "dbz")
+                .with("mongodb.members.auto.discover", "false")
+                .with("collection.whitelist", "inventory.orders")
+                .with("database.history.hazelcast.list.name", "test")
+                .with("tombstones.on.delete", "false")
+                .build();
+
+        JetInstance jet = createJetMember();
+
+        Pipeline pipeline = Pipeline.create();
+        String[] expectedEvents = {
+                "10001/0:SYNC:Document{{_id=10001, order_date=Sat Jan 16 02:00:00 EET 2016, purchaser_id=1001, " +
+                        "quantity=1, product_id=102}}",
+                "10002/0:SYNC:Document{{_id=10002, order_date=Sun Jan 17 02:00:00 EET 2016, purchaser_id=1002, " +
+                        "quantity=2, product_id=105}}",
+                "10003/0:SYNC:Document{{_id=10003, order_date=Fri Feb 19 02:00:00 EET 2016, purchaser_id=1002, " +
+                        "quantity=2, product_id=106}}",
+                "10004/0:SYNC:Document{{_id=10004, order_date=Sun Feb 21 02:00:00 EET 2016, purchaser_id=1003, " +
+                        "quantity=1, product_id=107}}",
+        };
+        pipeline.readFrom(DebeziumSources.cdc(configuration))
+                .withoutTimestamps()
+                .groupingKey(event -> getOrderNumber(event, "id"))
+                .mapStateful(
+                        State::new,
+                        (state, orderId, event) -> {
+                            ChangeEventValue eventValue = event.value();
+                            Operation operation = eventValue.getOperation();
+                            switch (operation) {
+                                case SYNC:
+                                case INSERT:
+                                    state.set(eventValue.getImage(Document.class));
+                                    break;
+                                case UPDATE:
+                                    state.update(eventValue.getUpdate(Document.class));
+                                    break;
+                                case DELETE:
+                                    state.clear();
+                                    break;
+                                default:
+                                    throw new UnsupportedOperationException(operation.name());
+                            }
+                            return orderId + "/" + state.updateCount() + ":" + operation + ":" + state.get();
+                        })
+                .setLocalParallelism(1)
+                .writeTo(AssertionSinks.assertCollectedEventually(30,
+                        assertListFn(expectedEvents)));
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
+                .getClassLoader()
+                .getResource("debezium-connector-mongodb.zip")));
+
+        Job job = jet.newJob(pipeline, jobConfig);
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+
+        sleepAtLeastSeconds(10);
+        // update record
+        mongo.execInContainer("sh", "-c", "/usr/local/bin/alterData.sh");
+
+        try {
+            job.join();
+            Assert.fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            Assert.assertTrue("Job was expected to complete with AssertionCompletedException, " +
+                    "but completed with: " + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+
+    }
+
+    private static int getOrderNumber(ChangeEvent event, String idName) throws ParsingException {
+        //pick random method for extracting ID in order to test all code paths
+        boolean primitive = ThreadLocalRandom.current().nextBoolean();
+        if (primitive) {
+            return event.key().id(idName);
+        } else {
+            Document document = event.key().get(Document.class);
+            return Integer.parseInt(document.getString(idName));
+        }
     }
 
     private static class State {
