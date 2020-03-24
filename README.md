@@ -49,11 +49,11 @@ from/to MongoDB.
 A generic Kafka Connect source provides ability to plug any Kafka Connect 
 source for data ingestion to Jet pipelines.
 
-### [Debezium Connector](debezium) 
+### [CDC Connectors](cdc) 
 
-A Hazelcast Jet connector for [Debezium](https://debezium.io/) which
-enables Hazelcast Jet pipelines to consume CDC events from various databases.
-
+Hazelcast Jet connectors for Change Data Capture data, which enables
+Hazelcast Jet pipelines to consume CDC events from various databases
+(MySQL, PostgreSQL, Microsoft SQL Server, MongoDB).
 
 ### [Twitter Connector](twitter) 
 

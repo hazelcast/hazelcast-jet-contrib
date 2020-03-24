@@ -159,7 +159,7 @@ public final class KafkaConnectSources {
         }
 
         private boolean isDebezium(Properties properties) {
-            return properties.containsKey("database.history");
+            return properties.containsKey("database.history"); //todo: seems weak for detecting Debezium sources..
         }
 
         void fillBuffer(TimestampedSourceBuffer<T> buf) {

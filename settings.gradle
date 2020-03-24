@@ -7,7 +7,7 @@ include 'elasticsearch-6'
 include 'elasticsearch-7'
 include 'kafka-connect'
 include 'mongodb'
-include 'debezium'
+include 'cdc'
 include 'twitter'
 include 'xa-test'
 
