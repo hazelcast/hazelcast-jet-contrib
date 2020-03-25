@@ -16,10 +16,8 @@
 
 package com.hazelcast.jet.contrib.actuate;
 
+import com.hazelcast.core.LifecycleService;
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.Job;
-import com.hazelcast.jet.core.DAG;
-import com.hazelcast.jet.core.processor.Processors;
 import org.springframework.boot.actuate.health.AbstractHealthIndicator;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
@@ -33,8 +31,8 @@ public class HazelcastJetHealthIndicator extends AbstractHealthIndicator {
     private final JetInstance jetInstance;
 
     /**
-     * Creates an health indicator for Hazelcast Jet which submits a noop
-     * job to the cluster.
+     * Creates an health indicator for Hazelcast Jet which reports the status
+     * of the {@link LifecycleService}.
      */
     public HazelcastJetHealthIndicator(JetInstance jetInstance) {
         super("Hazelcast Jet health check failed");
@@ -44,20 +42,12 @@ public class HazelcastJetHealthIndicator extends AbstractHealthIndicator {
 
     @Override
     protected void doHealthCheck(Health.Builder builder) {
-        submitJob();
-        builder.up().withDetail("name", this.jetInstance.getName()).withDetail("uuid",
-                this.jetInstance.getHazelcastInstance().getLocalEndpoint().getUuid().toString());
+        if (jetInstance.getHazelcastInstance().getLifecycleService().isRunning()) {
+            builder.up();
+        } else {
+            builder.down();
+        }
+        builder.withDetail("name", jetInstance.getName()).withDetail("uuid",
+                jetInstance.getHazelcastInstance().getLocalEndpoint().getUuid().toString());
     }
-
-    /**
-     * Submits a noop {@link Job} to the Hazelcast Jet cluster and waits for it to finish
-     * without any exception. This should indicate that the Hazelcast Jet cluster is up
-     * and running.
-     */
-    private void submitJob() {
-        DAG dag = new DAG();
-        dag.newVertex("noopSource", Processors.noopP());
-        this.jetInstance.newJob(dag).join();
-    }
-
 }
