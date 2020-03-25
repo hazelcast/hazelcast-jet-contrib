@@ -64,6 +64,11 @@ A Hazelcast Jet connector for consuming data from Twitter stream sources in Jet 
 Tests to check compatibility of the XA support in your JMS broker or
 JDBC database with Jet's fault tolerance.
 
+### [Jet Spring Boot Starter](jet-spring-boot-starter)
+
+A Spring Boot Starter for Hazelcast Jet which tries to auto-configure Hazelcast
+Jet if found on the classpath.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations

@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+com.hazelcast.jet.contrib.autoconfigure.HazelcastJetAutoConfiguration,\
+com.hazelcast.jet.contrib.actuate.autoconfigure.HazelcastJetHealthContributorAutoConfiguration
