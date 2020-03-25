@@ -15,7 +15,10 @@
  */
 package com.hazelcast.jet.contrib.pulsar;
 
+import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.core.JetTestSupport;
+import com.hazelcast.jet.pipeline.Sink;
+import com.hazelcast.jet.pipeline.StreamSource;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
@@ -29,6 +32,7 @@ import org.junit.ClassRule;
 import org.testcontainers.containers.PulsarContainer;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -96,9 +100,13 @@ public class PulsarTestSupport extends JetTestSupport {
         }
     }
 
-    protected static void produceMessages(String message, String topicName, int count) throws PulsarClientException {
+    protected static void produceMessages(String message, String topicName, int count) {
         for (int i = 0; i < count; i++) {
-            produceAsync(message + "-" + i, topicName);
+            try {
+                produceAsync(message + "-" + i, topicName);
+            } catch (PulsarClientException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -112,7 +120,7 @@ public class PulsarTestSupport extends JetTestSupport {
             throws PulsarClientException {
         CompletableFuture<Message<Double>> last = null;
         for (int i = 0; i < count; i++) {
-            last = PulsarTestSupport.consumeAsync(topicName);
+            last = consumeAsync(topicName);
         }
         return last;
     }
@@ -137,5 +145,44 @@ public class PulsarTestSupport extends JetTestSupport {
         } else {
             return integerConsumerMap.get(topicName);
         }
+    }
+
+    protected static StreamSource<String> setupConsumerSource(String topicName,
+                                                              FunctionEx<Message<byte[]>, String> projectionFn) {
+        Map<String, Object> consumerConfig = new HashMap<>();
+        consumerConfig.put("consumerName", "hazelcast-jet-consumer");
+        consumerConfig.put("subscriptionName", "hazelcast-jet-subscription");
+        return PulsarSources.pulsarConsumer(
+                Collections.singletonList(topicName),
+                2,
+                consumerConfig,
+                () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
+                () -> Schema.BYTES,
+                projectionFn);
+    }
+
+    protected static StreamSource<String> setupReaderSource(String topicName,
+                                                            FunctionEx<Message<byte[]>, String> projectionFn) {
+        Map<String, Object> readerConfig = new HashMap<>();
+        readerConfig.put("readerName", "hazelcast-jet-reader");
+        return PulsarSources.pulsarReader(
+                topicName,
+                readerConfig,
+                () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
+                () -> Schema.BYTES,
+                projectionFn);
+    }
+
+    protected static Sink<Integer> setupSink(String topicName) {
+        Map<String, Object> producerConfig = new HashMap<>();
+        producerConfig.put("maxPendingMessages", 15000);
+        return PulsarSinks.<Integer, Double>builder(topicName,
+                producerConfig,
+                () -> PulsarClient.builder()
+                                  .serviceUrl(getServiceUrl())
+                                  .build())
+                .schemaSupplier(() -> Schema.DOUBLE)
+                .extractValueFn(Integer::doubleValue)
+                .build();
     }
 }

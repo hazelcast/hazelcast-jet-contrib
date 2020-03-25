@@ -20,6 +20,7 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.config.ProcessingGuarantee;
+import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.impl.JobExecutionRecord;
 import com.hazelcast.jet.impl.JobRepository;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -29,9 +30,7 @@ import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
-import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
-import org.apache.pulsar.client.api.Schema;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -41,10 +40,7 @@ import org.junit.Test;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletionException;
 
 import static com.hazelcast.jet.core.test.JetAssert.assertEquals;
@@ -71,25 +67,18 @@ public class PulsarSourceTest extends PulsarTestSupport {
 
     @AfterClass
     public static void afterClass() throws PulsarClientException {
-        PulsarTestSupport.shutdown();
+        shutdown();
     }
 
     @Test
     public void when_projectionFunctionProvided_thenAppliedToReadRecords() {
         String topicName = randomName();
-        Map<String, Object> consumerConfig = new HashMap<>();
-        consumerConfig.put("consumerName", "hazelcast-jet-consumer");
-        consumerConfig.put("subscriptionName", "hazelcast-jet-subscription");
-
-        StreamSource<String> pulsarTestStream = PulsarSources.pulsarConsumer(
-                Collections.singletonList(topicName),
-                2,
-                consumerConfig,
-                () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
-                () -> Schema.BYTES,
+        // Add a suffix to messages so that this projectionFn does a bit more than byte->String conversion.
+        StreamSource<String> pulsarConsumerSrc = setupConsumerSource(topicName,
                 x -> new String(x.getData(), StandardCharsets.UTF_8) + "-suffix");
+
         Pipeline pipeline = Pipeline.create();
-        pipeline.readFrom(pulsarTestStream)
+        pipeline.readFrom(pulsarConsumerSrc)
                 .withoutTimestamps()
                 .writeTo(AssertionSinks.assertCollectedEventually(60,
                         list -> {
@@ -102,12 +91,10 @@ public class PulsarSourceTest extends PulsarTestSupport {
                         })
                 );
         Job job = jet.newJob(pipeline);
-        sleepAtLeastSeconds(5);
-        try {
-            PulsarTestSupport.produceMessages("hello-pulsar", topicName, ITEM_COUNT);
-        } catch (PulsarClientException e) {
-            e.printStackTrace();
-        }
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+
+        produceMessages("hello-pulsar", topicName, ITEM_COUNT);
+
         try {
             job.join();
             fail("Job should have completed with an AssertionCompletedException, but completed normally");
@@ -124,20 +111,13 @@ public class PulsarSourceTest extends PulsarTestSupport {
     public void when_readFromPulsarConsumer_then_jobGetsAllPublishedMessages() {
         JetInstance[] instances = new JetInstance[3];
         Arrays.setAll(instances, i -> createJetMember());
-        String topicName = randomName();
 
-        Map<String, Object> consumerConfig = new HashMap<>();
-        consumerConfig.put("consumerName", "hazelcast-jet-consumer");
-        consumerConfig.put("subscriptionName", "hazelcast-jet-subscription");
-        StreamSource<String> pulsarTestStream = PulsarSources.pulsarConsumer(
-                Collections.singletonList(topicName),
-                2,
-                consumerConfig,
-                () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
-                () -> Schema.BYTES,
+        String topicName = randomName();
+        StreamSource<String> pulsarConsumerSrc = setupConsumerSource(topicName,
                 x -> new String(x.getData(), StandardCharsets.UTF_8));
+
         Pipeline pipeline = Pipeline.create();
-        pipeline.readFrom(pulsarTestStream)
+        pipeline.readFrom(pulsarConsumerSrc)
                 .withoutTimestamps()
                 .writeTo(AssertionSinks.assertCollectedEventually(60,
                         list -> {
@@ -150,12 +130,9 @@ public class PulsarSourceTest extends PulsarTestSupport {
                         })
                 );
         Job job = jet.newJob(pipeline);
-        sleepAtLeastSeconds(5);
-        try {
-            PulsarTestSupport.produceMessages("hello-pulsar", topicName, ITEM_COUNT);
-        } catch (PulsarClientException e) {
-            e.printStackTrace();
-        }
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+
+        produceMessages("hello-pulsar", topicName, ITEM_COUNT);
 
         try {
             job.join();
@@ -165,7 +142,9 @@ public class PulsarSourceTest extends PulsarTestSupport {
             assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
                     + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
-
+        for (JetInstance instance:instances) {
+            instance.shutdown();
+        }
     }
 
     @Test
@@ -179,18 +158,11 @@ public class PulsarSourceTest extends PulsarTestSupport {
     }
 
     public void integrationTest(ProcessingGuarantee guarantee) throws InterruptedException {
-        String topicName = randomName();
         JetInstance[] instances = new JetInstance[2];
         Arrays.setAll(instances, i -> createJetMember());
 
-        Map<String, Object> readerConfig = new HashMap<>();
-        readerConfig.put("readerName", "hazelcast-jet-consumer");
-        // Create the pulsar source tha reads from topicName
-        final StreamSource<String> pulsarTestStream = PulsarSources.pulsarReader(
-                topicName,
-                readerConfig,
-                () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
-                () -> Schema.BYTES,
+        String topicName = randomName();
+        StreamSource<String> pulsarReaderSrc = setupReaderSource(topicName,
                 x -> new String(x.getData(), StandardCharsets.UTF_8));
 
         // Create a list sink to collect the emitted items.
@@ -200,7 +172,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
                 .build();
 
         Pipeline pipeline = Pipeline.create();
-        pipeline.readFrom(pulsarTestStream)
+        pipeline.readFrom(pulsarReaderSrc)
                 .withoutTimestamps()
                 .writeTo(listSink);
 
@@ -208,14 +180,10 @@ public class PulsarSourceTest extends PulsarTestSupport {
         jobConfig.setProcessingGuarantee(guarantee);
         jobConfig.setSnapshotIntervalMillis(SECONDS.toMillis(1));
         Job job = jet.newJob(pipeline, jobConfig);
+        assertJobStatusEventually(job, JobStatus.RUNNING);
 
-        try {
-            PulsarTestSupport.produceMessages("before-restart", topicName, 2 * ITEM_COUNT);
-        } catch (PulsarClientException e) {
-            e.printStackTrace();
-        }
+        produceMessages("before-restart", topicName, 2 * ITEM_COUNT);
 
-        sleepAtLeastSeconds(5);
         Collection<Object> list = jet.getHazelcastInstance().getList("test-list");
         assertTrueEventually(() -> {
             Assert.assertEquals(2 * ITEM_COUNT, list.size());
@@ -239,12 +207,11 @@ public class PulsarSourceTest extends PulsarTestSupport {
             // Bring down one member. Job should restart and drain additional items (and maybe
             // some of the previous duplicately).
             instances[1].getHazelcastInstance().getLifecycleService().terminate();
+            // Wait for job restart to be performed
             Thread.sleep(500);
-            try {
-                PulsarTestSupport.produceMessages("after-restart", topicName, 2 * ITEM_COUNT);
-            } catch (PulsarClientException e) {
-                e.printStackTrace();
-            }
+
+            produceMessages("after-restart", topicName, 2 * ITEM_COUNT);
+
             assertTrueEventually(() -> {
                 Assert.assertEquals(4 * ITEM_COUNT, list.size());
                 for (int i = 0; i < 2 * ITEM_COUNT; i++) {
