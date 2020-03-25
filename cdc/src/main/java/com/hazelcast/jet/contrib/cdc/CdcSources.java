@@ -62,9 +62,9 @@ public final class CdcSources {
         properties.putIfAbsent("database.history", HazelcastListDatabaseHistory.class.getName());
         properties.putIfAbsent("database.history.hazelcast.list.name", name);
 
-        //Flag that specifies if the connector should generate on the
-        //schema change topic named 'fulfillment' events with DDL changes
-        //that can be used by consumers.
+        /*Flag that specifies if the connector should generate on the
+        schema change topic named 'fulfillment' events with DDL changes
+        that can be used by consumers.*/
         properties.putIfAbsent("include.schema.changes", "false");
 
         properties.putIfAbsent("tombstones.on.delete", "false");
@@ -145,11 +145,28 @@ public final class CdcSources {
     public static StreamSource<ChangeEvent> mongo(String name, Properties properties) {
         properties = copy(properties);
 
+        /* Used internally as a unique identifier when recording the
+        oplog position of each replica set. Needs to be set. */
+        checkSet(properties, "mongodb.name");
+
         properties.put("name", name);
         properties.put("connector.class", "io.debezium.connector.mongodb.MongoDbConnector");
 
         properties.putIfAbsent("database.history", HazelcastListDatabaseHistory.class.getName());
         properties.putIfAbsent("database.history.hazelcast.list.name", name);
+
+        /* When running the connector against a sharded cluster, use a
+        value of tasks.max that is greater than the number of replica
+        sets. This will allow the connector to create one task for each
+        replica set, and will let Kafka Connect coordinate, distribute,
+        and manage the tasks across all of the available worker
+        processes.*/
+        properties.putIfAbsent("tasks.max", 1);
+
+        /*Positive integer value that specifies the maximum number of
+        threads used to perform an intial sync of the collections in a
+        replica set.*/
+        properties.putIfAbsent("initial.sync.max.threads", 1);
 
         properties.putIfAbsent("tombstones.on.delete", "false");
 
@@ -160,6 +177,12 @@ public final class CdcSources {
                     return new ChangeEventMongoImpl(keyJson, valueJson);
                 }
         );
+    }
+
+    private static void checkSet(Properties properties, String key) {
+        if (properties.get(key) == null) {
+            throw new IllegalArgumentException("'" + key + "' should be set");
+        }
     }
 
     private static Properties copy(Properties properties) {

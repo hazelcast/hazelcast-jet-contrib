@@ -132,7 +132,6 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         };
         pipeline.readFrom(CdcSources.mongo("orders", connectorProperties("orders")))
                 .withoutTimestamps()
-                .peek() //todo: remove
                 .groupingKey(event -> getOrderNumber(event, "id"))
                 .mapStateful(
                         State::new,
