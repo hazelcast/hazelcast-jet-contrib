@@ -61,7 +61,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 "1005/0:INSERT:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}",
                 "1005/1:DELETE:Document{{}}"
         };
-        pipeline.readFrom(CdcSources.mongo("customers", connectorProperties("customers")))
+        pipeline.readFrom(CdcSources.mongodb("customers", connectorProperties("customers")))
                 .withoutTimestamps()
                 .groupingKey(event -> event.key().id("id"))
                 .mapStateful(
@@ -130,7 +130,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 "10004/0:SYNC:Document{{_id=10004, order_date=" + new Date(1456012800000L) +
                         ", purchaser_id=1003, quantity=1, product_id=107}}",
         };
-        pipeline.readFrom(CdcSources.mongo("orders", connectorProperties("orders")))
+        pipeline.readFrom(CdcSources.mongodb("orders", connectorProperties("orders")))
                 .withoutTimestamps()
                 .groupingKey(event -> getOrderNumber(event, "id"))
                 .mapStateful(

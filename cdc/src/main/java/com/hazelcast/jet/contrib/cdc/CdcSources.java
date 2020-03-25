@@ -142,7 +142,7 @@ public final class CdcSources {
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<ChangeEvent> mongo(String name, Properties properties) {
+    public static StreamSource<ChangeEvent> mongodb(String name, Properties properties) {
         properties = copy(properties);
 
         /* Used internally as a unique identifier when recording the
