@@ -70,6 +70,7 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
+                ChangeEvent::timestamp,
                 record -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
@@ -98,6 +99,7 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
+                ChangeEvent::timestamp, //todo: might be better to use 'ts_usec' field from 'record.sourceOffset()'
                 record -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
@@ -126,6 +128,7 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
+                ChangeEvent::timestamp,
                 record -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
@@ -171,6 +174,7 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
+                ChangeEvent::timestamp,
                 record -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());

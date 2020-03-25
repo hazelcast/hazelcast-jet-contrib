@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 public class ChangeEventValueRelationalImpl implements ChangeEventValue {
 
     private final String json;
+    private final long timestamp;
     private final Supplier<Operation> operation;
     private final ThrowingFunction<Class<?>, Object, ParsingException> before;
     private final ThrowingFunction<Class<?>, Object, ParsingException> after;
@@ -42,6 +43,7 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
         Objects.requireNonNull(mapper, "mapper");
 
         Content content = parseContent(valueJson, mapper);
+        this.timestamp = content.timestamp;
         this.operation = new LazySupplier<>(() -> Operation.get(content.operation));
         this.after = new LazyThrowingFunction<>((clazz) -> toObject(content.after, clazz, mapper));
         this.before = new LazyThrowingFunction<>((clazz) -> toObject(content.before, clazz, mapper));
@@ -51,6 +53,11 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     @Override
     public Operation getOperation() {
         return operation.get();
+    }
+
+    @Override
+    public long timestamp() {
+        return timestamp;
     }
 
     @Override

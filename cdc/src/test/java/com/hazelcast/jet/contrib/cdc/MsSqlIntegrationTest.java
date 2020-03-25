@@ -72,7 +72,8 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
 
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(CdcSources.sqlserver("customers", connectorProperties("customers")))
-                .withoutTimestamps()
+                .withNativeTimestamps(0)
+                .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
                 .groupingKey(event -> event.key().id("id"))
                 .mapStateful(
                         LongAccumulator::new,
@@ -85,8 +86,7 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)
-                .writeTo(AssertionSinks.assertCollectedEventually(30,
-                        assertListFn(expectedEvents)));
+                .writeTo(AssertionSinks.assertCollectedEventually(30, assertListFn(expectedEvents)));
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()

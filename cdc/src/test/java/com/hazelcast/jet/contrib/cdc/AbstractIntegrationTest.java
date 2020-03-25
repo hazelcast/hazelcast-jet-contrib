@@ -17,17 +17,22 @@
 package com.hazelcast.jet.contrib.cdc;
 
 import com.hazelcast.function.ConsumerEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.core.JetTestSupport;
-import org.jetbrains.annotations.NotNull;
+import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.core.processor.Processors;
+import com.hazelcast.jet.impl.JetEvent;
 import org.junit.Assert;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class AbstractIntegrationTest extends JetTestSupport {
 
-    @NotNull
+    @Nonnull
     protected static ConsumerEx<List<String>> assertListFn(String... expected) {
         return actualList -> {
             List<String> sortedActualList = new ArrayList<>(actualList);
@@ -38,6 +43,22 @@ public class AbstractIntegrationTest extends JetTestSupport {
 
             Assert.assertEquals(sortedExpectedList, sortedActualList);
         };
+    }
+
+    @SuppressWarnings("unchecked")
+    @Nonnull
+    protected static SupplierEx<Processor> filterTimestampsProcessorSupplier() {
+        /* Trying to make sure that items on the stream have native
+         * timestamps. All events should be processed in a short amount
+         * of time by Jet, so there is no reason why the difference
+         * between their event times and the current time on processing
+         * should be significantly different. It is a hack, but it does
+         * help detect cases when we don't set useful timestamps at all.*/
+        return Processors.filterP(o -> {
+            long timestamp = ((JetEvent<Integer>) o).timestamp();
+            long diff = System.currentTimeMillis() - timestamp;
+            return diff < TimeUnit.SECONDS.toMillis(3);
+        });
     }
 
 }

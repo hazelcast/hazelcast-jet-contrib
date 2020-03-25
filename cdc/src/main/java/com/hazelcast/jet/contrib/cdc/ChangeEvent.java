@@ -24,6 +24,13 @@ public interface ChangeEvent {
     /**
      * TODO: javadoc
      */
+    default long timestamp() throws ParsingException {
+        return value().timestamp();
+    }
+
+    /**
+     * TODO: javadoc
+     */
     ChangeEventKey key() throws ParsingException;
 
     /**

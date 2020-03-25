@@ -50,62 +50,69 @@ public final class KafkaConnectSources {
     }
 
     /**
-     * A generic Kafka Connect source provides ability to plug any Kafka Connect
-     * source for data ingestion to Jet pipelines.
+     * A generic Kafka Connect source provides ability to plug any Kafka
+     * Connect source for data ingestion to Jet pipelines.
      * <p>
-     * You need to add the Kafka Connect connector JARs or a ZIP file contains
-     * the JARs as a job resource via {@link com.hazelcast.jet.config.JobConfig#addJar(URL)}
-     * or {@link com.hazelcast.jet.config.JobConfig#addJarsInZip(URL)} respectively.
+     * You need to add the Kafka Connect connector JARs or a ZIP file
+     * contains the JARs as a job resource via {@link com.hazelcast.jet.config.JobConfig#addJar(URL)}
+     * or {@link com.hazelcast.jet.config.JobConfig#addJarsInZip(URL)}
+     * respectively.
      * <p>
-     * After that you can use the Kafka Connect connector with the configuration
-     * parameters as you'd using it with Kafka. Hazelcast Jet will drive the
-     * Kafka Connect connector from the pipeline and the records will be available
-     * to your pipeline as {@link SourceRecord}s.
+     * After that you can use the Kafka Connect connector with the
+     * configuration parameters as you'd using it with Kafka. Hazelcast
+     * Jet will drive the Kafka Connect connector from the pipeline and
+     * the records will be available to your pipeline as {@link SourceRecord}s.
      * <p>
-     * In case of a failure; this source keeps track of the source partition
-     * offsets, it will restore the partition offsets and resume the consumption
-     * from where it left off.
+     * In case of a failure; this source keeps track of the source
+     * partition offsets, it will restore the partition offsets and
+     * resume the consumption from where it left off.
      * <p>
-     * Hazelcast Jet will instantiate a single task for the specified source in
-     * the cluster.
+     * Hazelcast Jet will instantiate a single task for the specified
+     * source in the cluster.
      *
      * @param properties Kafka connect properties
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
     public static StreamSource<SourceRecord> connect(Properties properties) {
-        return connect(properties, FunctionEx.identity());
+        return connect(properties, record -> record.timestamp() == null ? 0 : record.timestamp(), FunctionEx.identity());
     }
 
     /**
-     * A generic Kafka Connect source provides ability to plug any Kafka Connect
-     * source for data ingestion to Jet pipelines.
+     * A generic Kafka Connect source provides ability to plug any Kafka
+     * Connect source for data ingestion to Jet pipelines.
      * <p>
-     * You need to add the Kafka Connect connector JARs or a ZIP file contains
-     * the JARs as a job resource via {@link com.hazelcast.jet.config.JobConfig#addJar(URL)}
-     * or {@link com.hazelcast.jet.config.JobConfig#addJarsInZip(URL)} respectively.
+     * You need to add the Kafka Connect connector JARs or a ZIP file
+     * contains the JARs as a job resource via {@link com.hazelcast.jet.config.JobConfig#addJar(URL)}
+     * or {@link com.hazelcast.jet.config.JobConfig#addJarsInZip(URL)}
+     * respectively.
      * <p>
-     * After that you can use the Kafka Connect connector with the configuration
-     * parameters as you'd using it with Kafka. Hazelcast Jet will drive the
-     * Kafka Connect connector from the pipeline and the records will be available
-     * to your pipeline as {@link SourceRecord}s.
+     * After that you can use the Kafka Connect connector with the
+     * configuration parameters as you'd using it with Kafka. Hazelcast
+     * Jet will drive the Kafka Connect connector from the pipeline and
+     * the records will be available to your pipeline as {@link SourceRecord}s.
      * <p>
-     * In case of a failure; this source keeps track of the source partition
-     * offsets, it will restore the partition offsets and resume the consumption
-     * from where it left off.
+     * In case of a failure; this source keeps track of the source
+     * partition offsets, it will restore the partition offsets and
+     * resume the consumption from where it left off.
      * <p>
-     * Hazelcast Jet will instantiate a single task for the specified source in
-     * the cluster.
+     * Hazelcast Jet will instantiate a single task for the specified
+     * source in the cluster.
      *
-     * @param properties   Kafka connect properties
-     * @param projectionFn mapping from {@code SourceRecord} to whatever type we need the source
-     *                     to return
+     * @param properties            Kafka connect properties
+     * @param timestampProjectionFn mapping from {@code SourceRecord} to
+     *                              the event time contained within it
+     * @param dataProjectionFn      mapping from {@code SourceRecord} to
+     *                              whatever type we need the source
+     *                              to return
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
     public static <T> StreamSource<T> connect(
             @Nonnull Properties properties,
-            @Nonnull FunctionEx<? super SourceRecord, ? extends T> projectionFn) {
+            @Nonnull FunctionEx<T, Long> timestampProjectionFn,
+            @Nonnull FunctionEx<? super SourceRecord, ? extends T> dataProjectionFn) {
         String name = properties.getProperty("name");
-        return SourceBuilder.timestampedStream(name, ctx -> new Context<T>(ctx, properties, projectionFn))
+        return SourceBuilder.timestampedStream(name, ctx ->
+                new Context<T>(ctx, properties, timestampProjectionFn, dataProjectionFn))
                 .fillBufferFn(Context<T>::fillBuffer)
                 .createSnapshotFn(Context::createSnapshot)
                 .restoreSnapshotFn(Context::restoreSnapshot)
@@ -118,7 +125,8 @@ public final class KafkaConnectSources {
         private final SourceConnector connector;
         private final SourceTask task;
         private final Map<String, String> taskConfig;
-        private final FunctionEx<? super SourceRecord, ? extends T> projectionFn;
+        private final FunctionEx<T, Long> timestampProjectionFn;
+        private final FunctionEx<? super SourceRecord, ? extends T> dataProjectionFn;
 
         /**
          * Key represents the partition which the record originated from. Value
@@ -130,7 +138,11 @@ public final class KafkaConnectSources {
         private Map<Map<String, ?>, Map<String, ?>> partitionsToOffset = new HashMap<>();
         private boolean taskInit;
 
-        Context(Processor.Context ctx, Properties properties, FunctionEx<? super SourceRecord, ? extends T> projectionFn) {
+        Context(
+                Processor.Context ctx,
+                Properties properties,
+                FunctionEx<T, Long> timestampProjectionFn,
+                FunctionEx<? super SourceRecord, ? extends T> dataProjectionFn) {
             try {
                 if (isDebezium(properties)) {
                     // inject hazelcast.instance.name for retrieving from JVM instance factory in the Debezium source
@@ -145,7 +157,8 @@ public final class KafkaConnectSources {
                 taskConfig = connector.taskConfigs(1).get(0);
                 task = (SourceTask) connector.taskClass().getConstructor().newInstance();
 
-                this.projectionFn = projectionFn;
+                this.dataProjectionFn = dataProjectionFn;
+                this.timestampProjectionFn = timestampProjectionFn;
             } catch (Exception e) {
                 throw rethrow(e);
             }
@@ -175,9 +188,9 @@ public final class KafkaConnectSources {
                 }
 
                 for (SourceRecord record : records) {
-                    T projection = projectionFn.apply(record);
+                    T projection = dataProjectionFn.apply(record);
                     if (projection != null) {
-                        long ts = record.timestamp() == null ? 0 : record.timestamp();
+                        long ts = timestampProjectionFn.apply(projection);
                         buf.add(projection, ts);
                         partitionsToOffset.put(record.sourcePartition(), record.sourceOffset());
                     }

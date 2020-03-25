@@ -26,6 +26,11 @@ public interface ChangeEventValue {
     /**
      * TODO: javadoc
      */
+    long timestamp();
+
+    /**
+     * TODO: javadoc
+     */
     Operation getOperation();
 
     /**

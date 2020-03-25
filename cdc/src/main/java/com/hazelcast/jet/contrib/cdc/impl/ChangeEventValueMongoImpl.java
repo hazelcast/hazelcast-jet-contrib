@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 public class ChangeEventValueMongoImpl implements ChangeEventValue {
 
     private final String json;
+    private final Supplier<Long> timestamp;
     private final Supplier<Operation> operation;
     private final ThrowingSupplier<Optional<Document>, ParsingException> before;
     private final ThrowingSupplier<Optional<Document>, ParsingException> after;
@@ -40,11 +41,17 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
         Objects.requireNonNull(valueJson, "valueJson");
 
         Document document = Document.parse(valueJson);
+        this.timestamp = new LazySupplier<>(() -> document.getLong("ts_ms"));
         this.operation = new LazySupplier<>(() -> Operation.get(document.getString("op")));
         this.before = new LazyThrowingSupplier<>(() -> subDocument(document, "before"));
         this.after = new LazyThrowingSupplier<>(() -> subDocument(document, "after"));
         this.patch = new LazyThrowingSupplier<>(() -> subDocument(document, "patch"));
         this.json = valueJson;
+    }
+
+    @Override
+    public long timestamp() {
+        return timestamp.get();
     }
 
     @Override
