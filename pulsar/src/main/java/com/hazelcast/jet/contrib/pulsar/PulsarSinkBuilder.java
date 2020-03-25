@@ -31,6 +31,7 @@ import org.apache.pulsar.client.api.TypedMessageBuilder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.Serializable;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -42,7 +43,7 @@ import static com.hazelcast.jet.impl.util.Util.checkSerializable;
  * @param <E> the type of stream item
  * @param <M> the type of the message published by {@code PulsarProducer}
  */
-public final class PulsarSinkBuilder<E, M> {
+public final class PulsarSinkBuilder<E, M> implements Serializable {
     private final SupplierEx<PulsarClient> connectionSupplier;
     private final String topic;
     private Map<String, Object> producerConfig;
@@ -137,20 +138,11 @@ public final class PulsarSinkBuilder<E, M> {
     /**
      * Creates and returns the Pulsar {@link Sink} with using builder configurations set before.
      */
-    public Sink<M> build() {
-        String localTopic = topic;
-        SupplierEx<PulsarClient> localConnectionSupplier = connectionSupplier;
-        SupplierEx<Schema<M>> localSchemaSupplier = schemaSupplier;
-        FunctionEx<? super E, M> localExtractValueFn = extractValueFn;
-        Map<String, Object> localProducerConfig = producerConfig;
-        FunctionEx<? super E, String> localExtractKeyFn = extractKeyFn;
-        FunctionEx<? super E, Map<String, String>> localExtractPropertiesFn = extractPropertiesFn;
-        FunctionEx<? super E, Long> localExtractTimestampFn = extractTimestampFn;
-
-        return SinkBuilder.sinkBuilder("pulsar-sink", ctx -> new PulsarSinkContext(ctx.logger(), localTopic,
-                localConnectionSupplier.get(), localProducerConfig, localSchemaSupplier, localExtractValueFn,
-                localExtractKeyFn, localExtractPropertiesFn, localExtractTimestampFn))
-                .<M>receiveFn(PulsarSinkContext::add)
+    public Sink<E> build() {
+        return SinkBuilder.sinkBuilder("pulsar-sink", ctx -> new PulsarSinkContext<>(ctx.logger(), topic,
+                connectionSupplier.get(), producerConfig, schemaSupplier, extractValueFn,
+                extractKeyFn, extractPropertiesFn, extractTimestampFn))
+                .<E>receiveFn(PulsarSinkContext::add)
                 .flushFn(PulsarSinkContext::flush)
                 .destroyFn(PulsarSinkContext::destroy)
                 .preferredLocalParallelism(preferredLocalParallelism)
@@ -193,9 +185,8 @@ public final class PulsarSinkBuilder<E, M> {
             this.extractTimestampFn = extractTimestampFn;
         }
 
-        private boolean flush() throws PulsarClientException {
+        private void flush() throws PulsarClientException {
             producer.flush();
-            return true;
         }
 
         public static <T> CompletableFuture<T> failedFuture(Throwable t) {

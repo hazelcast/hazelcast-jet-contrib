@@ -38,6 +38,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -86,7 +87,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
                 consumerConfig,
                 () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
                 () -> Schema.BYTES,
-                x -> new String(x.getData()) + "-suffix");
+                x -> new String(x.getData(), StandardCharsets.UTF_8) + "-suffix");
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(pulsarTestStream)
                 .withoutTimestamps()
@@ -134,7 +135,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
                 consumerConfig,
                 () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
                 () -> Schema.BYTES,
-                x -> new String(x.getData()));
+                x -> new String(x.getData(), StandardCharsets.UTF_8));
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(pulsarTestStream)
                 .withoutTimestamps()
@@ -190,7 +191,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
                 readerConfig,
                 () -> PulsarClient.builder().serviceUrl(PulsarTestSupport.getServiceUrl()).build(),
                 () -> Schema.BYTES,
-                x -> new String(x.getData()));
+                x -> new String(x.getData(), StandardCharsets.UTF_8));
 
         // Create a list sink to collect the emitted items.
         Sink<String> listSink = SinkBuilder

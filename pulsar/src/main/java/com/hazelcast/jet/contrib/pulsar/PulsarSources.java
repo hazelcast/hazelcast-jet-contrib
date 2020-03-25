@@ -82,7 +82,8 @@ public final class PulsarSources {
      *                            .serviceUrl("pulsar://exampleserviceurl")
      *                            .build(), // Client Supplier
      *          () -> Schema.BYTES, // Schema Supplier Function
-     *          x -> new String(x.getData()) // Projection function that converts
+     *          x -> new String(x.getData(), StandardCharsets.UTF_8)
+     *                                       // Projection function that converts
      *                                       // receiving bytes to String
      *                                       // before emitting.
      *          );
@@ -104,14 +105,14 @@ public final class PulsarSources {
      */
     public static <M, T> StreamSource<T> pulsarConsumer(
             @Nonnull List<String> topics,
-            @Nonnull int preferredLocalParallelism,
+            int preferredLocalParallelism,
             @Nonnull Map<String, Object> consumerConfig,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
-        return SourceBuilder.timestampedStream("pulsar-distributed-stream-source", ctx -> new ConsumerContext(
+        return SourceBuilder.timestampedStream("pulsar-distributed-stream-source", ctx -> new ConsumerContext<>(
                 ctx.logger(), connectionSupplier.get(), topics, consumerConfig, schemaSupplier, projectionFn))
                 .<T>fillBufferFn(ConsumerContext::fillBuffer)
                 .destroyFn(ConsumerContext::destroy)
@@ -153,7 +154,7 @@ public final class PulsarSources {
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
-        return SourceBuilder.timestampedStream("pulsar-ft-stream-source", ctx -> new ReaderContext(
+        return SourceBuilder.timestampedStream("pulsar-ft-stream-source", ctx -> new ReaderContext<>(
                 ctx.logger(), connectionSupplier.get(), topic, readerConfig, schemaSupplier, projectionFn))
                 .<T>fillBufferFn(ReaderContext::fillBuffer)
                 .createSnapshotFn(ReaderContext::createSnapshot)
@@ -359,7 +360,7 @@ public final class PulsarSources {
             try {
                 reader.close();
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.warning("Error while closing the 'Pulsar Reader'.", e);
             }
             try {
                 client.shutdown();

@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.pulsar;
 
-import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
@@ -70,18 +69,19 @@ public class PulsarSinkTest extends PulsarTestSupport {
 
         Pipeline p = Pipeline.create();
         Map<String, Object> producerConfig = new HashMap<>();
-        producerConfig.put("maxPendingMessages", 5000);
+        producerConfig.put("maxPendingMessages", 15000);
 
-        Sink<Integer> pulsarSink = PulsarSinks.<Integer, Integer>builder(topicName,
+        Sink<Integer> pulsarSink = PulsarSinks.<Integer, Double>builder(topicName,
                 producerConfig,
                 () -> PulsarClient.builder()
                                   .serviceUrl(PulsarTestSupport.getServiceUrl())
                                   .build())
-                .schemaSupplier(() -> Schema.INT32)
-                .extractValueFn(FunctionEx.identity())
+                .schemaSupplier(() -> Schema.DOUBLE)
+                .extractValueFn(Integer::doubleValue)
                 .build();
         p.readFrom(Sources.<String, String>map(sourceImapName))
-         .map(x -> Integer.parseInt(x.getValue()))
+         .map(x -> Double.parseDouble(x.getValue()))
+         .map(Double::intValue)
          .writeTo(pulsarSink);
 
         jet.newJob(p).join();

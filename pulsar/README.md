@@ -54,17 +54,17 @@ In practice, using distributed stream source like this:
 ```java
 import com.hazelcast.jet.contrib.pulsar.*;
 [...]
-StreamSource<String> pulsarSource = PulsarSources.pulsarDistributed(
+StreamSource<String> pulsarSource = PulsarSources.pulsarConsumer(
           Collections.singletonList(topicName),
           2,       // Preferred Number of Local Parallelism
           consumerConfig,
           () -> PulsarClient.builder()
                             .serviceUrl("pulsar://exampleserviceurl")
-                            .build(), // Client Supplier
-          () -> Schema.BYTES, // Schema Supplier Function
-          x -> new String(x.getData()) // Projection function that converts
-                                       // receiving bytes to String before
-                                       // emitting.
+                            .build(), /* Pulsar Client Supplier */
+          () -> Schema.BYTES, /* Schema Supplier Function */
+          x -> new String(x.getData(), StandardCharsets.UTF_8) /*
+               Projection function that converts receiving bytes
+               to String before emitting. */
           );
 pipeline.readFrom(pulsarSource)
         .writeTo(Sinks.logger()); 

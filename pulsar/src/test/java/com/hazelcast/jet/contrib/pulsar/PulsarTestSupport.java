@@ -28,6 +28,7 @@ import org.apache.pulsar.client.api.SubscriptionType;
 import org.junit.ClassRule;
 import org.testcontainers.containers.PulsarContainer;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -41,7 +42,7 @@ public class PulsarTestSupport extends JetTestSupport {
     private static PulsarClient client;
 
     private static Map<String, Producer<byte[]>> producerMap = new HashMap<>();
-    private static Map<String, Consumer<Integer>> integerConsumerMap = new HashMap<>();
+    private static Map<String, Consumer<Double>> integerConsumerMap = new HashMap<>();
 
     protected static void shutdown() throws PulsarClientException {
         producerMap.forEach((s, producer) -> {
@@ -103,27 +104,27 @@ public class PulsarTestSupport extends JetTestSupport {
 
     protected static CompletableFuture<MessageId> produceAsync(String message, String topicName)
             throws PulsarClientException {
-        return getProducer(topicName).sendAsync(message.getBytes());
+        return getProducer(topicName).sendAsync(message.getBytes(StandardCharsets.UTF_8));
     }
 
 
-    protected static CompletableFuture<Message<Integer>> consumeMessages(String topicName, int count)
+    protected static CompletableFuture<Message<Double>> consumeMessages(String topicName, int count)
             throws PulsarClientException {
-        CompletableFuture<Message<Integer>> last = null;
+        CompletableFuture<Message<Double>> last = null;
         for (int i = 0; i < count; i++) {
             last = PulsarTestSupport.consumeAsync(topicName);
         }
         return last;
     }
 
-    protected static CompletableFuture<Message<Integer>> consumeAsync(String topicName) throws PulsarClientException {
+    protected static CompletableFuture<Message<Double>> consumeAsync(String topicName) throws PulsarClientException {
         return getConsumer(topicName).receiveAsync();
     }
 
-    protected static Consumer<Integer> getConsumer(String topicName) throws PulsarClientException {
+    protected static Consumer<Double> getConsumer(String topicName) throws PulsarClientException {
         if (!integerConsumerMap.containsKey(topicName)) {
-            Consumer<Integer> newConsumer = getClient()
-                    .newConsumer(Schema.INT32)
+            Consumer<Double> newConsumer = getClient()
+                    .newConsumer(Schema.DOUBLE)
                     .topic(topicName)
                     .consumerName("hazelcast-jet-consumer-" + topicName)
                     .subscriptionName("hazelcast-jet-subscription")
