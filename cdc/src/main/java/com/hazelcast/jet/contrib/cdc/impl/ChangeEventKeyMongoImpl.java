@@ -18,27 +18,16 @@ package com.hazelcast.jet.contrib.cdc.impl;
 
 import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
-import com.hazelcast.jet.contrib.cdc.util.LazyThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
-import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
-import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
-import javax.ws.rs.ProcessingException;
-import java.util.Objects;
-
-public class ChangeEventKeyMongoImpl implements ChangeEventKey {
+public class ChangeEventKeyMongoImpl extends AbstractMongoFlatValues implements ChangeEventKey {
 
     private final String json;
-    private final ThrowingSupplier<Document, ParsingException> document;
-    private final ThrowingFunction<String, Integer, ParsingException> id;
 
     public ChangeEventKeyMongoImpl(String keyJson) {
-        Objects.requireNonNull(keyJson, "keyJson");
-
+        super(new LazyThrowingSupplier<>(() -> toDocument(keyJson)));
         this.json = keyJson;
-        this.document = new LazyThrowingSupplier<>(() -> toDocument(keyJson));
-        this.id = new LazyThrowingFunction<>((idName) -> parseId(document.get(), idName));
     }
 
     @Override
@@ -46,12 +35,7 @@ public class ChangeEventKeyMongoImpl implements ChangeEventKey {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
-        return (T) document.get();
-    }
-
-    @Override
-    public int id(String idName) throws ParsingException {
-        return id.apply(idName);
+        return (T) getDocument();
     }
 
     @Override
@@ -69,15 +53,6 @@ public class ChangeEventKeyMongoImpl implements ChangeEventKey {
             return Document.parse(keyJson);
         } catch (Exception e) {
             throw new ParsingException(e.getMessage(), e);
-        }
-    }
-
-    private static Integer parseId(Document document, String idName) throws ProcessingException {
-        try {
-            String stringId = document.getString(idName);
-            return Integer.valueOf(stringId);
-        } catch (Exception e) {
-            throw new ProcessingException(e.getMessage(), e);
         }
     }
 }

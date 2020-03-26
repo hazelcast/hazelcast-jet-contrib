@@ -74,7 +74,7 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
         pipeline.readFrom(CdcSources.sqlserver("customers", connectorProperties("customers")))
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
-                .groupingKey(event -> event.key().id("id"))
+                .groupingKey(event -> event.key().getInteger("id").orElse(0))
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, customerId, event) -> {

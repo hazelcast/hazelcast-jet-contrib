@@ -66,7 +66,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
         pipeline.readFrom(CdcSources.postgres("consumers", connectorProperties()))
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
-                .groupingKey(event -> event.key().id("id"))
+                .groupingKey(event -> event.key().getInteger("id").orElse(0))
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, customerId, event) -> {
@@ -131,7 +131,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
         pipeline.readFrom(CdcSources.postgres("consumers", connectorProperties()))
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
-                .groupingKey(event -> event.key().id("id"))
+                .groupingKey(event -> event.key().getInteger("id").orElse(0))
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, customerId, event) -> {

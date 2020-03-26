@@ -67,7 +67,7 @@ public final class CdcSources {
         that can be used by consumers.*/
         properties.putIfAbsent("include.schema.changes", "false");
 
-        properties.putIfAbsent("tombstones.on.delete", "false");
+        properties.putIfAbsent("tombstones.on.delete", "false"); //todo: can this be parsed, if enabled? force it?
 
         return KafkaConnectSources.connect(properties,
                 ChangeEvent::timestamp,

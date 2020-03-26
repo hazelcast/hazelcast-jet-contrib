@@ -16,25 +16,42 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import java.util.Optional;
+
 /**
+ * Throws exception only if JSON has a wrong format, not when key missing.
  * TODO: javadoc
  */
-public interface ChangeEventKey extends FlatValues {
+public interface FlatValues {
 
     /**
      * TODO: javadoc
      */
-    <T> T map(Class<T> clazz) throws ParsingException;
+    Optional<Object> getObject(String key) throws ParsingException ;
 
     /**
-     * Returns raw JSON string on which the content of this event is
-     * based. To be used when parsing fails for some reason (for example
-     * on some untested DB-connector version combination).
-     *
-     * While the format is standard for RELATIONAL DATABASES, for
-     * MongoDB it's MongoDB Extended JSON v2 format and needs to be
-     * parsed accordingly.
      * TODO: javadoc
      */
-    String asJson();
+    Optional<String> getString(String key) throws ParsingException ;
+
+    /**
+     * TODO: javadoc
+     */
+    Optional<Integer> getInteger(String key) throws ParsingException;
+
+    /**
+     * TODO: javadoc
+     */
+    Optional<Long> getLong(String key) throws ParsingException ;
+
+    /**
+     * TODO: javadoc
+     */
+    Optional<Double> getDouble(String key) throws ParsingException ;
+
+    /**
+     * TODO: javadoc
+     */
+    Optional<Boolean> getBoolean(String key) throws ParsingException ;
+
 }

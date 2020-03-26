@@ -68,7 +68,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         pipeline.readFrom(CdcSources.mysql("customers", connectorProperties("customers")))
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
-                .groupingKey(event -> event.key().id("id"))
+                .groupingKey(event -> event.key().getInteger("id").orElse(0))
                 .mapStateful(
                         LongAccumulator::new,
                         (accumulator, customerId, event) -> {
@@ -192,7 +192,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         //pick random method for extracting ID in order to test all code paths
         boolean primitive = ThreadLocalRandom.current().nextBoolean();
         if (primitive) {
-            return event.key().id("order_number");
+            return event.key().getInteger("order_number").orElse(0);
         } else {
             return event.key().map(OrderPrimaryKey.class).id;
         }
