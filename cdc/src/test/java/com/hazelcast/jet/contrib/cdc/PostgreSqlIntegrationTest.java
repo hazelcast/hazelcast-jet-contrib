@@ -20,6 +20,7 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.accumulator.LongAccumulator;
 import com.hazelcast.jet.config.JobConfig;
+import com.hazelcast.jet.config.ProcessingGuarantee;
 import com.hazelcast.jet.contrib.cdc.data.Customer;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -62,7 +63,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
         };
 
         Pipeline pipeline = Pipeline.create();
-        pipeline.readFrom(CdcSources.postgres("consumers", connectorProperties("customers")))
+        pipeline.readFrom(CdcSources.postgres("consumers", connectorProperties()))
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
                 .groupingKey(event -> event.key().id("id"))
@@ -79,10 +80,10 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
                 .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30, assertListFn(expectedEvents)));
 
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
-                .getClassLoader()
-                .getResource("debezium-connector-postgres.zip")));
+        JobConfig jobConfig = new JobConfig()
+                .addJarsInZip(Objects.requireNonNull(this.getClass()
+                        .getClassLoader()
+                        .getResource("debezium-connector-postgres.zip")));
 
         // when
         JetInstance jet = createJetMember();
@@ -117,8 +118,76 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
         }
     }
 
+    @Test
+    public void restart() throws Exception {
+        // given
+        String[] expectedEvents = {
+                "1004/1:UPDATE:Customer {id=1004, firstName=Anne Marie, lastName=Kretchmar, email=annek@noanswer.org}",
+                "1005/0:INSERT:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}",
+                "1005/1:DELETE:Customer {id=1005, firstName=Jason, lastName=Bourne, email=jason@bourne.org}"
+        };
+
+        Pipeline pipeline = Pipeline.create();
+        pipeline.readFrom(CdcSources.postgres("consumers", connectorProperties()))
+                .withNativeTimestamps(0)
+                .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
+                .groupingKey(event -> event.key().id("id"))
+                .mapStateful(
+                        LongAccumulator::new,
+                        (accumulator, customerId, event) -> {
+                            long count = accumulator.get();
+                            accumulator.add(1);
+                            ChangeEventValue eventValue = event.value();
+                            Operation operation = eventValue.getOperation();
+                            Customer customer = eventValue.mapImage(Customer.class);
+                            return customerId + "/" + count + ":" + operation + ":" + customer;
+                        })
+                .setLocalParallelism(1)
+                .writeTo(AssertionSinks.assertCollectedEventually(30, assertListFn(expectedEvents)));
+
+        JobConfig jobConfig = new JobConfig()
+                .setProcessingGuarantee(ProcessingGuarantee.AT_LEAST_ONCE)
+                .addJarsInZip(Objects.requireNonNull(this.getClass()
+                        .getClassLoader()
+                        .getResource("debezium-connector-postgres.zip")));
+
+        // when
+        JetInstance jet = createJetMember();
+        Job job = jet.newJob(pipeline, jobConfig);
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+        sleepAtLeastSeconds(10);
+
+        job.restart();
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+
+        // update record
+        try (Connection connection = DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(),
+                postgres.getPassword())) {
+            connection.setSchema("inventory");
+            connection
+                    .prepareStatement("UPDATE customers SET first_name='Anne Marie' WHERE id=1004")
+                    .executeUpdate();
+            connection
+                    .prepareStatement("INSERT INTO customers VALUES (1005, 'Jason', 'Bourne', 'jason@bourne.org')")
+                    .executeUpdate();
+            connection
+                    .prepareStatement("DELETE FROM customers WHERE id=1005")
+                    .executeUpdate();
+        }
+
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with " +
+                            "AssertionCompletedException, but completed with: " + e.getCause(),
+                    errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+    }
+
     @Nonnull
-    private Properties connectorProperties(String tableName) {
+    private Properties connectorProperties() {
         Properties properties = new Properties();
         properties.put("database.hostname", postgres.getContainerIpAddress());
         properties.put("database.port", postgres.getMappedPort(POSTGRESQL_PORT));
@@ -126,7 +195,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
         properties.put("database.password", "postgres");
         properties.put("database.dbname", "postgres");
         properties.put("database.server.name", "dbserver1");
-        properties.put("table.whitelist", "inventory." + tableName);
+        properties.put("table.whitelist", "inventory.customers");
         return properties;
     }
 

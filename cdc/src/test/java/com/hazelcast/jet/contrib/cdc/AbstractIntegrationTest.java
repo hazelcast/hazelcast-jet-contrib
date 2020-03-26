@@ -20,6 +20,7 @@ import com.hazelcast.function.ConsumerEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.core.ProcessorMetaSupplier;
 import com.hazelcast.jet.core.processor.Processors;
 import com.hazelcast.jet.impl.JetEvent;
 import org.junit.Assert;
@@ -47,18 +48,19 @@ public class AbstractIntegrationTest extends JetTestSupport {
 
     @SuppressWarnings("unchecked")
     @Nonnull
-    protected static SupplierEx<Processor> filterTimestampsProcessorSupplier() {
+    protected static ProcessorMetaSupplier filterTimestampsProcessorSupplier() {
         /* Trying to make sure that items on the stream have native
          * timestamps. All events should be processed in a short amount
          * of time by Jet, so there is no reason why the difference
          * between their event times and the current time on processing
          * should be significantly different. It is a hack, but it does
          * help detect cases when we don't set useful timestamps at all.*/
-        return Processors.filterP(o -> {
+        SupplierEx<Processor> supplierEx = Processors.filterP(o -> {
             long timestamp = ((JetEvent<Integer>) o).timestamp();
             long diff = System.currentTimeMillis() - timestamp;
             return diff < TimeUnit.SECONDS.toMillis(3);
         });
+        return ProcessorMetaSupplier.preferLocalParallelismOne(supplierEx);
     }
 
 }

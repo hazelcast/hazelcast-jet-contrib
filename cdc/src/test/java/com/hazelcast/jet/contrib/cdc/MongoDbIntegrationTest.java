@@ -19,6 +19,7 @@ package com.hazelcast.jet.contrib.cdc;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JobConfig;
+import com.hazelcast.jet.config.ProcessingGuarantee;
 import com.hazelcast.jet.contrib.mongodb.MongoDBContainer;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -26,11 +27,13 @@ import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import org.bson.Document;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.testcontainers.utility.MountableFile;
 
 import javax.annotation.Nonnull;
+import java.io.Serializable;
 import java.util.Date;
 import java.util.Objects;
 import java.util.Properties;
@@ -44,14 +47,27 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
             .withCopyFileToContainer(MountableFile.forClasspathResource("alterMongoData.sh", 777),
                     "/usr/local/bin/alterData.sh");
 
-    @Test
-    public void customers() throws Exception {
+    private static int getOrderNumber(ChangeEvent event, String idName) throws ParsingException {
+        //pick random method for extracting ID in order to test all code paths
+        boolean primitive = ThreadLocalRandom.current().nextBoolean();
+        if (primitive) {
+            return event.key().id(idName);
+        } else {
+            Document document = event.key().map(Document.class);
+            return Integer.parseInt(document.getString(idName));
+        }
+    }
+
+    @Before
+    public void before() throws Exception {
         // populate initial data
         mongo.execInContainer("sh", "-c", "/usr/local/bin/init-inventory.sh");
+    }
 
+    @Test
+    public void customers() throws Exception {
         JetInstance jet = createJetMember();
 
-        Pipeline pipeline = Pipeline.create();
         String[] expectedEvents = {
                 "1001/0:SYNC:Document{{_id=1001, first_name=Sally, last_name=Thomas, email=sally.thomas@acme.com}}",
                 "1002/0:SYNC:Document{{_id=1002, first_name=George, last_name=Bailey, email=gbailey@foobar.com}}",
@@ -61,6 +77,8 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 "1005/0:INSERT:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}",
                 "1005/1:DELETE:Document{{}}"
         };
+
+        Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(CdcSources.mongodb("customers", connectorProperties("customers")))
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
@@ -89,10 +107,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30, assertListFn(expectedEvents)));
 
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
-                .getClassLoader()
-                .getResource("debezium-connector-mongodb.zip")));
+        JobConfig jobConfig = new JobConfig()
+                .addJarsInZip(Objects.requireNonNull(this.getClass()
+                        .getClassLoader()
+                        .getResource("debezium-connector-mongodb.zip")));
 
         Job job = jet.newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
@@ -109,17 +127,77 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
             Assert.assertTrue("Job was expected to complete with AssertionCompletedException, " +
                     "but completed with: " + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
-
     }
 
     @Test
-    public void orders() throws Exception {
-        // populate initial data
-        mongo.execInContainer("sh", "-c", "/usr/local/bin/init-inventory.sh");
-
+    public void restart() throws Exception {
         JetInstance jet = createJetMember();
 
+        String[] expectedEvents = {
+                "1004/1:UPDATE:Document{{_id=1004, first_name=Anne Marie, last_name=Kretchmar, email=annek@noanswer.org}}",
+                "1005/0:INSERT:Document{{_id=1005, first_name=Jason, last_name=Bourne, email=jason@bourne.org}}",
+                "1005/1:DELETE:Document{{}}"
+        };
+
         Pipeline pipeline = Pipeline.create();
+        pipeline.readFrom(CdcSources.mongodb("customers", connectorProperties("customers")))
+                .withNativeTimestamps(0)
+                .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
+                .groupingKey(event -> event.key().id("id"))
+                .mapStateful(
+                        State::new,
+                        (state, customerId, event) -> {
+                            ChangeEventValue eventValue = event.value();
+                            Operation operation = eventValue.getOperation();
+                            switch (operation) {
+                                case SYNC:
+                                case INSERT:
+                                    state.set(eventValue.mapImage(Document.class));
+                                    break;
+                                case UPDATE:
+                                    state.update(eventValue.mapUpdate(Document.class));
+                                    break;
+                                case DELETE:
+                                    state.clear();
+                                    break;
+                                default:
+                                    throw new UnsupportedOperationException(operation.name());
+                            }
+                            return customerId + "/" + state.updateCount() + ":" + operation + ":" + state.get();
+                        })
+                .setLocalParallelism(1)
+                .writeTo(AssertionSinks.assertCollectedEventually(30, assertListFn(expectedEvents)));
+
+        JobConfig jobConfig = new JobConfig()
+                .setProcessingGuarantee(ProcessingGuarantee.AT_LEAST_ONCE)
+                .addJarsInZip(Objects.requireNonNull(this.getClass()
+                        .getClassLoader()
+                        .getResource("debezium-connector-mongodb.zip")));
+
+        Job job = jet.newJob(pipeline, jobConfig);
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+        sleepAtLeastSeconds(10);
+
+        job.restart();
+        assertJobStatusEventually(job, JobStatus.RUNNING);
+
+        // update record
+        mongo.execInContainer("sh", "-c", "/usr/local/bin/alterData.sh");
+
+        try {
+            job.join();
+            Assert.fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            Assert.assertTrue("Job was expected to complete with AssertionCompletedException, " +
+                    "but completed with: " + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+    }
+
+    @Test
+    public void orders() {
+        JetInstance jet = createJetMember();
+
         String[] expectedEvents = {
                 "10001/0:SYNC:Document{{_id=10001, order_date=" + new Date(1452902400000L) +
                         ", purchaser_id=1001, quantity=1, product_id=102}}",
@@ -130,6 +208,8 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 "10004/0:SYNC:Document{{_id=10004, order_date=" + new Date(1456012800000L) +
                         ", purchaser_id=1003, quantity=1, product_id=107}}",
         };
+
+        Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(CdcSources.mongodb("orders", connectorProperties("orders")))
                 .withoutTimestamps()
                 .groupingKey(event -> getOrderNumber(event, "id"))
@@ -157,10 +237,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .setLocalParallelism(1)
                 .writeTo(AssertionSinks.assertCollectedEventually(30, assertListFn(expectedEvents)));
 
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.addJarsInZip(Objects.requireNonNull(this.getClass()
-                .getClassLoader()
-                .getResource("debezium-connector-mongodb.zip")));
+        JobConfig jobConfig = new JobConfig()
+                .addJarsInZip(Objects.requireNonNull(this.getClass()
+                        .getClassLoader()
+                        .getResource("debezium-connector-mongodb.zip")));
 
         Job job = jet.newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
@@ -189,18 +269,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         return properties;
     }
 
-    private static int getOrderNumber(ChangeEvent event, String idName) throws ParsingException {
-        //pick random method for extracting ID in order to test all code paths
-        boolean primitive = ThreadLocalRandom.current().nextBoolean();
-        if (primitive) {
-            return event.key().id(idName);
-        } else {
-            Document document = event.key().map(Document.class);
-            return Integer.parseInt(document.getString(idName));
-        }
-    }
-
-    private static class State {
+    private static class State implements Serializable {
 
         private int updates = -1;
 
