@@ -91,10 +91,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.mapImage(Document.class));
+                                    state.set(eventValue.after().map(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.mapUpdate(Document.class));
+                                    state.update(eventValue.change().map(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -152,10 +152,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.mapImage(Document.class));
+                                    state.set(eventValue.after().map(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.mapUpdate(Document.class));
+                                    state.update(eventValue.change().map(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -221,10 +221,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.mapImage(Document.class));
+                                    state.set(eventValue.after().map(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.mapUpdate(Document.class));
+                                    state.update(eventValue.change().map(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();

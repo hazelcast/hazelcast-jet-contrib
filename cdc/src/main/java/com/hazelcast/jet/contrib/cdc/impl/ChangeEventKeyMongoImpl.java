@@ -30,6 +30,11 @@ public class ChangeEventKeyMongoImpl extends AbstractMongoFlatValues implements 
         this.json = keyJson;
     }
 
+    public ChangeEventKeyMongoImpl(Document document) {
+        super(() -> document);
+        this.json = document.toJson();
+    }
+
     @Override
     public <T> T map(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {

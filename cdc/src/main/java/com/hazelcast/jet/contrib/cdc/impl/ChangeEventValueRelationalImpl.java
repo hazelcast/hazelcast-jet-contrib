@@ -19,12 +19,13 @@ package com.hazelcast.jet.contrib.cdc.impl;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
 import com.hazelcast.jet.contrib.cdc.Operation;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazySupplier;
-import com.hazelcast.jet.contrib.cdc.util.LazyThrowingFunction;
-import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
+import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
+import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -35,8 +36,8 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     private final String json;
     private final long timestamp;
     private final Supplier<Operation> operation;
-    private final ThrowingFunction<Class<?>, Object, ParsingException> before;
-    private final ThrowingFunction<Class<?>, Object, ParsingException> after;
+    private final ThrowingSupplier<ChangeEventKey, ParsingException> before;
+    private final ThrowingSupplier<ChangeEventKey, ParsingException> after;
 
     public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper mapper) throws ParsingException {
         Objects.requireNonNull(valueJson, "valueJson");
@@ -45,8 +46,9 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
         Content content = parseContent(valueJson, mapper);
         this.timestamp = content.timestamp;
         this.operation = new LazySupplier<>(() -> Operation.get(content.operation));
-        this.after = new LazyThrowingFunction<>((clazz) -> toObject(content.after, clazz, mapper));
-        this.before = new LazyThrowingFunction<>((clazz) -> toObject(content.before, clazz, mapper));
+        this.before = new LazyThrowingSupplier<>(() -> new ChangeEventKeyRelationalImpl(content.before, mapper));
+        this.after = new LazyThrowingSupplier<>(() -> new ChangeEventKeyRelationalImpl(content.after, mapper));
+
         this.json = valueJson;
     }
 
@@ -61,23 +63,17 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public <T> T mapImage(Class<T> clazz) throws ParsingException {
-        Optional<T> after = (Optional<T>) this.after.apply(clazz);
-        if (after.isPresent()) {
-            return after.get();
-        }
-
-        Optional<T> before = (Optional<T>) this.before.apply(clazz);
-        if (before.isPresent()) {
-            return before.get();
-        }
-
-        throw new IllegalStateException(ChangeEventValueRelationalImpl.class.getSimpleName() +
-                " should have either a 'before' or 'after' value");
+    public ChangeEventKey before() throws ParsingException {
+        return before.get();
     }
 
     @Override
-    public <T> T mapUpdate(Class<T> clazz) {
+    public ChangeEventKey after() throws ParsingException {
+        return after.get();
+    }
+
+    @Override
+    public ChangeEventKey change() throws ParsingException {
         throw new UnsupportedOperationException("Not supported for relational databases");
     }
 

@@ -39,6 +39,12 @@ public class ChangeEventKeyRelationalImpl extends AbstractRelationalFlatValues i
         this.object = new LazyThrowingFunction<>((clazz) -> toObject(getNode(), clazz, mapper));
     }
 
+    public ChangeEventKeyRelationalImpl(@Nonnull JsonNode keyNode, @Nonnull ObjectMapper mapper) {
+        super(() -> keyNode);
+        this.json = keyNode.textValue();
+        this.object = new LazyThrowingFunction<>((clazz) -> toObject(keyNode, clazz, mapper));
+    }
+
     private static JsonNode toNode(String keyJson, ObjectMapper mapper) throws ProcessingException {
         try {
             return mapper.readTree(keyJson);

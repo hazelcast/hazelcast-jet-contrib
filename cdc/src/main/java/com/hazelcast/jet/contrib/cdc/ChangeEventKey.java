@@ -19,7 +19,7 @@ package com.hazelcast.jet.contrib.cdc;
 /**
  * TODO: javadoc
  */
-public interface ChangeEventKey extends FlatValues {
+public interface ChangeEventKey extends FlatValues { //todo: rename as ChangeEventElement
 
     /**
      * TODO: javadoc
