@@ -56,12 +56,16 @@ import com.hazelcast.jet.contrib.pulsar.*;
 [...]
 StreamSource<String> pulsarSource = PulsarSources.pulsarConsumer(
           Collections.singletonList(topicName),
-          2,       // Preferred Number of Local Parallelism
+          2, /* Preferred Number of Local Parallelism */
           consumerConfig,
           () -> PulsarClient.builder()
                             .serviceUrl("pulsar://exampleserviceurl")
                             .build(), /* Pulsar Client Supplier */
           () -> Schema.BYTES, /* Schema Supplier Function */
+          () -> BatchReceivePolicy.builder()
+                                  .maxNumMessages(512)
+                                  .timeout(1000, TimeUnit.MILLISECONDS)
+                                  .build(), /* Batch Receive Policy Supplier */
           x -> new String(x.getData(), StandardCharsets.UTF_8) /*
                Projection function that converts receiving bytes
                to String before emitting. */
@@ -78,5 +82,5 @@ who participated in this project.
 
 ## License
 
-This project is licensed under the Apache 2.0 license - see the [LICENSE](LICENSE) 
+This project is licensed under the Apache 2.0 license - see the [LICENSE](../LICENSE) 
 file for details

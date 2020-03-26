@@ -98,6 +98,7 @@ public final class PulsarSources {
      * @param consumerConfig Pulsar consumer configurations that must
      *                       contain consumer name, and subscription name.
      * @param schemaSupplier supplies the schema for consuming messages
+     * @param batchReceivePolicySupplier supplies the batch receiver policy for consumer
      * @param projectionFn converts a Pulsar message to an emitted item.
      * @param <M> the type of the message read by {@code PulsarConsumer}
      * @param <T> the type of data emitted from {@code StreamSource}
@@ -109,11 +110,13 @@ public final class PulsarSources {
             @Nonnull Map<String, Object> consumerConfig,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
+            @Nonnull SupplierEx<BatchReceivePolicy> batchReceivePolicySupplier,
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
         return SourceBuilder.timestampedStream("pulsar-distributed-stream-source", ctx -> new ConsumerContext<>(
-                ctx.logger(), connectionSupplier.get(), topics, consumerConfig, schemaSupplier, projectionFn))
+                ctx.logger(), connectionSupplier.get(), topics, consumerConfig,
+                schemaSupplier, batchReceivePolicySupplier, projectionFn))
                 .<T>fillBufferFn(ConsumerContext::fillBuffer)
                 .destroyFn(ConsumerContext::destroy)
                 .distributed(Vertex.checkLocalParallelism(preferredLocalParallelism))
@@ -163,7 +166,6 @@ public final class PulsarSources {
                 .build();
     }
 
-
     /**
      * A context for the stream source of Apache Pulsar
      *
@@ -171,8 +173,6 @@ public final class PulsarSources {
      * @param <T> the type of the emitted item after projection.
      */
     private static final class ConsumerContext<M, T> {
-        private static final int MAX_NUM_MESSAGES = 512;
-        private static final int TIMEOUT_IN_MS = 1000;
         private static final int MAX_ACK_RETRIES = 10;
 
         private final ILogger logger;
@@ -186,9 +186,11 @@ public final class PulsarSources {
                 @Nonnull List<String> topics,
                 @Nonnull Map<String, Object> consumerConfig,
                 @Nonnull SupplierEx<Schema<M>> schemaSupplier,
+                @Nonnull SupplierEx<BatchReceivePolicy> batchReceivePolicySupplier,
                 @Nonnull FunctionEx<Message<M>, T> projectionFn
         ) throws PulsarClientException {
             checkSerializable(schemaSupplier, "schemaSupplier");
+            checkSerializable(batchReceivePolicySupplier, "batchReceivePolicySupplier");
             checkSerializable(projectionFn, "projectionFn");
             this.logger = logger;
             this.projectionFn = projectionFn;
@@ -198,10 +200,7 @@ public final class PulsarSources {
                                   .loadConf(consumerConfig)
                                   .subscriptionType(SubscriptionType.Shared)
                                   .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
-                                  .batchReceivePolicy(BatchReceivePolicy.builder()
-                                                                        .maxNumMessages(MAX_NUM_MESSAGES)
-                                                                        .timeout(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS)
-                                                                        .build())
+                                  .batchReceivePolicy(batchReceivePolicySupplier.get())
                                   .subscribe();
         }
 

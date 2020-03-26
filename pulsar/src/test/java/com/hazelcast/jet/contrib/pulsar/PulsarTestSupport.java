@@ -19,6 +19,7 @@ import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.StreamSource;
+import org.apache.pulsar.client.api.BatchReceivePolicy;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
@@ -149,6 +150,8 @@ public class PulsarTestSupport extends JetTestSupport {
 
     protected static StreamSource<String> setupConsumerSource(String topicName,
                                                               FunctionEx<Message<byte[]>, String> projectionFn) {
+        final int MAX_NUM_MESSAGES = 512;
+        final int TIMEOUT_IN_MS = 1000;
         Map<String, Object> consumerConfig = new HashMap<>();
         consumerConfig.put("consumerName", "hazelcast-jet-consumer");
         consumerConfig.put("subscriptionName", "hazelcast-jet-subscription");
@@ -158,6 +161,10 @@ public class PulsarTestSupport extends JetTestSupport {
                 consumerConfig,
                 () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
                 () -> Schema.BYTES,
+                () -> BatchReceivePolicy.builder()
+                                        .maxNumMessages(MAX_NUM_MESSAGES)
+                                        .timeout(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS)
+                                        .build(),
                 projectionFn);
     }
 
