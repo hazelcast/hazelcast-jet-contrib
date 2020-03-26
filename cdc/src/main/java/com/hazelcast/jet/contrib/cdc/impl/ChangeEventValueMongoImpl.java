@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.cdc.impl;
 
-import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
+import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
 import com.hazelcast.jet.contrib.cdc.Operation;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
@@ -33,9 +33,9 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     private final String json;
     private final Supplier<Long> timestamp;
     private final Supplier<Operation> operation;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> before;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> after;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> patch;
+    private final ThrowingSupplier<ChangeEventElement, ParsingException> before;
+    private final ThrowingSupplier<ChangeEventElement, ParsingException> after;
+    private final ThrowingSupplier<ChangeEventElement, ParsingException> patch;
 
     public ChangeEventValueMongoImpl(String valueJson) {
         Objects.requireNonNull(valueJson, "valueJson");
@@ -43,9 +43,9 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
         Document document = Document.parse(valueJson);
         this.timestamp = new LazySupplier<>(() -> document.getLong("ts_ms"));
         this.operation = new LazySupplier<>(() -> Operation.get(document.getString("op")));
-        this.before = new LazyThrowingSupplier<>(() -> new ChangeEventKeyMongoImpl(subDocument(document, "before")));
-        this.after = new LazyThrowingSupplier<>(() -> new ChangeEventKeyMongoImpl(subDocument(document, "after")));
-        this.patch = new LazyThrowingSupplier<>(() -> new ChangeEventKeyMongoImpl(subDocument(document, "patch")));
+        this.before = new LazyThrowingSupplier<>(() -> new ChangeEventElementMongoImpl(subDocument(document, "before")));
+        this.after = new LazyThrowingSupplier<>(() -> new ChangeEventElementMongoImpl(subDocument(document, "after")));
+        this.patch = new LazyThrowingSupplier<>(() -> new ChangeEventElementMongoImpl(subDocument(document, "patch")));
         this.json = valueJson;
     }
 
@@ -60,17 +60,17 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     }
 
     @Override
-    public ChangeEventKey before() throws ParsingException {
+    public ChangeEventElement before() throws ParsingException {
         return before.get();
     }
 
     @Override
-    public ChangeEventKey after() throws ParsingException {
+    public ChangeEventElement after() throws ParsingException {
         return after.get();
     }
 
     @Override
-    public ChangeEventKey change() throws ParsingException {
+    public ChangeEventElement change() throws ParsingException {
         return patch.get();
     }
 

@@ -19,7 +19,7 @@ package com.hazelcast.jet.contrib.cdc.impl;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
+import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
 import com.hazelcast.jet.contrib.cdc.Operation;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
@@ -28,7 +28,6 @@ import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 public class ChangeEventValueRelationalImpl implements ChangeEventValue {
@@ -36,8 +35,8 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     private final String json;
     private final long timestamp;
     private final Supplier<Operation> operation;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> before;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> after;
+    private final ThrowingSupplier<ChangeEventElement, ParsingException> before;
+    private final ThrowingSupplier<ChangeEventElement, ParsingException> after;
 
     public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper mapper) throws ParsingException {
         Objects.requireNonNull(valueJson, "valueJson");
@@ -63,17 +62,17 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public ChangeEventKey before() throws ParsingException {
+    public ChangeEventElement before() throws ParsingException {
         return before.get();
     }
 
     @Override
-    public ChangeEventKey after() throws ParsingException {
+    public ChangeEventElement after() throws ParsingException {
         return after.get();
     }
 
     @Override
-    public ChangeEventKey change() throws ParsingException {
+    public ChangeEventElement change() throws ParsingException {
         throw new UnsupportedOperationException("Not supported for relational databases");
     }
 
@@ -85,15 +84,6 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     @Override
     public String toString() {
         return asJson();
-    }
-
-    private static Optional<Object> toObject(JsonNode node, Class<?> clazz, ObjectMapper mapper) throws ParsingException {
-        try {
-            Object value = mapper.treeToValue(node, clazz);
-            return value == null ? Optional.empty() : Optional.of(value);
-        } catch (Exception e) {
-            throw new ParsingException(e.getMessage(), e);
-        }
     }
 
     private static Content parseContent(String valueJson, ObjectMapper mapper) throws ParsingException {

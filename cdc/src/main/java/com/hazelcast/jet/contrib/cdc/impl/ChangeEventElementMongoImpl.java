@@ -16,25 +16,50 @@
 
 package com.hazelcast.jet.contrib.cdc.impl;
 
-import com.hazelcast.jet.contrib.cdc.FlatValues;
+import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
+import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
 import javax.ws.rs.ProcessingException;
 import java.util.Optional;
+import java.util.function.Supplier;
 
-public class AbstractMongoFlatValues implements FlatValues {
+class ChangeEventElementMongoImpl implements ChangeEventElement {
 
     private final ThrowingSupplier<Document, ParsingException> document;
+    private final Supplier<String> json;
 
     private final ThrowingFunction<String, Optional<Integer>, ParsingException> integers;
 
-    public AbstractMongoFlatValues(ThrowingSupplier<Document, ParsingException> document) {
+    ChangeEventElementMongoImpl(String keyJson) {
+        this(new LazyThrowingSupplier<>(() -> toDocument(keyJson)), () -> keyJson);
+    }
+
+    ChangeEventElementMongoImpl(Document document) {
+        this(() -> document, document::toJson);
+    }
+
+    private ChangeEventElementMongoImpl(ThrowingSupplier<Document, ParsingException> document, Supplier<String> json) {
         this.document = document;
+        this.json = json;
 
         this.integers = (key) -> parseInteger(document.get(), key);
+    }
+
+    @Override
+    public <T> T map(Class<T> clazz) throws ParsingException {
+        if (!clazz.equals(Document.class)) {
+            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
+        }
+        return (T) getDocument();
+    }
+
+    @Override
+    public String asJson() {
+        return json.get();
     }
 
     @Override
@@ -69,6 +94,19 @@ public class AbstractMongoFlatValues implements FlatValues {
 
     public Document getDocument() throws ParsingException {
         return document.get();
+    }
+
+    @Override
+    public String toString() {
+        return asJson();
+    }
+
+    private static Document toDocument(String keyJson) throws ParsingException {
+        try {
+            return Document.parse(keyJson);
+        } catch (Exception e) {
+            throw new ParsingException(e.getMessage(), e);
+        }
     }
 
     private static Optional<Integer> parseInteger(Document document, String key) throws ProcessingException {

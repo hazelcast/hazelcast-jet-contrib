@@ -38,6 +38,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.contrib.cdc.Operation.DELETE;
 import static com.hazelcast.jet.core.test.JetAssert.fail;
 import static org.junit.Assert.assertTrue;
 import static org.testcontainers.containers.MSSQLServerContainer.MS_SQL_SERVER_PORT;
@@ -80,10 +81,11 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
                         (accumulator, customerId, event) -> {
                             long count = accumulator.get();
                             accumulator.add(1);
-                            Operation operation = event.value().getOperation();
-                            ChangeEventKey value = Operation.DELETE.equals(operation) ? event.value().before() :
-                                    event.value().after();
-                            Customer customer = value.map(Customer.class);
+                            ChangeEventValue eventValue = event.value();
+                            Operation operation = eventValue.getOperation();
+                            ChangeEventElement mostRecentImage = DELETE.equals(operation) ?
+                                    eventValue.before() : eventValue.after();
+                            Customer customer = mostRecentImage.map(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

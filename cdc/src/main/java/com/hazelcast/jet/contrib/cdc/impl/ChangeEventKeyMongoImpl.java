@@ -17,47 +17,11 @@
 package com.hazelcast.jet.contrib.cdc.impl;
 
 import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
-import com.hazelcast.jet.contrib.cdc.ParsingException;
-import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
-import org.bson.Document;
 
-public class ChangeEventKeyMongoImpl extends AbstractMongoFlatValues implements ChangeEventKey {
-
-    private final String json;
+public class ChangeEventKeyMongoImpl extends ChangeEventElementMongoImpl implements ChangeEventKey {
 
     public ChangeEventKeyMongoImpl(String keyJson) {
-        super(new LazyThrowingSupplier<>(() -> toDocument(keyJson)));
-        this.json = keyJson;
+        super(keyJson);
     }
 
-    public ChangeEventKeyMongoImpl(Document document) {
-        super(() -> document);
-        this.json = document.toJson();
-    }
-
-    @Override
-    public <T> T map(Class<T> clazz) throws ParsingException {
-        if (!clazz.equals(Document.class)) {
-            throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
-        }
-        return (T) getDocument();
-    }
-
-    @Override
-    public String asJson() {
-        return json;
-    }
-
-    @Override
-    public String toString() {
-        return asJson();
-    }
-
-    private static Document toDocument(String keyJson) throws ParsingException {
-        try {
-            return Document.parse(keyJson);
-        } catch (Exception e) {
-            throw new ParsingException(e.getMessage(), e);
-        }
-    }
 }

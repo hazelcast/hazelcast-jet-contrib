@@ -19,22 +19,5 @@ package com.hazelcast.jet.contrib.cdc;
 /**
  * TODO: javadoc
  */
-public interface ChangeEventKey extends FlatValues { //todo: rename as ChangeEventElement
-
-    /**
-     * TODO: javadoc
-     */
-    <T> T map(Class<T> clazz) throws ParsingException;
-
-    /**
-     * Returns raw JSON string on which the content of this event is
-     * based. To be used when parsing fails for some reason (for example
-     * on some untested DB-connector version combination).
-     *
-     * While the format is standard for RELATIONAL DATABASES, for
-     * MongoDB it's MongoDB Extended JSON v2 format and needs to be
-     * parsed accordingly.
-     * TODO: javadoc
-     */
-    String asJson();
+public interface ChangeEventKey extends ChangeEventElement {
 }

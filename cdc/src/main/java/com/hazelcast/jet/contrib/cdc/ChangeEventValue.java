@@ -34,17 +34,17 @@ public interface ChangeEventValue {
     /**
      * TODO: javadoc
      */
-    ChangeEventKey before() throws ParsingException;
+    ChangeEventElement before() throws ParsingException;
 
     /**
      * TODO: javadoc
      */
-    ChangeEventKey after() throws ParsingException;
+    ChangeEventElement after() throws ParsingException;
 
     /**
      * TODO: javadoc
      */
-    ChangeEventKey change() throws ParsingException;
+    ChangeEventElement change() throws ParsingException;
 
     /**
      * Returns raw JSON string on which the content of this event is
