@@ -64,6 +64,10 @@ A Hazelcast Jet connector for consuming data from Twitter stream sources in Jet 
 Tests to check compatibility of the XA support in your JMS broker or
 JDBC database with Jet's fault tolerance.
 
+### [Slack Connector](slack) 
+
+A Hazelcast Jet slack connector to post processed messages to slack channels using slack sink in the Jet pipelines.
+
 ## Snapshot Releases
 
 To access snapshot builds add the following `dependency` and `repository` declarations
