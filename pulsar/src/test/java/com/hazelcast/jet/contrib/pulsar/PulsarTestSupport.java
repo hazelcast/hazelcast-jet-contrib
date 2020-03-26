@@ -183,13 +183,9 @@ public class PulsarTestSupport extends JetTestSupport {
     protected static Sink<Integer> setupSink(String topicName) {
         Map<String, Object> producerConfig = new HashMap<>();
         producerConfig.put("maxPendingMessages", 15000);
-        return PulsarSinks.<Integer, Double>builder(topicName,
-                producerConfig,
-                () -> PulsarClient.builder()
-                                  .serviceUrl(getServiceUrl())
-                                  .build())
-                .schemaSupplier(() -> Schema.DOUBLE)
-                .extractValueFn(Integer::doubleValue)
-                .build();
+        return PulsarSinks.builder(topicName, producerConfig,
+                () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
+                () -> Schema.DOUBLE,
+                Integer::doubleValue).build();
     }
 }

@@ -38,7 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
 /**
- * See {@link PulsarSinks#builder(String, Map, SupplierEx)}
+ * See {@link PulsarSinks#builder(String, Map, SupplierEx, SupplierEx, FunctionEx)}
  *
  * @param <E> the type of stream item
  * @param <M> the type of the message published by {@code PulsarProducer}
@@ -56,49 +56,39 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
 
 
     /**
+     * Required fields of Pulsar sink
+     *
      * @param topic              Pulsar topic name to publish to
      * @param producerConfig     The configurations for {@code PulsarProducer}
      * @param connectionSupplier Pulsar client supplier
+     * @param extractValueFn     extracts the message value from the emitted items.
+     * @param schemaSupplier     Pulsar messaging schema supplier.
      */
     public PulsarSinkBuilder(
             @Nonnull String topic,
             @Nonnull Map<String, Object> producerConfig,
-            @Nonnull SupplierEx<PulsarClient> connectionSupplier
+            @Nonnull SupplierEx<PulsarClient> connectionSupplier,
+            @Nonnull SupplierEx<Schema<M>> schemaSupplier,
+            @Nonnull FunctionEx<? super E, M> extractValueFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
         checkSerializable(producerConfig, "producerConfig");
+        checkSerializable(schemaSupplier, "schemaSupplier");
+        checkSerializable(extractValueFn, "extractValueFn");
+
         this.topic = topic;
         this.producerConfig = producerConfig;
         this.connectionSupplier = connectionSupplier;
-    }
-
-    /**
-     * @param schemaSupplier Pulsar messaging schema supplier.
-     */
-    public PulsarSinkBuilder<E, M> schemaSupplier(
-            @Nonnull SupplierEx<Schema<M>> schemaSupplier
-    ) {
-        checkSerializable(schemaSupplier, "schemaSupplier");
         this.schemaSupplier = schemaSupplier;
-        return this;
-    }
-
-    /**
-     * @param extractValueFn extracts the message value from the emitted items.
-     */
-    public PulsarSinkBuilder<E, M> extractValueFn(
-            @Nonnull FunctionEx<? super E, M> extractValueFn
-    ) {
-        checkSerializable(extractValueFn, "extractValueFn");
         this.extractValueFn = extractValueFn;
-        return this;
+
     }
 
     /**
      * @param extractKeyFn extracts the message key from the emitted items.
      */
     public PulsarSinkBuilder<E, M> extractKeyFn(
-            @Nonnull FunctionEx<? super E, String> extractKeyFn
+            FunctionEx<? super E, String> extractKeyFn
     ) {
         checkSerializable(extractKeyFn, "extractKeyFn");
         this.extractKeyFn = extractKeyFn;
@@ -109,7 +99,7 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
      * @param extractPropertiesFn extracts the message properties from the emitted items.
      */
     public PulsarSinkBuilder<E, M> extractPropertiesFn(
-            @Nonnull FunctionEx<? super E, Map<String, String>> extractPropertiesFn
+            FunctionEx<? super E, Map<String, String>> extractPropertiesFn
     ) {
         checkSerializable(extractPropertiesFn, "extractPropertiesFn");
         this.extractPropertiesFn = extractPropertiesFn;
@@ -120,7 +110,7 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
      * @param extractTimestampFn the function that extracts the timestamp from the emitted item.
      */
     public PulsarSinkBuilder<E, M> extractTimestampFn(
-            @Nonnull FunctionEx<? super E, Long> extractTimestampFn
+            FunctionEx<? super E, Long> extractTimestampFn
     ) {
         checkSerializable(extractTimestampFn, "extractTimestampFn");
         this.extractTimestampFn = extractTimestampFn;

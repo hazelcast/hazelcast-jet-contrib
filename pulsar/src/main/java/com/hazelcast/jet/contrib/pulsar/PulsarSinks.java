@@ -41,19 +41,24 @@ public final class PulsarSinks {
      * @param topic              Pulsar topic name to publish to
      * @param producerConfig     The configurations are used to create the {@code PulsarProducer}
      * @param connectionSupplier Pulsar client supplier
+     * @param extractValueFn     extracts the message value from the emitted items.
+     * @param schemaSupplier     Pulsar messaging schema supplier.
      * @param <E>                the type of stream items that sink accepts
      * @param <M>                the type of the message published by {@code PulsarProducer}
      */
     public static <E, M> PulsarSinkBuilder<E, M> builder(
             @Nonnull String topic,
             @Nonnull Map<String, Object> producerConfig,
-            @Nonnull SupplierEx<PulsarClient> connectionSupplier
+            @Nonnull SupplierEx<PulsarClient> connectionSupplier,
+            @Nonnull SupplierEx<Schema<M>> schemaSupplier,
+            @Nonnull FunctionEx<? super E, M> extractValueFn
+
     ) {
-        return new PulsarSinkBuilder<>(topic, producerConfig, connectionSupplier);
+        return new PulsarSinkBuilder<>(topic, producerConfig, connectionSupplier, schemaSupplier, extractValueFn);
     }
 
     /**
-     * Convenience for {@link #builder(String, Map, SupplierEx)}.
+     * Convenience for {@link #builder(String, Map, SupplierEx, SupplierEx, FunctionEx)}.
      * It creates a basic Pulsar sink that connect the topic.
      */
     public static <E, M> Sink<E> pulsarSink(
@@ -63,12 +68,8 @@ public final class PulsarSinks {
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
             @Nonnull FunctionEx<? super E, M> extractValueFn
     ) {
-
-        return PulsarSinks.<E, M>builder(topic, producerConfig, () -> PulsarClient.builder()
-                                                                                  .serviceUrl(serviceUrl)
-                                                                                  .build())
-                .schemaSupplier(schemaSupplier)
-                .extractValueFn(extractValueFn)
+        return PulsarSinks.<E, M>builder(topic, producerConfig,
+                () -> PulsarClient.builder().serviceUrl(serviceUrl).build(), schemaSupplier, extractValueFn)
                 .build();
     }
 
