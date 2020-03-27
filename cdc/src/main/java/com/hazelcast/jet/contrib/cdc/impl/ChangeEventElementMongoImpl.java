@@ -23,7 +23,6 @@ import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
-import javax.ws.rs.ProcessingException;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -32,10 +31,15 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
     private final ThrowingSupplier<Document, ParsingException> document;
     private final Supplier<String> json;
 
+    private final ThrowingFunction<String, Optional<Object>, ParsingException> objects;
+    private final ThrowingFunction<String, Optional<String>, ParsingException> strings;
     private final ThrowingFunction<String, Optional<Integer>, ParsingException> integers;
+    private final ThrowingFunction<String, Optional<Long>, ParsingException> longs;
+    private final ThrowingFunction<String, Optional<Double>, ParsingException> doubles;
+    private final ThrowingFunction<String, Optional<Boolean>, ParsingException> booleans;
 
-    ChangeEventElementMongoImpl(String keyJson) {
-        this(new LazyThrowingSupplier<>(() -> toDocument(keyJson)), () -> keyJson);
+    ChangeEventElementMongoImpl(String json) {
+        this(new LazyThrowingSupplier<>(MongoParsing.parse(json)), () -> json);
     }
 
     ChangeEventElementMongoImpl(Document document) {
@@ -46,7 +50,12 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
         this.document = document;
         this.json = json;
 
-        this.integers = (key) -> parseInteger(document.get(), key);
+        this.objects = (key) -> MongoParsing.getObject(document.get(), key);
+        this.strings = (key) -> MongoParsing.getString(document.get(), key);
+        this.integers = (key) -> MongoParsing.getInteger(document.get(), key);
+        this.longs = (key) -> MongoParsing.getLong(document.get(), key);
+        this.doubles = (key) -> MongoParsing.getDouble(document.get(), key);
+        this.booleans = (key) -> MongoParsing.getBoolean(document.get(), key);
     }
 
     @Override
@@ -54,22 +63,17 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
-        return (T) getDocument();
-    }
-
-    @Override
-    public String asJson() {
-        return json.get();
+        return (T) document.get();
     }
 
     @Override
     public Optional<Object> getObject(String key) throws ParsingException {
-        return Optional.empty(); //todo
+        return objects.apply(key);
     }
 
     @Override
     public Optional<String> getString(String key) throws ParsingException {
-        return Optional.empty(); //todo
+        return strings.apply(key);
     }
 
     @Override
@@ -79,21 +83,22 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
 
     @Override
     public Optional<Long> getLong(String key) throws ParsingException {
-        return Optional.empty(); //todo
+        return longs.apply(key);
     }
 
     @Override
     public Optional<Double> getDouble(String key) throws ParsingException {
-        return Optional.empty(); //todo
+        return doubles.apply(key);
     }
 
     @Override
     public Optional<Boolean> getBoolean(String key) throws ParsingException {
-        return Optional.empty(); //todo
+        return booleans.apply(key);
     }
 
-    public Document getDocument() throws ParsingException {
-        return document.get();
+    @Override
+    public String asJson() {
+        return json.get();
     }
 
     @Override
@@ -101,26 +106,5 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
         return asJson();
     }
 
-    private static Document toDocument(String keyJson) throws ParsingException {
-        try {
-            return Document.parse(keyJson);
-        } catch (Exception e) {
-            throw new ParsingException(e.getMessage(), e);
-        }
-    }
 
-    private static Optional<Integer> parseInteger(Document document, String key) throws ProcessingException {
-        Object object = document.get(key);
-        if (object instanceof Number) {
-            return Optional.of(((Number) object).intValue());
-        } else if (object instanceof String) {
-            try {
-                return Optional.of(new Integer((String) object));
-            } catch (NumberFormatException e) {
-                return Optional.empty();
-            }
-        } else {
-            return Optional.empty();
-        }
-    }
 }

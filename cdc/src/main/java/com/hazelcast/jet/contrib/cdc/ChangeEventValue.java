@@ -23,26 +23,43 @@ public interface ChangeEventValue {
 
     /**
      * TODO: javadoc
+     *
+     * @throws ParsingException if no parsable timestamp field present
      */
-    long timestamp();
+    long timestamp() throws ParsingException;
+
+    /**
+     * //TODO: javadoc
+     *
+     * @return {@link Operation#UNSPECIFIED} if this {@code ChangeEventValue}
+     * doesn't have an operation field or appropriate {@link Operation}
+     * that matches what's found in the operation field
+     * @throws ParsingException if there is an operation field, but it's
+     *                          value is not among the handled ones.
+     */
+    Operation getOperation() throws ParsingException;
 
     /**
      * TODO: javadoc
-     */
-    Operation getOperation();
-
-    /**
-     * TODO: javadoc
+     *
+     * @throws ParsingException if this {@code ChangeEventValue} doesn't
+     *                          have a 'before' sub-element
      */
     ChangeEventElement before() throws ParsingException;
 
     /**
      * TODO: javadoc
+     *
+     * @throws ParsingException if this {@code ChangeEventValue} doesn't
+     *                          have an 'after' sub-element
      */
     ChangeEventElement after() throws ParsingException;
 
     /**
      * TODO: javadoc
+     *
+     * @throws ParsingException if this {@code ChangeEventValue} doesn't
+     *                          have an 'patch' sub-element
      */
     ChangeEventElement change() throws ParsingException;
 
@@ -50,7 +67,7 @@ public interface ChangeEventValue {
      * Returns raw JSON string on which the content of this event is
      * based. To be used when parsing fails for some reason (for example
      * on some untested DB-connector version combination).
-     *
+     * <p>
      * While the format is standard for RELATIONAL DATABASES, for
      * MongoDB it's MongoDB Extended JSON v2 format and needs to be
      * parsed accordingly.

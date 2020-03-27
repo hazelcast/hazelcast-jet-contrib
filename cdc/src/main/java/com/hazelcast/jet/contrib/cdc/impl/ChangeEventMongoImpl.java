@@ -19,12 +19,8 @@ package com.hazelcast.jet.contrib.cdc.impl;
 import com.hazelcast.jet.contrib.cdc.ChangeEvent;
 import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
-import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazySupplier;
-import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
-import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -32,25 +28,25 @@ import java.util.function.Supplier;
 public class ChangeEventMongoImpl implements ChangeEvent {
 
     private final Supplier<String> json;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
-    private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
+    private final Supplier<ChangeEventKey> key;
+    private final Supplier<ChangeEventValue> value;
 
     public ChangeEventMongoImpl(@Nullable String keyJson, @Nullable String valueJson) {
         Objects.requireNonNull(keyJson, "keyJson");
         Objects.requireNonNull(valueJson, "valueJson");
 
-        this.key = new LazyThrowingSupplier<>(() -> getChangeEventKey(keyJson));
-        this.value = new LazyThrowingSupplier<>(() -> getChangeEventValue(valueJson));
+        this.key = new LazySupplier<>(() -> new ChangeEventKeyMongoImpl(keyJson));
+        this.value = new LazySupplier<>(() -> new ChangeEventValueMongoImpl(valueJson));
         this.json = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
     }
 
     @Override
-    public ChangeEventKey key() throws ParsingException {
+    public ChangeEventKey key() {
         return key.get();
     }
 
     @Override
-    public ChangeEventValue value() throws ParsingException {
+    public ChangeEventValue value() {
         return value.get();
     }
 
@@ -62,16 +58,6 @@ public class ChangeEventMongoImpl implements ChangeEvent {
     @Override
     public String toString() {
         return asJson();
-    }
-
-    @Nonnull
-    private static ChangeEventKey getChangeEventKey(String keyJson) {
-        return new ChangeEventKeyMongoImpl(keyJson);
-    }
-
-    @Nonnull
-    private static ChangeEventValue getChangeEventValue(String valueJson) {
-        return new ChangeEventValueMongoImpl(valueJson);
     }
 
 }

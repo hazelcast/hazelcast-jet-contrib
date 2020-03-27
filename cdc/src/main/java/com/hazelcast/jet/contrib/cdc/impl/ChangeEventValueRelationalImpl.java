@@ -16,63 +16,68 @@
 
 package com.hazelcast.jet.contrib.cdc.impl;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
 import com.hazelcast.jet.contrib.cdc.Operation;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
-import com.hazelcast.jet.contrib.cdc.util.LazySupplier;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import java.util.Objects;
-import java.util.function.Supplier;
+import java.util.Optional;
+
+import static com.hazelcast.jet.contrib.cdc.impl.RelationalParsing.getLong;
+import static com.hazelcast.jet.contrib.cdc.impl.RelationalParsing.getString;
+import static com.hazelcast.jet.contrib.cdc.impl.RelationalParsing.parse;
 
 public class ChangeEventValueRelationalImpl implements ChangeEventValue {
 
     private final String json;
-    private final long timestamp;
-    private final Supplier<Operation> operation;
-    private final ThrowingSupplier<ChangeEventElement, ParsingException> before;
-    private final ThrowingSupplier<ChangeEventElement, ParsingException> after;
+    private final ThrowingSupplier<Optional<Long>, ParsingException> timestamp;
+    private final ThrowingSupplier<Operation, ParsingException> operation;
+    private final ThrowingSupplier<Optional<ChangeEventElement>, ParsingException> before;
+    private final ThrowingSupplier<Optional<ChangeEventElement>, ParsingException> after;
 
-    public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper mapper) throws ParsingException {
+    public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper mapper) {
         Objects.requireNonNull(valueJson, "valueJson");
         Objects.requireNonNull(mapper, "mapper");
 
-        Content content = parseContent(valueJson, mapper);
-        this.timestamp = content.timestamp;
-        this.operation = new LazySupplier<>(() -> Operation.get(content.operation));
-        this.before = new LazyThrowingSupplier<>(() -> new ChangeEventKeyRelationalImpl(content.before, mapper));
-        this.after = new LazyThrowingSupplier<>(() -> new ChangeEventKeyRelationalImpl(content.after, mapper));
-
+        ThrowingSupplier<JsonNode, ParsingException> node = parse(valueJson, mapper);
+        this.timestamp = new LazyThrowingSupplier<>(() ->
+                getLong(node.get(), "ts_ms"));
+        this.operation = new LazyThrowingSupplier<>(() ->
+                Operation.get(getString(node.get(), "op").orElse(null)));
+        this.before = new LazyThrowingSupplier<>(() -> RelationalParsing.getNode(node.get(), "before", mapper).get()
+                .map(n -> new ChangeEventElementRelationalImpl(n, mapper)));
+        this.after = new LazyThrowingSupplier<>(() -> RelationalParsing.getNode(node.get(), "after", mapper).get()
+                .map(n -> new ChangeEventElementRelationalImpl(n, mapper)));
         this.json = valueJson;
     }
 
     @Override
-    public Operation getOperation() {
+    public long timestamp() throws ParsingException {
+        return timestamp.get().orElseThrow(() -> new ParsingException("No parsable timestamp field found"));
+    }
+
+    @Override
+    public Operation getOperation() throws ParsingException {
         return operation.get();
     }
 
     @Override
-    public long timestamp() {
-        return timestamp;
-    }
-
-    @Override
     public ChangeEventElement before() throws ParsingException {
-        return before.get();
+        return before.get().orElseThrow(() -> new ParsingException("No 'before' sub-node present"));
     }
 
     @Override
     public ChangeEventElement after() throws ParsingException {
-        return after.get();
+        return after.get().orElseThrow(() -> new ParsingException("No 'after' sub-node present"));
     }
 
     @Override
-    public ChangeEventElement change() throws ParsingException {
+    public ChangeEventElement change() {
         throw new UnsupportedOperationException("Not supported for relational databases");
     }
 
@@ -84,32 +89,5 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     @Override
     public String toString() {
         return asJson();
-    }
-
-    private static Content parseContent(String valueJson, ObjectMapper mapper) throws ParsingException {
-        try {
-            return mapper.readValue(valueJson, Content.class);
-        } catch (Exception e) {
-            throw new ParsingException(e.getMessage(), e);
-        }
-    }
-
-    private static class Content {
-
-        @JsonProperty("source")
-        public JsonNode source;
-
-        @JsonProperty("after")
-        public JsonNode after;
-
-        @JsonProperty("before")
-        public JsonNode before;
-
-        @JsonProperty("ts_ms")
-        public long timestamp;
-
-        @JsonProperty("op")
-        public String operation;
-
     }
 }

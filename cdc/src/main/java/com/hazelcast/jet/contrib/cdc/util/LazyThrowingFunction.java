@@ -17,6 +17,8 @@
 package com.hazelcast.jet.contrib.cdc.util;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -30,7 +32,7 @@ public class LazyThrowingFunction<T, R, E extends Exception> implements Throwing
     @Nonnull
     private final ThrowingFunction<T, R, E> expensiveFunction;
 
-    private R value;
+    private Map<T, R> values = new HashMap<>();
 
     /**
      * TODO: javadoc
@@ -44,8 +46,10 @@ public class LazyThrowingFunction<T, R, E extends Exception> implements Throwing
      */
     @Override
     public R apply(T t) throws E {
+        R value = values.get(t);
         if (value == null) {
             value = expensiveFunction.apply(t);
+            values.put(t, value);
         }
         return value;
     }

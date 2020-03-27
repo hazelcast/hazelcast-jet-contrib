@@ -26,7 +26,6 @@ import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
-import javax.ws.rs.ProcessingException;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -35,16 +34,21 @@ class ChangeEventElementRelationalImpl implements ChangeEventElement {
     private final ThrowingSupplier<JsonNode, ParsingException> node;
     private final Supplier<String> json;
 
-    private final ThrowingFunction<Class<?>, Object, ParsingException> object; //todo: rename to mapper
+    private final ThrowingFunction<Class<?>, Object, ParsingException> mapper;
 
+    private final ThrowingFunction<String, Optional<Object>, ParsingException> objects;
+    private final ThrowingFunction<String, Optional<String>, ParsingException> strings;
     private final ThrowingFunction<String, Optional<Integer>, ParsingException> integers;
+    private final ThrowingFunction<String, Optional<Long>, ParsingException> longs;
+    private final ThrowingFunction<String, Optional<Double>, ParsingException> doubles;
+    private final ThrowingFunction<String, Optional<Boolean>, ParsingException> booleans;
 
-    ChangeEventElementRelationalImpl(@Nonnull String keyJson, @Nonnull ObjectMapper mapper) {
-        this(new LazyThrowingSupplier<>(() -> toNode(keyJson, mapper)), () -> keyJson, mapper);
+    ChangeEventElementRelationalImpl(@Nonnull String json, @Nonnull ObjectMapper mapper) {
+        this(new LazyThrowingSupplier<>(RelationalParsing.parse(json, mapper)), () -> json, mapper);
     }
 
-    ChangeEventElementRelationalImpl(@Nonnull JsonNode keyNode, @Nonnull ObjectMapper mapper) {
-        this(() -> keyNode, keyNode::textValue, mapper);
+    ChangeEventElementRelationalImpl(@Nonnull JsonNode node, @Nonnull ObjectMapper mapper) {
+        this(() -> node, node::textValue, mapper);
     }
 
     private ChangeEventElementRelationalImpl(
@@ -54,34 +58,29 @@ class ChangeEventElementRelationalImpl implements ChangeEventElement {
         this.node = node;
         this.json = json;
 
-        this.object = new LazyThrowingFunction<>((clazz) -> toObject(getNode(), clazz, mapper));
+        this.mapper = new LazyThrowingFunction<>((clazz) -> RelationalParsing.map(node.get(), clazz, mapper));
 
-        this.integers = (key) -> parseIntegers(node.get(), key);
+        this.objects = (key) -> RelationalParsing.getObject(node.get(), key);
+        this.strings = (key) -> RelationalParsing.getString(node.get(), key);
+        this.integers = (key) -> RelationalParsing.getInteger(node.get(), key);
+        this.longs = (key) -> RelationalParsing.getLong(node.get(), key);
+        this.doubles = (key) -> RelationalParsing.getDouble(node.get(), key);
+        this.booleans = (key) -> RelationalParsing.getBoolean(node.get(), key);
     }
 
     @Override
     public <T> T map(Class<T> clazz) throws ParsingException {
-        Optional<T> o = (Optional<T>) object.apply(clazz);
-        if (o.isPresent()) {
-            return o.get();
-        } else {
-            throw new ParsingException("Failed mapping key into a " + clazz.getName());
-        }
+        return (T) mapper.apply(clazz);
     }
 
     @Override
-    public String asJson() {
-        return json.get();
+    public Optional<Object> getObject(String key) throws ParsingException {
+        return objects.apply(key);
     }
 
     @Override
-    public Optional<Object> getObject(String key) throws ParsingException  {
-        return Optional.empty(); //todo
-    }
-
-    @Override
-    public Optional<String> getString(String key) throws ParsingException  {
-        return Optional.empty(); //todo
+    public Optional<String> getString(String key) throws ParsingException {
+        return strings.apply(key);
     }
 
     @Override
@@ -90,22 +89,23 @@ class ChangeEventElementRelationalImpl implements ChangeEventElement {
     }
 
     @Override
-    public Optional<Long> getLong(String key) throws ParsingException  {
-        return Optional.empty(); //todo
+    public Optional<Long> getLong(String key) throws ParsingException {
+        return longs.apply(key);
     }
 
     @Override
-    public Optional<Double> getDouble(String key) throws ParsingException  {
-        return Optional.empty(); //todo
+    public Optional<Double> getDouble(String key) throws ParsingException {
+        return doubles.apply(key);
     }
 
     @Override
-    public Optional<Boolean> getBoolean(String key) throws ParsingException  {
-        return Optional.empty(); //todo
+    public Optional<Boolean> getBoolean(String key) throws ParsingException {
+        return booleans.apply(key);
     }
 
-    protected JsonNode getNode() throws ParsingException {
-        return node.get();
+    @Override
+    public String asJson() {
+        return json.get();
     }
 
     @Override
@@ -113,25 +113,4 @@ class ChangeEventElementRelationalImpl implements ChangeEventElement {
         return asJson();
     }
 
-    private static JsonNode toNode(String keyJson, ObjectMapper mapper) throws ProcessingException {
-        try {
-            return mapper.readTree(keyJson);
-        } catch (Exception e) {
-            throw new ProcessingException(e.getMessage(), e);
-        }
-    }
-
-    private static Optional<Object> toObject(JsonNode node, Class<?> clazz, ObjectMapper mapper) throws ParsingException {
-        try {
-            Object value = mapper.treeToValue(node, clazz);
-            return value == null ? Optional.empty() : Optional.of(value);
-        } catch (Exception e) {
-            throw new ParsingException(e.getMessage(), e);
-        }
-    }
-
-    private static Optional<Integer> parseIntegers(JsonNode node, String key) {
-        JsonNode value = node.get(key);
-        return Optional.ofNullable(value == null ? null : value.intValue());
-    }
 }

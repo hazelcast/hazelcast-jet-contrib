@@ -31,12 +31,12 @@ public interface ChangeEvent {
     /**
      * TODO: javadoc
      */
-    ChangeEventKey key() throws ParsingException;
+    ChangeEventKey key();
 
     /**
      * TODO: javadoc
      */
-    ChangeEventValue value() throws ParsingException;
+    ChangeEventValue value();
 
     /**
      * Returns raw JSON string on which the content of this event is

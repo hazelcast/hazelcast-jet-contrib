@@ -16,10 +16,16 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import java.util.Objects;
+
 /**
  * TODO: javadoc
  */
 public enum Operation {
+    /**
+     * Change event doesn't have an operation field, for example heartbeats.
+     */
+    UNSPECIFIED(null),
     /**
      * Just like {@link #INSERT}, but coming from the DB snapshot (as
      * opposed to trailing the DB changelog).
@@ -51,13 +57,13 @@ public enum Operation {
     /**
      * TODO: javadoc
      */
-    public static Operation get(String id) {
+    public static Operation get(String id) throws ParsingException {
         Operation[] values = values();
         for (Operation value : values) {
-            if (value.id.equals(id)) {
+            if (Objects.equals(value.id, id)) {
                 return value;
             }
         }
-        throw new IllegalArgumentException(id + " is not a valid operation id");
+        throw new ParsingException("'" + id + "' is not a valid operation id");
     }
 }

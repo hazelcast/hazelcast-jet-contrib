@@ -20,10 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.contrib.cdc.ChangeEvent;
 import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
-import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazySupplier;
-import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
-import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,8 +30,8 @@ import java.util.function.Supplier;
 public class ChangeEventRelationalImpl implements ChangeEvent {
 
     private final Supplier<String> json;
-    private final ThrowingSupplier<ChangeEventKey, ParsingException> key;
-    private final ThrowingSupplier<ChangeEventValue, ParsingException> value;
+    private final Supplier<ChangeEventKey> key;
+    private final Supplier<ChangeEventValue> value;
 
     public ChangeEventRelationalImpl(@Nullable String keyJson,
                                      @Nullable String valueJson,
@@ -43,18 +40,18 @@ public class ChangeEventRelationalImpl implements ChangeEvent {
         Objects.requireNonNull(valueJson, "valueJson");
         Objects.requireNonNull(mapper, "mapper");
 
-        this.key = new LazyThrowingSupplier<>(() -> getChangeEventKey(keyJson, mapper));
-        this.value = new LazyThrowingSupplier<>(() -> getChangeEventValue(valueJson, mapper));
+        this.key = new LazySupplier<>(() -> new ChangeEventKeyRelationalImpl(keyJson, mapper));
+        this.value = new LazySupplier<>(() -> new ChangeEventValueRelationalImpl(valueJson, mapper));
         this.json = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
     }
 
     @Override
-    public ChangeEventKey key() throws ParsingException {
+    public ChangeEventKey key() {
         return key.get();
     }
 
     @Override
-    public ChangeEventValue value() throws ParsingException {
+    public ChangeEventValue value() {
         return value.get();
     }
 
@@ -68,13 +65,4 @@ public class ChangeEventRelationalImpl implements ChangeEvent {
         return asJson();
     }
 
-    @Nonnull
-    private static ChangeEventKey getChangeEventKey(String keyJson, ObjectMapper mapper) {
-        return new ChangeEventKeyRelationalImpl(keyJson, mapper);
-    }
-
-    @Nonnull
-    private static ChangeEventValue getChangeEventValue(String valueJson, ObjectMapper mapper) throws ParsingException {
-        return new ChangeEventValueRelationalImpl(valueJson, mapper);
-    }
 }

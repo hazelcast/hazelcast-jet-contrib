@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.cdc.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 
@@ -26,10 +25,6 @@ public class ChangeEventKeyRelationalImpl extends ChangeEventElementRelationalIm
 
     public ChangeEventKeyRelationalImpl(@Nonnull String keyJson, @Nonnull ObjectMapper mapper) {
         super(keyJson, mapper);
-    }
-
-    public ChangeEventKeyRelationalImpl(@Nonnull JsonNode keyNode, @Nonnull ObjectMapper mapper) {
-        super(keyNode, mapper);
     }
 
 }
