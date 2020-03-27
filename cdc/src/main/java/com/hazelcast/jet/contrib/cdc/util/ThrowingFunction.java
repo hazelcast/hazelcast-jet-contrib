@@ -16,6 +16,8 @@
 
 package com.hazelcast.jet.contrib.cdc.util;
 
+import java.io.Serializable;
+
 /**
  * TODO: javadoc
  * @param <T>
@@ -23,7 +25,7 @@ package com.hazelcast.jet.contrib.cdc.util;
  * @param <E>
  */
 @FunctionalInterface
-public interface ThrowingFunction<T, R, E extends Exception> {
+public interface ThrowingFunction<T, R, E extends Exception> extends Serializable {
 
     /**
      * TODO: javadoc

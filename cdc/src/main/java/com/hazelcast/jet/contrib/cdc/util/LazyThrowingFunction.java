@@ -32,7 +32,7 @@ public class LazyThrowingFunction<T, R, E extends Exception> implements Throwing
     @Nonnull
     private final ThrowingFunction<T, R, E> expensiveFunction;
 
-    private Map<T, R> values = new HashMap<>();
+    private transient Map<T, R> values = new HashMap<>();
 
     /**
      * TODO: javadoc

@@ -31,6 +31,8 @@ import java.util.Properties;
  */
 public final class CdcSources {
 
+    //todo: can we use these sources in a distributed way?
+
     //todo: update main README.md file in cdc module
 
     //todo: review all Debezium config options, see if we need to add more

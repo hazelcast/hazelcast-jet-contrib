@@ -16,12 +16,15 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 /**
  * TODO: javadoc
  */
-public interface ChangeEventElement {
+public interface ChangeEventElement extends Serializable {
+
+    //todo: use better serialization
 
     /**
      * TODO: javadoc

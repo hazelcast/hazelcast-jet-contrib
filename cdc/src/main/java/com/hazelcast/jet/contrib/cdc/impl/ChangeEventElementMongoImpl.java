@@ -16,6 +16,7 @@
 
 package com.hazelcast.jet.contrib.cdc.impl;
 
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
@@ -24,12 +25,11 @@ import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
 import java.util.Optional;
-import java.util.function.Supplier;
 
 class ChangeEventElementMongoImpl implements ChangeEventElement {
 
     private final ThrowingSupplier<Document, ParsingException> document;
-    private final Supplier<String> json;
+    private final SupplierEx<String> json;
 
     private final ThrowingFunction<String, Optional<Object>, ParsingException> objects;
     private final ThrowingFunction<String, Optional<String>, ParsingException> strings;
@@ -46,7 +46,7 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
         this(() -> document, document::toJson);
     }
 
-    private ChangeEventElementMongoImpl(ThrowingSupplier<Document, ParsingException> document, Supplier<String> json) {
+    private ChangeEventElementMongoImpl(ThrowingSupplier<Document, ParsingException> document, SupplierEx<String> json) {
         this.document = document;
         this.json = json;
 

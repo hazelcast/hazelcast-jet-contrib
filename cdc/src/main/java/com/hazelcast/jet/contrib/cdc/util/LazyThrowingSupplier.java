@@ -29,7 +29,7 @@ public class LazyThrowingSupplier<T, E extends Exception> implements ThrowingSup
     @Nonnull
     private final ThrowingSupplier<T, E> expensiveSupplier;
 
-    private T value;
+    private transient T value;
 
     /**
      * TODO: javadoc

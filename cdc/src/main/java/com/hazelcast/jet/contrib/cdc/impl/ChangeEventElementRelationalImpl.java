@@ -18,6 +18,7 @@ package com.hazelcast.jet.contrib.cdc.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingFunction;
@@ -27,12 +28,11 @@ import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 class ChangeEventElementRelationalImpl implements ChangeEventElement {
 
     private final ThrowingSupplier<JsonNode, ParsingException> node;
-    private final Supplier<String> json;
+    private final SupplierEx<String> json;
 
     private final ThrowingFunction<Class<?>, Object, ParsingException> mapper;
 
@@ -53,7 +53,7 @@ class ChangeEventElementRelationalImpl implements ChangeEventElement {
 
     private ChangeEventElementRelationalImpl(
             @Nonnull ThrowingSupplier<JsonNode, ParsingException> node,
-            @Nonnull Supplier<String> json,
+            @Nonnull SupplierEx<String> json,
             @Nonnull ObjectMapper mapper) {
         this.node = node;
         this.json = json;

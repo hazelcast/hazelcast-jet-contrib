@@ -16,6 +16,7 @@
 
 package com.hazelcast.jet.contrib.cdc.impl;
 
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.cdc.ChangeEvent;
 import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 import com.hazelcast.jet.contrib.cdc.ChangeEventValue;
@@ -23,13 +24,12 @@ import com.hazelcast.jet.contrib.cdc.util.LazySupplier;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 public class ChangeEventMongoImpl implements ChangeEvent {
 
-    private final Supplier<String> json;
-    private final Supplier<ChangeEventKey> key;
-    private final Supplier<ChangeEventValue> value;
+    private final SupplierEx<String> json;
+    private final SupplierEx<ChangeEventKey> key;
+    private final SupplierEx<ChangeEventValue> value;
 
     public ChangeEventMongoImpl(@Nullable String keyJson, @Nullable String valueJson) {
         Objects.requireNonNull(keyJson, "keyJson");

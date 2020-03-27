@@ -16,25 +16,26 @@
 
 package com.hazelcast.jet.contrib.cdc.util;
 
+import com.hazelcast.function.SupplierEx;
+
 import javax.annotation.Nonnull;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * TODO: javadoc
  * @param <T>
  */
-public class LazySupplier<T> implements Supplier<T> {
+public class LazySupplier<T> implements SupplierEx<T> {
 
     @Nonnull
-    private final Supplier<T> expensiveSupplier;
+    private final SupplierEx<T> expensiveSupplier;
 
-    private T value;
+    private transient T value;
 
     /**
      * TODO: javadoc
      */
-    public LazySupplier(@Nonnull Supplier<T> expensiveSupplier) {
+    public LazySupplier(@Nonnull SupplierEx<T> expensiveSupplier) {
         this.expensiveSupplier = Objects.requireNonNull(expensiveSupplier);
     }
 
@@ -42,7 +43,7 @@ public class LazySupplier<T> implements Supplier<T> {
      * TODO: javadoc
      */
     @Override
-    public T get() {
+    public T getEx() {
         if (value == null) {
             value = expensiveSupplier.get();
         }
