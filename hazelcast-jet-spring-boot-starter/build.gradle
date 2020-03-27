@@ -1,10 +1,14 @@
-dependencies {
-    compile 'org.springframework.boot:spring-boot-autoconfigure:2.2.5.RELEASE'
-    compile 'org.springframework.boot:spring-boot-actuator:2.2.5.RELEASE'
-    compile 'org.springframework.boot:spring-boot-actuator-autoconfigure:2.2.5.RELEASE'
-    compile "com.hazelcast:hazelcast-spring:" + hazelcastVersion
+ext {
+    springBootVersion = '2.2.5.RELEASE'
+}
 
-    testCompile 'org.springframework.boot:spring-boot-test:2.2.5.RELEASE'
-    testCompile 'org.mockito:mockito-core:3.3.0'
-    testCompile 'org.assertj:assertj-core:3.11.1'
+dependencies {
+    compile "org.springframework.boot:spring-boot-autoconfigure:" + springBootVersion
+    compile "org.springframework.boot:spring-boot-actuator:" + springBootVersion
+    compile "org.springframework.boot:spring-boot-actuator-autoconfigure:" + springBootVersion
+    compile "com.hazelcast.jet:hazelcast-jet-spring:" + jetVersion
+
+    testCompile "org.springframework.boot:spring-boot-test:" + springBootVersion
+    testCompile "org.mockito:mockito-core:3.3.0"
+    testCompile "org.assertj:assertj-core:3.11.1"
 }

@@ -86,7 +86,8 @@ will be created).
 `hazelcast-client.xml` in the working directory or at the root of the 
 classpath. (a Jet client will be created).
 
-
+Hazelcast Jet Spring Boot Starter is compatible with Spring Boot 2.0.0
+and above.
 
 ### Running the tests
 

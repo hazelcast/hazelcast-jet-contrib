@@ -51,7 +51,7 @@ import java.net.URL;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(HazelcastJetProperties.class)
 @ConditionalOnMissingBean(JetInstance.class)
-public final class HazelcastJetServerConfiguration {
+public class HazelcastJetServerConfiguration {
 
     /**
      * Spring property for Hazelcast Jet server configuration
@@ -62,9 +62,6 @@ public final class HazelcastJetServerConfiguration {
      * System property for Hazelcast Jet server configuration
      */
     public static final String CONFIG_ENVIRONMENT_PROPERTY = "spring.hazelcast.jet.config";
-
-    private HazelcastJetServerConfiguration() {
-    }
 
     private static JetConfig getJetConfig(Resource configLocation) throws IOException {
         URL configUrl = configLocation.getURL();
