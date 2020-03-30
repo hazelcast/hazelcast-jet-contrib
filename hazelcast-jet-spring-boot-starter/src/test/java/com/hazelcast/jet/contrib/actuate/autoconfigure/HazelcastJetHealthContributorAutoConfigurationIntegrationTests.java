@@ -20,7 +20,7 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.contrib.actuate.HazelcastJetHealthIndicator;
 import com.hazelcast.jet.contrib.autoconfigure.HazelcastJetAutoConfiguration;
 import org.junit.Test;
-import org.springframework.boot.actuate.autoconfigure.health.HealthContributorAutoConfiguration;
+import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointAutoConfiguration;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -35,7 +35,7 @@ public class HazelcastJetHealthContributorAutoConfigurationIntegrationTests {
 
     private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(HazelcastJetHealthIndicatorAutoConfiguration.class,
-                    HazelcastJetAutoConfiguration.class, HealthContributorAutoConfiguration.class));
+                    HazelcastJetAutoConfiguration.class, HealthEndpointAutoConfiguration.class));
 
     @Test
     public void hazelcastJetUp() {
