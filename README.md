@@ -1,15 +1,17 @@
 # hazelcast-jet-contrib
 
-This repository includes various community supported and incubating modules for 
-[Hazelcast Jet](https://github.com/hazelcast/hazelcast-jet).
+This repository includes various community supported and incubating 
+modules for [Hazelcast Jet](https://github.com/hazelcast/hazelcast-jet).
 
-As a general guideline, the following types of modules are encouraged in this repository:
+As a general guideline, the following types of modules are encouraged
+in this repository:
 
 * Various connectors, including both sources and sinks
 * [Context factories](https://docs.hazelcast.org/docs/jet/3.0/javadoc/com/hazelcast/jet/pipeline/ContextFactory.html).
 that potentially integrate with other systems.
 * Custom [aggregations](https://docs.hazelcast.org/docs/jet/3.0/javadoc/com/hazelcast/jet/aggregate/AggregateOperation.html).
-These should be generic enough that they should be reusable in other pipelines.
+These should be generic enough that they should be reusable in other
+ pipelines.
 
 ## Building from source
 
@@ -23,8 +25,8 @@ To build the project, use the following command
 
 ### [InfluxDb Connector](influxdb) 
 
-A Hazelcast Jet Connector for InfluxDb which enables Hazelcast Jet pipelines to 
-read/write data points from/to InfluxDb.
+A Hazelcast Jet Connector for InfluxDb which enables Hazelcast Jet
+pipelines to read/write data points from/to InfluxDb.
 
 ### [Probabilistic Aggregations](probabilistic) 
 
@@ -46,8 +48,8 @@ from/to MongoDB.
 
 ### [Kafka Connect Connector](kafka-connect) 
 
-A generic Kafka Connect source provides ability to plug any Kafka Connect 
-source for data ingestion to Jet pipelines.
+A generic Kafka Connect source provides ability to plug any Kafka
+Connect source for data ingestion to Jet pipelines.
 
 ### [Debezium Connector](debezium) 
 
@@ -57,17 +59,24 @@ enables Hazelcast Jet pipelines to consume CDC events from various databases.
 
 ### [Twitter Connector](twitter) 
 
-A Hazelcast Jet connector for consuming data from Twitter stream sources in Jet pipelines.
+A Hazelcast Jet connector for consuming data from Twitter stream 
+sources in Jet pipelines.
 
 ### [XA Tests](xa-test)
 
 Tests to check compatibility of the XA support in your JMS broker or
 JDBC database with Jet's fault tolerance.
 
+### [Hazelcast Jet Spring Boot Starter](hazelcast-jet-spring-boot-starter)
+
+A Spring Boot Starter for Hazelcast Jet which auto-configures Hazelcast
+Jet if found on the classpath.
+
 ## Snapshot Releases
 
-To access snapshot builds add the following `dependency` and `repository` declarations
-to `dependencies` and `repositories` sections in your `pom.xml` respectively.
+To access snapshot builds add the following `dependency` and 
+`repository` declarations to `dependencies` and `repositories` sections
+in your `pom.xml` respectively.
               
 ```xml
 <dependency>
@@ -106,4 +115,5 @@ Submit your contribution as a pull request on GitHub.
 
 ## License
 
-This project is licensed under the Apache 2.0 license - see the [LICENSE](LICENSE) file for details
+This project is licensed under the Apache 2.0 license - see the
+[LICENSE](LICENSE) file for details

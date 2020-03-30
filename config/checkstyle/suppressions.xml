@@ -32,4 +32,6 @@
 
     <!-- Suppress checks for test code -->
     <suppress checks="Javadoc|Name|MagicNumber|VisibilityModifier" files="[\\/]src[\\/]test[\\/]"/>
+
+    <suppress checks="HideUtilityClassConstructor" files="HazelcastJetClientConfiguration.java|HazelcastJetServerConfiguration.java"/>
 </suppressions>
