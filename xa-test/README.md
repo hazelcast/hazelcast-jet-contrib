@@ -27,14 +27,15 @@ The following brokers were tested by the community:
 |Provider|Result|
 |---|---|
 |**JDBC**||
-|PostgreSQL|OK|
-|H2 Database|Broken|
-|HSQLDB|Broken|
-|MariaDB|Broken|
+|PostgreSQL 12.1|OK|
+|MySQL 8.0|OK|
+|H2 Database 1.4|Broken|
+|HSQLDB 2.4|Broken|
+|MariaDB 10.5|Broken|
 |**JMS**||
-|ActiveMQ|OK|
-|ActiveMQ Artemis|OK|
-|RabbitMQ|no XA support|
+|ActiveMQ 5.15|OK|
+|ActiveMQ Artemis 2.11|OK|
+|RabbitMQ 3.8|no XA support|
 
 
 If you test with another JMS/JDBC provider, a pull request with an
