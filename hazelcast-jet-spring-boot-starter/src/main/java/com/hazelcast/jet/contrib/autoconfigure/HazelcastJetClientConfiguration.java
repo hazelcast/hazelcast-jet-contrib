@@ -40,15 +40,6 @@ import java.net.URL;
 @ConditionalOnMissingBean(JetInstance.class)
 public class HazelcastJetClientConfiguration {
 
-    /**
-     * Spring property for Hazelcast Jet client configuration
-     */
-    public static final String CONFIG_ENVIRONMENT_PROPERTY = "spring.hazelcast.jet.client.config";
-
-    /**
-     * System property for Hazelcast Jet client configuration
-     */
-    public static final String CONFIG_SYSTEM_PROPERTY = "hazelcast.client.config";
 
     private static ClientConfig getClientConfig(Resource clientConfigLocation) throws IOException {
         URL configUrl = clientConfigLocation.getURL();
@@ -61,7 +52,7 @@ public class HazelcastJetClientConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnMissingBean(ClientConfig.class)
-    @Conditional(ConfigAvailableCondition.class)
+    @Conditional(HazelcastJetClientConfigAvailableCondition.class)
     static class HazelcastJetClientConfigFileConfiguration {
 
         @Bean
@@ -82,21 +73,6 @@ public class HazelcastJetClientConfiguration {
         @Bean
         JetInstance jetInstance(ClientConfig clientConfig) {
             return Jet.newJetClient(clientConfig);
-        }
-
-    }
-
-    /**
-     * {@link HazelcastJetConfigResourceCondition} that checks if the
-     * {@code spring.hazelcast.jet.config} configuration key is defined.
-     */
-    static class ConfigAvailableCondition extends HazelcastJetConfigResourceCondition {
-
-        ConfigAvailableCondition() {
-            super("HazelcastJetClient", CONFIG_ENVIRONMENT_PROPERTY, CONFIG_SYSTEM_PROPERTY,
-                    "file:./hazelcast-client.xml", "classpath:/hazelcast-client.xml", "file:./hazelcast-client.yaml",
-                    "classpath:/hazelcast-client.yaml", "file:./hazelcast-client.yml",
-                    "classpath:/hazelcast-client.yml");
         }
 
     }

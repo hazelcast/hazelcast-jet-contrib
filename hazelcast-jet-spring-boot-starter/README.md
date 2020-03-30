@@ -85,6 +85,9 @@ will be created).
 * `hazelcast-client.yaml`, `hazelcast-client.yml` or 
 `hazelcast-client.xml` in the working directory or at the root of the 
 classpath. (a Jet client will be created).
+* If none of the above conditions are matched, a Jet member will be 
+created using the default configuration file from Hazelcast Jet 
+distribution (`hazelcast-jet-default.yaml`). 
 
 Hazelcast Jet Spring Boot Starter is compatible with Spring Boot 2.0.0
 and above.

@@ -30,7 +30,7 @@ import org.springframework.util.Assert;
  */
 public abstract class HazelcastJetConfigResourceCondition extends ResourceCondition {
 
-    private final String configSystemProperty;
+    final String configSystemProperty;
 
     protected HazelcastJetConfigResourceCondition(String name, String property, String configSystemProperty,
                                                   String... resourceLocations) {

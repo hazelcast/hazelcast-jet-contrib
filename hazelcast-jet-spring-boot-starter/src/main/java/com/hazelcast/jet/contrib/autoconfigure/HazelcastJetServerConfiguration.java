@@ -25,17 +25,14 @@ import com.hazelcast.jet.impl.config.YamlJetConfigBuilder;
 import com.hazelcast.spring.context.SpringManagedContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ConditionContext;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
-import org.springframework.core.type.AnnotatedTypeMetadata;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -53,16 +50,6 @@ import java.net.URL;
 @ConditionalOnMissingBean(JetInstance.class)
 public class HazelcastJetServerConfiguration {
 
-    /**
-     * Spring property for Hazelcast Jet server configuration
-     */
-    public static final String CONFIG_SYSTEM_PROPERTY = "hazelcast.jet.config";
-
-    /**
-     * System property for Hazelcast Jet server configuration
-     */
-    public static final String CONFIG_ENVIRONMENT_PROPERTY = "spring.hazelcast.jet.config";
-
     private static JetConfig getJetConfig(Resource configLocation) throws IOException {
         URL configUrl = configLocation.getURL();
         String configFileName = configUrl.getPath();
@@ -75,7 +62,7 @@ public class HazelcastJetServerConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnMissingBean(JetConfig.class)
-    @Conditional(JetConfigAvailableCondition.class)
+    @Conditional(HazelcastJetConfigAvailableCondition.class)
     static class HazelcastJetServerConfigFileConfiguration {
 
         @Autowired
@@ -105,34 +92,6 @@ public class HazelcastJetServerConfiguration {
         @Bean
         JetInstance jetInstance(JetConfig jetConfig) {
             return Jet.newJetInstance(jetConfig);
-        }
-
-    }
-
-    /**
-     * {@link HazelcastJetConfigResourceCondition} that checks if the
-     * {@code spring.hazelcast.jet.config} configuration key is defined.
-     */
-    static class JetConfigAvailableCondition extends HazelcastJetConfigResourceCondition {
-
-        JetConfigAvailableCondition() {
-            super("HazelcastJet", CONFIG_ENVIRONMENT_PROPERTY, CONFIG_SYSTEM_PROPERTY, "file:./hazelcast-jet.xml",
-                    "classpath:/hazelcast-jet.xml", "file:./hazelcast-jet.yaml", "classpath:/hazelcast-jet.yaml",
-                    "file:./hazelcast-jet.yml", "classpath:/hazelcast-jet.yml");
-        }
-
-        @Override
-        protected ConditionOutcome getResourceOutcome(ConditionContext context, AnnotatedTypeMetadata metadata) {
-            if (System.getProperty(HazelcastJetClientConfiguration.CONFIG_SYSTEM_PROPERTY) != null) {
-                return ConditionOutcome.noMatch(startConditionMessage().because(
-                        "System property '" + HazelcastJetClientConfiguration.CONFIG_SYSTEM_PROPERTY + "' is set."));
-            }
-            if (context.getEnvironment()
-                       .containsProperty(HazelcastJetClientConfiguration.CONFIG_ENVIRONMENT_PROPERTY)) {
-                return ConditionOutcome.noMatch(startConditionMessage().because("Environment property '"
-                        + HazelcastJetClientConfiguration.CONFIG_ENVIRONMENT_PROPERTY + "' is set."));
-            }
-            return super.getResourceOutcome(context, metadata);
         }
 
     }

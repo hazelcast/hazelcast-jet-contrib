@@ -51,7 +51,7 @@ public class HazelcastJetAutoConfigurationServerTests {
     @Test
     public void systemPropertyWithXml() {
         this.contextRunner
-                .withSystemProperties(HazelcastJetServerConfiguration.CONFIG_SYSTEM_PROPERTY
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.xml")
                 .run(assertSpecificJetServer("xml"));
     }
@@ -59,7 +59,7 @@ public class HazelcastJetAutoConfigurationServerTests {
     @Test
     public void systemPropertyWithYaml() {
         this.contextRunner
-                .withSystemProperties(HazelcastJetServerConfiguration.CONFIG_SYSTEM_PROPERTY
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.yaml")
                 .run(assertSpecificJetServer("yaml"));
     }

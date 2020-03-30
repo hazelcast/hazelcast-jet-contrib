@@ -67,7 +67,7 @@ sources in Jet pipelines.
 Tests to check compatibility of the XA support in your JMS broker or
 JDBC database with Jet's fault tolerance.
 
-### [Jet Spring Boot Starter](jet-spring-boot-starter)
+### [Hazelcast Jet Spring Boot Starter](hazelcast-jet-spring-boot-starter)
 
 A Spring Boot Starter for Hazelcast Jet which auto-configures Hazelcast
 Jet if found on the classpath.

@@ -65,7 +65,7 @@ public class HazelcastJetAutoConfigurationClientTests {
     @Test
     public void systemPropertyWithXml() {
         this.contextRunner
-                .withSystemProperties(HazelcastJetClientConfiguration.CONFIG_SYSTEM_PROPERTY
+                .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-client-specific.xml")
                 .run(assertSpecificHazelcastJetClient("explicit-xml"));
     }
@@ -73,7 +73,7 @@ public class HazelcastJetAutoConfigurationClientTests {
     @Test
     public void systemPropertyWithYaml() {
         this.contextRunner
-                .withSystemProperties(HazelcastJetClientConfiguration.CONFIG_SYSTEM_PROPERTY
+                .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-client-specific.yaml")
                 .run(assertSpecificHazelcastJetClient("explicit-yaml"));
     }
