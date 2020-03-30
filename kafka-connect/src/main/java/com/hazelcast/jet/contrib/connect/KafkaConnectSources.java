@@ -16,7 +16,8 @@
 
 package com.hazelcast.jet.contrib.connect;
 
-import com.hazelcast.function.FunctionEx;
+import com.hazelcast.function.BiFunctionEx;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.core.Processor;
@@ -74,7 +75,10 @@ public final class KafkaConnectSources {
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
     public static StreamSource<SourceRecord> connect(Properties properties) {
-        return connect(properties, record -> record.timestamp() == null ? 0 : record.timestamp(), FunctionEx.identity());
+        return connect(properties, () -> null,
+                (IGNORED, record) -> record.timestamp() == null ? 0 : record.timestamp(),
+                (BiFunctionEx<Void, SourceRecord, SourceRecord>) (IGNORED, record) -> record
+        );
     }
 
     /**
@@ -99,34 +103,39 @@ public final class KafkaConnectSources {
      * source in the cluster.
      *
      * @param properties            Kafka connect properties
-     * @param timestampProjectionFn mapping from {@code SourceRecord} to
+     * @param createProjectionCtx   supplier of state used during
+     *                              projection
+     * @param timestampProjectionFn mapping from source data type to
      *                              the event time contained within it
      * @param dataProjectionFn      mapping from {@code SourceRecord} to
      *                              whatever type we need the source
      *                              to return
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static <T> StreamSource<T> connect(
+    public static <PC, T> StreamSource<T> connect(
             @Nonnull Properties properties,
-            @Nonnull FunctionEx<T, Long> timestampProjectionFn,
-            @Nonnull FunctionEx<? super SourceRecord, ? extends T> dataProjectionFn) {
+            @Nonnull SupplierEx<PC> createProjectionCtx,
+            @Nonnull BiFunctionEx<PC, T, Long> timestampProjectionFn,
+            @Nonnull BiFunctionEx<? super PC, ? super SourceRecord, ? extends T> dataProjectionFn) {
         String name = properties.getProperty("name");
         return SourceBuilder.timestampedStream(name, ctx ->
-                new Context<T>(ctx, properties, timestampProjectionFn, dataProjectionFn))
-                .fillBufferFn(Context<T>::fillBuffer)
+                new Context<PC, T>(ctx, properties, createProjectionCtx, timestampProjectionFn, dataProjectionFn))
+                .fillBufferFn(Context<PC, T>::fillBuffer)
                 .createSnapshotFn(Context::createSnapshot)
                 .restoreSnapshotFn(Context::restoreSnapshot)
                 .destroyFn(Context::destroy)
                 .build();
     }
 
-    private static class Context<T> {
+    private static class Context<PC, T> {
 
         private final SourceConnector connector;
         private final SourceTask task;
         private final Map<String, String> taskConfig;
-        private final FunctionEx<T, Long> timestampProjectionFn;
-        private final FunctionEx<? super SourceRecord, ? extends T> dataProjectionFn;
+        private final BiFunctionEx<PC, T, Long> timestampProjectionFn;
+        private final BiFunctionEx<? super PC, ? super SourceRecord, ? extends T> dataProjectionFn;
+
+        private final PC projectionContext;
 
         /**
          * Key represents the partition which the record originated from. Value
@@ -141,8 +150,9 @@ public final class KafkaConnectSources {
         Context(
                 Processor.Context ctx,
                 Properties properties,
-                FunctionEx<T, Long> timestampProjectionFn,
-                FunctionEx<? super SourceRecord, ? extends T> dataProjectionFn) {
+                SupplierEx<PC> projectionContext,
+                BiFunctionEx<PC, T, Long> timestampProjectionFn,
+                BiFunctionEx<? super PC, ? super SourceRecord, ? extends T> dataProjectionFn) {
             try {
                 if (isDebezium(properties)) {
                     // inject hazelcast.instance.name for retrieving from JVM instance factory in the Debezium source
@@ -157,6 +167,7 @@ public final class KafkaConnectSources {
                 taskConfig = connector.taskConfigs(1).get(0);
                 task = (SourceTask) connector.taskClass().getConstructor().newInstance();
 
+                this.projectionContext = projectionContext.get();
                 this.dataProjectionFn = dataProjectionFn;
                 this.timestampProjectionFn = timestampProjectionFn;
             } catch (Exception e) {
@@ -188,9 +199,9 @@ public final class KafkaConnectSources {
                 }
 
                 for (SourceRecord record : records) {
-                    T projection = dataProjectionFn.apply(record);
+                    T projection = dataProjectionFn.apply(projectionContext, record);
                     if (projection != null) {
-                        long ts = timestampProjectionFn.apply(projection);
+                        long ts = timestampProjectionFn.apply(projectionContext, projection);
                         buf.add(projection, ts);
                         partitionsToOffset.put(record.sourcePartition(), record.sourceOffset());
                     }

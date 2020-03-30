@@ -31,6 +31,8 @@ import java.util.Properties;
  */
 public final class CdcSources {
 
+    //todo: use BUILDER instead of Properties
+
     //todo: can we use these sources in a distributed way?
 
     //todo: update main README.md file in cdc module
@@ -38,10 +40,6 @@ public final class CdcSources {
     //todo: review all Debezium config options, see if we need to add more
 
     //todo: further refine and document config option
-
-    //todo: should have one object mapper per CDC source instance
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     private CdcSources() {
     }
@@ -72,11 +70,12 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false"); //todo: can this be parsed, if enabled? force it?
 
         return KafkaConnectSources.connect(properties,
-                ChangeEvent::timestamp,
-                record -> {
+                CdcSources::createObjectMapper,
+                (mapper, event) -> event.timestamp(),
+                (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    return new ChangeEventRelationalImpl(keyJson, valueJson, OBJECT_MAPPER);
+                    return new ChangeEventRelationalImpl(keyJson, valueJson, mapper);
                 }
         );
     }
@@ -101,11 +100,12 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
-                ChangeEvent::timestamp, //todo: might be better to use 'ts_usec' field from 'record.sourceOffset()'
-                record -> {
+                CdcSources::createObjectMapper,
+                (mapper, event) -> event.timestamp(),
+                (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    return new ChangeEventRelationalImpl(keyJson, valueJson, OBJECT_MAPPER);
+                    return new ChangeEventRelationalImpl(keyJson, valueJson, mapper);
                 }
         );
     }
@@ -130,11 +130,12 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
-                ChangeEvent::timestamp,
-                record -> {
+                CdcSources::createObjectMapper,
+                (mapper, event) -> event.timestamp(),
+                (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    return new ChangeEventRelationalImpl(keyJson, valueJson, OBJECT_MAPPER);
+                    return new ChangeEventRelationalImpl(keyJson, valueJson, mapper);
                 }
         );
     }
@@ -176,8 +177,9 @@ public final class CdcSources {
         properties.putIfAbsent("tombstones.on.delete", "false");
 
         return KafkaConnectSources.connect(properties,
-                ChangeEvent::timestamp,
-                record -> {
+                () -> null,
+                (IGNORED, event) -> event.timestamp(),
+                (IGNORED, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
                     return new ChangeEventMongoImpl(keyJson, valueJson);
@@ -195,6 +197,11 @@ public final class CdcSources {
         Properties copy = new Properties();
         copy.putAll(properties);
         return copy;
+    }
+
+    private static ObjectMapper createObjectMapper() {
+        return new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
 
