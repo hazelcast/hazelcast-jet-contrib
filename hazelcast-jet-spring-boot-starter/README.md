@@ -39,14 +39,14 @@ You could also specify the Hazelcast Jet server configuration file to
 use through configuration, as shown in the following example:
 
 ```text
-spring.hazelcast.jet.config=classpath:config/my-hazelcast-jet.xml
+hazelcast.jet.config=classpath:config/my-hazelcast-jet.xml
 ```
 
 Or you could specify Hazelcast Jet client configuration as shown in the
 following example:
 
 ```text
-spring.hazelcast.jet.client.config=classpath:config/my-hazelcast-client.xml
+hazelcast.jet.client.config=classpath:config/my-hazelcast-client.xml
 ```
 
 Otherwise, Spring Boot tries to find the Hazelcast Jet configuration
@@ -70,14 +70,14 @@ member will be created).
 * The presence of the `hazelcast.jet.config` system property (a Jet
 member will be created).
 * A configuration file defined by the 
-`configprop:spring.hazelcast.jet.config[]` property (a Jet member will
+`configprop:hazelcast.jet.config[]` property (a Jet member will
  be created).
 * The presence of a `com.hazelcast.client.config.ClientConfig` bean (a
 Jet client will be created).
 * The presence of the `hazelcast.client.config` system property (a Jet
 client will be created).
 * A configuration file defined by the 
-`configprop:spring.hazelcast.jet.client.config[]` property (a Jet
+`configprop:hazelcast.jet.client.config[]` property (a Jet
 client will be created).
 * `hazelcast-jet.yaml`, `hazelcast-jet.yml` or `hazelcast-jet.xml` in
 the working directory or at the root of the classpath. (a Jet member

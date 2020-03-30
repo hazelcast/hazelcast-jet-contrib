@@ -18,14 +18,14 @@ package com.hazelcast.jet.contrib.autoconfigure;
 
 /**
  * {@link HazelcastJetConfigResourceCondition} that checks if the
- * {@code spring.hazelcast.jet.config} configuration key is defined.
+ * {@code hazelcast.jet.config} configuration key is defined.
  */
 public class HazelcastJetClientConfigAvailableCondition extends HazelcastJetConfigResourceCondition {
 
     /**
      * Spring property for Hazelcast Jet client configuration
      */
-    public static final String CONFIG_ENVIRONMENT_PROPERTY = "spring.hazelcast.jet.client.config";
+    public static final String CONFIG_ENVIRONMENT_PROPERTY = "hazelcast.jet.client.config";
 
     /**
      * System property for Hazelcast Jet client configuration
