@@ -66,31 +66,31 @@ public class HazelcastJetAutoConfigurationServerTests {
 
     @Test
     public void explicitConfigFileWithXml() {
-        this.contextRunner.withPropertyValues("spring.hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
                 + "hazelcast-jet-specific.xml").run(assertSpecificJetServer("xml"));
     }
 
     @Test
     public void explicitConfigFileWithYaml() {
-        this.contextRunner.withPropertyValues("spring.hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
                 + "hazelcast-jet-specific.yaml").run(assertSpecificJetServer("yaml"));
     }
 
     @Test
     public void explicitConfigUrlWithXml() {
-        this.contextRunner.withPropertyValues("spring.hazelcast.jet.config=classpath:com/hazelcast/jet/contrib/"
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=classpath:com/hazelcast/jet/contrib/"
                 + "autoconfigure/hazelcast-jet-specific.xml").run(assertSpecificJetServer("xml"));
     }
 
     @Test
     public void explicitConfigUrlWithYaml() {
-        this.contextRunner.withPropertyValues("spring.hazelcast.jet.config=classpath:com/hazelcast/jet/contrib/"
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=classpath:com/hazelcast/jet/contrib/"
                 + "autoconfigure/hazelcast-jet-specific.yaml").run(assertSpecificJetServer("yaml"));
     }
 
     @Test
     public void unknownConfigFile() {
-        this.contextRunner.withPropertyValues("spring.hazelcast.jet.config=foo/bar/unknown.xml")
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=foo/bar/unknown.xml")
                           .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
                                                                .hasMessageContaining("foo/bar/unknown.xml"));
     }
@@ -98,7 +98,7 @@ public class HazelcastJetAutoConfigurationServerTests {
     @Test
     public void configInstanceWithoutName() {
         this.contextRunner.withUserConfiguration(HazelcastJetConfig.class)
-                          .withPropertyValues("spring.hazelcast.jet.config=this-is-ignored.xml")
+                          .withPropertyValues("hazelcast.jet.config=this-is-ignored.xml")
                           .run(assertSpecificJetServer("configAsBean"));
     }
 

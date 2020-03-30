@@ -23,7 +23,7 @@ import org.springframework.util.Assert;
 /**
  * Configuration properties for the hazelcast jet integration.
  */
-@ConfigurationProperties(prefix = "spring.hazelcast.jet.client")
+@ConfigurationProperties(prefix = "hazelcast.jet.client")
 public class HazelcastJetClientProperties {
 
     /**

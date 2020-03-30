@@ -22,7 +22,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
  * {@link HazelcastJetConfigResourceCondition} that checks if the
- * {@code spring.hazelcast.jet.config} configuration key is defined.
+ * {@code hazelcast.jet.config} configuration key is defined.
  */
 public class HazelcastJetConfigAvailableCondition extends HazelcastJetConfigResourceCondition {
 
@@ -34,7 +34,7 @@ public class HazelcastJetConfigAvailableCondition extends HazelcastJetConfigReso
     /**
      * System property for Hazelcast Jet server configuration
      */
-    public static final String CONFIG_ENVIRONMENT_PROPERTY = "spring.hazelcast.jet.config";
+    public static final String CONFIG_ENVIRONMENT_PROPERTY = "hazelcast.jet.config";
 
     private final HazelcastJetClientConfigAvailableCondition clientConfigAvailableCondition =
             new HazelcastJetClientConfigAvailableCondition();
