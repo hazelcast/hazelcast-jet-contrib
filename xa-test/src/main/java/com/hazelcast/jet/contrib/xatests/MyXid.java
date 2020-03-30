@@ -43,6 +43,6 @@ public final class MyXid implements Xid, Serializable {
 
     @Override
     public byte[] getBranchQualifier() {
-        return new byte[0];
+        return new byte[1];
     }
 }
