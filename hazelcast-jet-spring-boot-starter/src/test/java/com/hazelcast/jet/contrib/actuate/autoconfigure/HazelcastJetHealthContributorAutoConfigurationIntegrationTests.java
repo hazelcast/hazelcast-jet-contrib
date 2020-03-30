@@ -38,7 +38,7 @@ public class HazelcastJetHealthContributorAutoConfigurationIntegrationTests {
                     HazelcastJetAutoConfiguration.class, HealthEndpointAutoConfiguration.class));
 
     @Test
-    public void hazelcastJetUp() {
+    public void whenAutoConfigured_thenHazelcastJetUp() {
         this.contextRunner.run((context) -> {
             assertThat(context).hasSingleBean(JetInstance.class).hasSingleBean(HazelcastJetHealthIndicator.class);
             JetInstance jet = context.getBean(JetInstance.class);
@@ -52,7 +52,7 @@ public class HazelcastJetHealthContributorAutoConfigurationIntegrationTests {
     }
 
     @Test
-    public void hazelcastJetDown() {
+    public void whenShutdown_thenHazelcastJetDown() {
         this.contextRunner.run((context) -> {
             context.getBean(JetInstance.class).shutdown();
             assertThat(context).hasSingleBean(HazelcastJetHealthIndicator.class);

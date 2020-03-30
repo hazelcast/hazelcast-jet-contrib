@@ -16,14 +16,14 @@ to your project:
 ```
 <dependency>
     <groupId>com.hazelcast.jet.contrib</groupId>
-    <artifactId>jet-spring-boot-starter</artifactId>
+    <artifactId>hazelcast-jet-spring-boot-starter</artifactId>
     <version>${version}</version>
 </dependency>
 ```
 
 or if you are using Gradle: 
 ```
-compile group: 'com.hazelcast.jet.contrib', name: 'jet-spring-boot-starter', version: ${version}
+compile group: 'com.hazelcast.jet.contrib', name: 'hazelcast-jet-spring-boot-starter', version: ${version}
 ```
 
 ### Usage

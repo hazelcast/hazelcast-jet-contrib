@@ -38,7 +38,7 @@ public class HazelcastJetHealthIndicatorTests {
     private final JetInstance jet = mock(JetInstance.class);
 
     @Test
-    public void hazelcastJetUp() {
+    public void whenIsRunningTrue_thenHazelcastJetUp() {
         mockJet(true);
 
         Health health = new HazelcastJetHealthIndicator(jet).health();
@@ -47,7 +47,7 @@ public class HazelcastJetHealthIndicatorTests {
     }
 
     @Test
-    public void hazelcastJetDown() {
+    public void whenIsRunningFalse_thenHazelcastJetDown() {
         mockJet(false);
 
         Health health = new HazelcastJetHealthIndicator(jet).health();
