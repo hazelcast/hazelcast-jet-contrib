@@ -19,11 +19,7 @@ package com.hazelcast.jet.contrib.mqtt;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.core.JetTestSupport;
-import com.hazelcast.jet.pipeline.BatchSource;
-import com.hazelcast.jet.pipeline.BatchStage;
-import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.StreamSource;
-import com.hazelcast.jet.pipeline.StreamStage;
+import com.hazelcast.jet.pipeline.*;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import org.junit.Before;
@@ -41,6 +37,7 @@ public class MqttSourcesTest extends JetTestSupport {
 
     private JetInstance jet;
     private List<String> inputList;
+    String uri = "https://jsonplaceholder.typicode.com/posts/1";
 
     @Before
     public void setUp() {
@@ -84,6 +81,30 @@ public class MqttSourcesTest extends JetTestSupport {
             assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
                     + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
+
+    }
+
+    @Test
+    public void testUrlStreamSource() {
+
+        Pipeline pipeline = Pipeline.create();
+
+        StreamSource<String> testSource = MqttSources.testUrlStream(uri);
+
+        StreamStage<String> testStage = pipeline.readFrom(testSource).withoutTimestamps();
+        testStage.peek(String::toUpperCase).writeTo(AssertionSinks.assertCollectedEventually(5, s -> assertNotNull(s)));
+
+        Job job = jet.newJob(pipeline);
+
+        try {
+            job.join();
+            fail("Job should have completed with an AssertionCompletedException, but completed normally");
+        } catch (CompletionException e) {
+            String errorMsg = e.getCause().getMessage();
+            assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
+                    + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
+        }
+
 
     }
 }

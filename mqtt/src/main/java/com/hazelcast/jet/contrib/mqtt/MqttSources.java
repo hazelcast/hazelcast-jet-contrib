@@ -19,7 +19,13 @@ package com.hazelcast.jet.contrib.mqtt;
 import com.hazelcast.jet.pipeline.BatchSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.List;
 
 /**
@@ -67,6 +73,20 @@ public final class MqttSources {
                 })
                 .build();
 
+    }
+
+    public static StreamSource<String> testUrlStream(String uri) {
+        StreamSource<String> httpSource = SourceBuilder
+                .stream("http-source", ctx -> HttpClients.createDefault())
+                .<String>fillBufferFn((httpc, buf) -> {
+                    HttpGet request = new HttpGet(uri);
+                    InputStream content = httpc.execute(request).getEntity().getContent();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(content));
+                    reader.lines().forEach(buf::add);
+                })
+                .destroyFn(CloseableHttpClient::close)
+                .build();
+        return httpSource;
     }
 
 }
