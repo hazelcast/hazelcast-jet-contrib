@@ -17,10 +17,10 @@
 package com.hazelcast.jet.contrib.actuate.autoconfigure;
 
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.contrib.actuate.HazelcastJetHealthIndicator;
 import com.hazelcast.jet.contrib.autoconfigure.HazelcastJetAutoConfiguration;
 import org.junit.Test;
 import org.springframework.boot.actuate.autoconfigure.health.HealthEndpointAutoConfiguration;
+import org.springframework.boot.actuate.hazelcast.HazelcastHealthIndicator;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -40,9 +40,9 @@ public class HazelcastJetHealthContributorAutoConfigurationIntegrationTests {
     @Test
     public void whenAutoConfigured_thenHazelcastJetUp() {
         this.contextRunner.run((context) -> {
-            assertThat(context).hasSingleBean(JetInstance.class).hasSingleBean(HazelcastJetHealthIndicator.class);
+            assertThat(context).hasSingleBean(JetInstance.class).hasSingleBean(HazelcastHealthIndicator.class);
             JetInstance jet = context.getBean(JetInstance.class);
-            Health health = context.getBean(HazelcastJetHealthIndicator.class).health();
+            Health health = context.getBean(HazelcastHealthIndicator.class).health();
             assertThat(health.getStatus()).isEqualTo(Status.UP);
             assertThat(health.getDetails())
                     .containsOnlyKeys("name", "uuid")
@@ -55,8 +55,8 @@ public class HazelcastJetHealthContributorAutoConfigurationIntegrationTests {
     public void whenShutdown_thenHazelcastJetDown() {
         this.contextRunner.run((context) -> {
             context.getBean(JetInstance.class).shutdown();
-            assertThat(context).hasSingleBean(HazelcastJetHealthIndicator.class);
-            Health health = context.getBean(HazelcastJetHealthIndicator.class).health();
+            assertThat(context).hasSingleBean(HazelcastHealthIndicator.class);
+            Health health = context.getBean(HazelcastHealthIndicator.class).health();
             assertThat(health.getStatus()).isEqualTo(Status.DOWN);
         });
     }

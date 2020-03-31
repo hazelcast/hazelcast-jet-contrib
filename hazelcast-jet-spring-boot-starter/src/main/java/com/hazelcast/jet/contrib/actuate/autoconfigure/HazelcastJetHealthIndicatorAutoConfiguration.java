@@ -16,11 +16,12 @@
 
 package com.hazelcast.jet.contrib.actuate.autoconfigure;
 
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.contrib.actuate.HazelcastJetHealthIndicator;
 import com.hazelcast.jet.contrib.autoconfigure.HazelcastJetAutoConfiguration;
 import org.springframework.boot.actuate.autoconfigure.health.CompositeHealthIndicatorConfiguration;
 import org.springframework.boot.actuate.autoconfigure.health.ConditionalOnEnabledHealthIndicator;
+import org.springframework.boot.actuate.hazelcast.HazelcastHealthIndicator;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -30,11 +31,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
  * {@link EnableAutoConfiguration Auto-configuration} for
- * {@link HazelcastJetHealthIndicator}.
+ * Hazelcast Jet using {@link HazelcastHealthIndicator}.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(JetInstance.class)
@@ -42,7 +44,7 @@ import java.util.Map;
 @ConditionalOnEnabledHealthIndicator("hazelcast.jet")
 @AutoConfigureAfter(HazelcastJetAutoConfiguration.class)
 public class HazelcastJetHealthIndicatorAutoConfiguration
-        extends CompositeHealthIndicatorConfiguration<HazelcastJetHealthIndicator, JetInstance> {
+        extends CompositeHealthIndicatorConfiguration<HazelcastHealthIndicator, HazelcastInstance> {
 
     /**
      * Creates a {@link HealthIndicator} using the provided Hazelcast Jet
@@ -51,7 +53,11 @@ public class HazelcastJetHealthIndicatorAutoConfiguration
     @Bean
     @ConditionalOnMissingBean(name = {"hazelcastJetHealthIndicator", "hazelcastJetHealthContributor"})
     public HealthIndicator hazelcastJetHealthContributor(Map<String, JetInstance> jetInstances) {
-        return createHealthIndicator(jetInstances);
+        HashMap<String, HazelcastInstance> hazelcastInstances = new HashMap<>(jetInstances.size());
+        for (Map.Entry<String, JetInstance> entry : jetInstances.entrySet()) {
+            hazelcastInstances.put(entry.getKey(), entry.getValue().getHazelcastInstance());
+        }
+        return createHealthIndicator(hazelcastInstances);
     }
 
 }
