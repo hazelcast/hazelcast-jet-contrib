@@ -39,6 +39,7 @@ public final class JdbcXaTest {
      * Configure XADataSource for broker here.
      */
     private static XADataSource getXADataSource() {
+        // Add your datasource here, here is an example for PostgreSQL:
 //        PGXADataSource factory = new PGXADataSource();
 //        factory.setUrl(URL);
 //        factory.setUser(USER);
@@ -55,7 +56,7 @@ public final class JdbcXaTest {
         XADataSource factory = null;
 
         if (factory == null) {
-            throw new IllegalArgumentException("Provide XADataSource for broker in getXADataSource() method");
+            throw new IllegalArgumentException("Provide XADataSource for your broker in the getXADataSource() method");
         }
 
         // create an xa-connection, connection and XA transaction

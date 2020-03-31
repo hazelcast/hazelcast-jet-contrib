@@ -53,7 +53,7 @@ public final class JmsXaTest {
         XAConnectionFactory factory = getXAConnectionFactory();
 
         if (factory == null) {
-            throw new IllegalArgumentException("Provide factory for broker in getXAConnectionFactory() method");
+            throw new IllegalArgumentException("Provide a factory for the broker in the getXAConnectionFactory() method");
         }
 
         // create a connection, session and XA transaction

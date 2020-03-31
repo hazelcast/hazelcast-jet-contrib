@@ -1,6 +1,6 @@
 dependencies {
     compile group: 'javax.jms', name: 'javax.jms-api', version: '2.0.1'
-    //    Add your broker dependency here:
+    //    Add your broker dependency here, for example:
     //    implementation 'org.postgresql:postgresql:42.2.9'
     //    implementation 'org.apache.activemq:activemq-all:5.15.11'
 }
