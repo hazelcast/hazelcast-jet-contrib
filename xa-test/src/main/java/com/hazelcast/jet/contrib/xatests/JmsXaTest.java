@@ -24,12 +24,13 @@ import javax.jms.XAConnectionFactory;
 import javax.jms.XASession;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
+//import org.apache.activemq.ActiveMQXAConnectionFactory;
 
 /**
  * Tests if the JMS broker persists a prepared XA transaction when the client
  * disconnects.
  * <p>
- * You need to add your XADataSource to the first line of the main() method.
+ * You need to add your XADataSource to getXAConnectionFactory() method.
  */
 public final class JmsXaTest {
 
@@ -37,11 +38,23 @@ public final class JmsXaTest {
 
     private JmsXaTest() { }
 
-    /** */
-    public static void main(String[] args) throws Exception {
+    /**
+     * Configure factory for broker here.
+     */
+    private static XAConnectionFactory getXAConnectionFactory() {
         // replace this line with a factory for your broker, for example:
         //    ActiveMQXAConnectionFactory factory = new ActiveMQXAConnectionFactory(BROKER_URL);
-        XAConnectionFactory factory = null;
+        //    return factory;
+        return null;
+    }
+
+    /** */
+    public static void main(String[] args) throws Exception {
+        XAConnectionFactory factory = getXAConnectionFactory();
+
+        if (factory == null) {
+            throw new IllegalArgumentException("Provide a factory for the broker in the getXAConnectionFactory() method");
+        }
 
         // create a connection, session and XA transaction
         XAConnection conn = factory.createXAConnection();
@@ -79,5 +92,6 @@ public final class JmsXaTest {
         } else {
             System.out.println("Success!");
         }
+        conn.close();
     }
 }
