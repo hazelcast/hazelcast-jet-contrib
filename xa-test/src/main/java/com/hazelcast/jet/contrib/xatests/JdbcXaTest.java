@@ -23,22 +23,40 @@ import javax.transaction.xa.Xid;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+//import org.postgresql.xa.PGXADataSource;
 
 /**
  * Tests if the JDBC database persists a prepared XA transaction when the
  * client disconnects.
  * <p>
- * You need to add your XADataSource to the first line of the main() method.
+ * You need to add your XADataSource to getXADataSource() method.
  */
 public final class JdbcXaTest {
 
     private JdbcXaTest() { }
+
+    /**
+     * Configure XADataSource for broker here.
+     */
+    private static XADataSource getXADataSource() {
+//        PGXADataSource factory = new PGXADataSource();
+//        factory.setUrl(URL);
+//        factory.setUser(USER);
+//        factory.setPassword(PASSWORD);
+//        factory.setDatabaseName(DATABASE_NAME);
+//        return factory;
+        return null;
+    }
 
     /** */
     public static void main(String[] args) throws Exception {
         // replace this line with a factory for your database, for example:
         //    PGXADataSource factory = new PGXADataSource();
         XADataSource factory = null;
+
+        if (factory == null) {
+            throw new IllegalArgumentException("Provide XADataSource for broker in getXADataSource() method");
+        }
 
         // create an xa-connection, connection and XA transaction
         XAConnection xaConn = factory.getXAConnection();
