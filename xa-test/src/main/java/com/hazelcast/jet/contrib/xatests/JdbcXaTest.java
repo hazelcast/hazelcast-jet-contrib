@@ -53,7 +53,7 @@ public final class JdbcXaTest {
     public static void main(String[] args) throws Exception {
         // replace this line with a factory for your database, for example:
         //    PGXADataSource factory = new PGXADataSource();
-        XADataSource factory = null;
+        XADataSource factory = getXADataSource();
 
         if (factory == null) {
             throw new IllegalArgumentException("Provide XADataSource for your broker in the getXADataSource() method");
