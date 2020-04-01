@@ -19,7 +19,32 @@ package com.hazelcast.jet.contrib.cdc;
 import java.io.Serializable;
 
 /**
- * TODO: javadoc
+ * Information pertaining to a single data change event (insertion,
+ * delete or update), affecting either a single database record
+ * (in the case of relational databases) or document (in the case of
+ * NoSQL databases).
+ * <p>
+ * Each event has a <i>key</i>, which identifies the particular
+ * record or document(s) being affected, and a <i>value</i>, which
+ * describes the actual change itself.
+ * <p>
+ * Most events have an <i>operation</i> associated with them which
+ * specifies the type of change being described (insertion, delete or
+ * update). This is really a property of the value, it's only replicated
+ * at this level for convenience. Only some special events, like
+ * heartbeats don't have an operation value.
+ * <p>
+ * There is also a <i>timestamp</i> which specifies the moment in time when
+ * the event happened. This timestamp is "real" in the sense that it
+ * comes from the database change-log, so it's not "processing time",
+ * it's not the moment when the event was observed by our system. Keep
+ * in mind though that not all events come from the change-log. The
+ * change-log goes back in time only to a limited extent, all older
+ * events are parts of a database snapshot constructed when we start
+ * monitoring the database and their timestamps are accordingly
+ * artificial. Identifying snapshot events is possible most of the time,
+ * because their operation will be {@link Operation#SYNC} instead of
+ * {@link Operation#INSERT} (one notable exception being MySQL).
  */
 public interface ChangeEvent extends Serializable  {
 
@@ -35,6 +60,13 @@ public interface ChangeEvent extends Serializable  {
     /**
      * TODO: javadoc
      */
+    default Operation operation() throws ParsingException {
+        return value().operation();
+    }
+
+    /**
+     * TODO: javadoc
+     */
     ChangeEventKey key();
 
     /**
@@ -44,13 +76,13 @@ public interface ChangeEvent extends Serializable  {
 
     /**
      * Returns raw JSON string on which the content of this event is
-     * based. To be used when parsing fails for some reason (for example
-     * on some untested DB-connector version combination).
-     *
-     * While the format is standard for RELATIONAL DATABASES, for
+     * based. Mean to be used when higher level parsing (see other
+     * methods) fails for some reason (for example on some untested
+     * DB-connector version combination).
+     * <p>
+     * While the format is standard for relational databases, for
      * MongoDB it's MongoDB Extended JSON v2 format and needs to be
      * parsed accordingly.
-     * TODO: javadoc
      */
     String asJson();
 }

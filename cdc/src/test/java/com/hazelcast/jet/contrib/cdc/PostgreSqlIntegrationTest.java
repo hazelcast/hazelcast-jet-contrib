@@ -74,7 +74,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
                             long count = accumulator.get();
                             accumulator.add(1);
                             ChangeEventValue eventValue = event.value();
-                            Operation operation = eventValue.getOperation();
+                            Operation operation = eventValue.operation();
                             ChangeEventElement mostRecentImage = DELETE.equals(operation) ?
                                     eventValue.before() : eventValue.after();
                             Customer customer = mostRecentImage.map(Customer.class);
@@ -141,7 +141,7 @@ public class PostgreSqlIntegrationTest extends AbstractIntegrationTest {
                             long count = accumulator.get();
                             accumulator.add(1);
                             ChangeEventValue eventValue = event.value();
-                            Operation operation = eventValue.getOperation();
+                            Operation operation = eventValue.operation();
                             ChangeEventElement mostRecentImage = DELETE.equals(operation) ?
                                     eventValue.before() : eventValue.after();
                             Customer customer = mostRecentImage.map(Customer.class);

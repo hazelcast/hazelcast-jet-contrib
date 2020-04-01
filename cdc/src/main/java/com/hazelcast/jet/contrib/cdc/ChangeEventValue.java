@@ -41,7 +41,7 @@ public interface ChangeEventValue extends Serializable {
      * @throws ParsingException if there is an operation field, but it's
      *                          value is not among the handled ones.
      */
-    Operation getOperation() throws ParsingException;
+    Operation operation() throws ParsingException;
 
     /**
      * TODO: javadoc

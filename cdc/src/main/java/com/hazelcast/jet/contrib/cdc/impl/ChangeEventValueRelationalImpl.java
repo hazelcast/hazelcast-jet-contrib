@@ -62,7 +62,7 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     }
 
     @Override
-    public Operation getOperation() throws ParsingException {
+    public Operation operation() throws ParsingException {
         return operation.get();
     }
 

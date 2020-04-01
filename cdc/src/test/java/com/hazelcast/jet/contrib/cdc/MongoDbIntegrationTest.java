@@ -86,15 +86,14 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .mapStateful(
                         State::new,
                         (state, customerId, event) -> {
-                            ChangeEventValue eventValue = event.value();
-                            Operation operation = eventValue.getOperation();
+                            Operation operation = event.operation();
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.after().map(Document.class));
+                                    state.set(event.value().after().map(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.change().map(Document.class));
+                                    state.update(event.value().change().map(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -147,15 +146,14 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .mapStateful(
                         State::new,
                         (state, customerId, event) -> {
-                            ChangeEventValue eventValue = event.value();
-                            Operation operation = eventValue.getOperation();
+                            Operation operation = event.operation();
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.after().map(Document.class));
+                                    state.set(event.value().after().map(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.change().map(Document.class));
+                                    state.update(event.value().change().map(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -216,15 +214,14 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                 .mapStateful(
                         State::new,
                         (state, orderId, event) -> {
-                            ChangeEventValue eventValue = event.value();
-                            Operation operation = eventValue.getOperation();
+                            Operation operation = event.operation();
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(eventValue.after().map(Document.class));
+                                    state.set(event.value().after().map(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(eventValue.change().map(Document.class));
+                                    state.update(event.value().change().map(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
