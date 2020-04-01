@@ -24,9 +24,9 @@ import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import javax.ws.rs.ProcessingException;
 import java.util.Optional;
 
-public final class RelationalParsing {
+public final class JsonParsing {
 
-    private RelationalParsing() {
+    private JsonParsing() {
     }
 
     public static ThrowingSupplier<JsonNode, ParsingException> parse(String json, ObjectMapper mapper) {

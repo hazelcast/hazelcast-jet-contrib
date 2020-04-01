@@ -29,7 +29,7 @@ import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import javax.annotation.Nonnull;
 import java.util.Optional;
 
-class ChangeEventElementRelationalImpl implements ChangeEventElement {
+class ChangeEventElementJsonImpl implements ChangeEventElement {
 
     private final ThrowingSupplier<JsonNode, ParsingException> node;
     private final SupplierEx<String> json;
@@ -43,29 +43,29 @@ class ChangeEventElementRelationalImpl implements ChangeEventElement {
     private final ThrowingFunction<String, Optional<Double>, ParsingException> doubles;
     private final ThrowingFunction<String, Optional<Boolean>, ParsingException> booleans;
 
-    ChangeEventElementRelationalImpl(@Nonnull String json, @Nonnull ObjectMapper mapper) {
-        this(new LazyThrowingSupplier<>(RelationalParsing.parse(json, mapper)), () -> json, mapper);
+    ChangeEventElementJsonImpl(@Nonnull String json, @Nonnull ObjectMapper mapper) {
+        this(new LazyThrowingSupplier<>(JsonParsing.parse(json, mapper)), () -> json, mapper);
     }
 
-    ChangeEventElementRelationalImpl(@Nonnull JsonNode node, @Nonnull ObjectMapper mapper) {
+    ChangeEventElementJsonImpl(@Nonnull JsonNode node, @Nonnull ObjectMapper mapper) {
         this(() -> node, node::textValue, mapper);
     }
 
-    private ChangeEventElementRelationalImpl(
+    private ChangeEventElementJsonImpl(
             @Nonnull ThrowingSupplier<JsonNode, ParsingException> node,
             @Nonnull SupplierEx<String> json,
             @Nonnull ObjectMapper mapper) {
         this.node = node;
         this.json = json;
 
-        this.mapper = new LazyThrowingFunction<>((clazz) -> RelationalParsing.map(node.get(), clazz, mapper));
+        this.mapper = new LazyThrowingFunction<>((clazz) -> JsonParsing.map(node.get(), clazz, mapper));
 
-        this.objects = (key) -> RelationalParsing.getObject(node.get(), key);
-        this.strings = (key) -> RelationalParsing.getString(node.get(), key);
-        this.integers = (key) -> RelationalParsing.getInteger(node.get(), key);
-        this.longs = (key) -> RelationalParsing.getLong(node.get(), key);
-        this.doubles = (key) -> RelationalParsing.getDouble(node.get(), key);
-        this.booleans = (key) -> RelationalParsing.getBoolean(node.get(), key);
+        this.objects = (key) -> JsonParsing.getObject(node.get(), key);
+        this.strings = (key) -> JsonParsing.getString(node.get(), key);
+        this.integers = (key) -> JsonParsing.getInteger(node.get(), key);
+        this.longs = (key) -> JsonParsing.getLong(node.get(), key);
+        this.doubles = (key) -> JsonParsing.getDouble(node.get(), key);
+        this.booleans = (key) -> JsonParsing.getBoolean(node.get(), key);
     }
 
     @Override

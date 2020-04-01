@@ -21,9 +21,9 @@ import com.hazelcast.jet.contrib.cdc.ChangeEventKey;
 
 import javax.annotation.Nonnull;
 
-public class ChangeEventKeyRelationalImpl extends ChangeEventElementRelationalImpl implements ChangeEventKey {
+public class ChangeEventKeyJsonImpl extends ChangeEventElementJsonImpl implements ChangeEventKey {
 
-    public ChangeEventKeyRelationalImpl(@Nonnull String keyJson, @Nonnull ObjectMapper mapper) {
+    public ChangeEventKeyJsonImpl(@Nonnull String keyJson, @Nonnull ObjectMapper mapper) {
         super(keyJson, mapper);
     }
 

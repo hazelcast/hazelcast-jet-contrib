@@ -19,7 +19,7 @@ package com.hazelcast.jet.contrib.cdc;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventMongoImpl;
-import com.hazelcast.jet.contrib.cdc.impl.ChangeEventRelationalImpl;
+import com.hazelcast.jet.contrib.cdc.impl.ChangeEventJsonImpl;
 import com.hazelcast.jet.contrib.connect.KafkaConnectSources;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.apache.kafka.connect.data.Values;
@@ -48,7 +48,8 @@ public final class CdcSources {
      * Creates a CDC source that streams change data from your MySQL
      * database to the Hazelcast Jet pipeline.
      *
-     * @param name       ID of this particular CDC source
+     * @param name       name of this source, needs to be unique, will be
+     *                   passed to the underlying Kafka Connect source
      * @param properties configuration object which holds the configuration
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
@@ -75,7 +76,7 @@ public final class CdcSources {
                 (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    return new ChangeEventRelationalImpl(keyJson, valueJson, mapper);
+                    return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
                 }
         );
     }
@@ -84,6 +85,8 @@ public final class CdcSources {
      * Creates a CDC source that streams change data from your
      * PostgreSQL database to the Hazelcast Jet pipeline.
      *
+     * @param name       name of this source, needs to be unique, will be
+     *                   passed to the underlying Kafka Connect source
      * @param properties configuration object which holds the configuration
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
@@ -105,7 +108,7 @@ public final class CdcSources {
                 (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    return new ChangeEventRelationalImpl(keyJson, valueJson, mapper);
+                    return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
                 }
         );
     }
@@ -114,6 +117,8 @@ public final class CdcSources {
      * Creates a CDC source that streams change data from your
      * Microsoft SQL Server database to the Hazelcast Jet pipeline.
      *
+     * @param name       name of this source, needs to be unique, will be
+     *                   passed to the underlying Kafka Connect source
      * @param properties configuration object which holds the configuration
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
@@ -135,7 +140,7 @@ public final class CdcSources {
                 (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    return new ChangeEventRelationalImpl(keyJson, valueJson, mapper);
+                    return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
                 }
         );
     }
@@ -144,6 +149,8 @@ public final class CdcSources {
      * Creates a CDC source that streams change data from your
      * MongoDB database to the Hazelcast Jet pipeline.
      *
+     * @param name       name of this source, needs to be unique, will be
+     *                   passed to the underlying Kafka Connect source
      * @param properties configuration object which holds the configuration
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
@@ -183,6 +190,40 @@ public final class CdcSources {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
                     return new ChangeEventMongoImpl(keyJson, valueJson);
+                }
+        );
+    }
+
+    /**
+     * Creates a CDC source that streams change data from your Debezium
+     * supported database to the Hazelcast Jet pipeline.
+     *
+     * @param name       name of this source, needs to be unique, will be
+     *                   passed to the underlying Kafka Connect source
+     * @param properties configuration object which holds the configuration
+     *                   properties of the connector.
+     * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
+     */
+    public static StreamSource<ChangeEvent> debezium(String name, Properties properties) {
+        properties = copy(properties);
+
+        properties.put("name", name);
+        checkSet(properties, "connector.class");
+
+        properties.putIfAbsent("database.history", HazelcastListDatabaseHistory.class.getName());
+        properties.putIfAbsent("database.history.hazelcast.list.name", name);
+
+        properties.putIfAbsent("tombstones.on.delete", "false");
+
+        return KafkaConnectSources.connect(properties,
+                CdcSources::createObjectMapper,
+                (mapper, event) -> event.value().getLong("ts_ms").orElse(0L),
+                (mapper, record) -> {
+                    String keyJson = Values.convertToString(record.keySchema(), record.key());
+                    System.err.println("keyJson = " + keyJson); //todo: remove
+                    String valueJson = Values.convertToString(record.valueSchema(), record.value());
+                    System.err.println("\tvalueJson = " + valueJson); //todo: remove
+                    return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
                 }
         );
     }

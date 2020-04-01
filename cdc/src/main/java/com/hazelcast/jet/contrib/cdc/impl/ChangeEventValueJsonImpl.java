@@ -25,14 +25,11 @@ import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.hazelcast.jet.contrib.cdc.impl.RelationalParsing.getLong;
-import static com.hazelcast.jet.contrib.cdc.impl.RelationalParsing.getString;
-import static com.hazelcast.jet.contrib.cdc.impl.RelationalParsing.parse;
+import static com.hazelcast.jet.contrib.cdc.impl.JsonParsing.parse;
 
-public class ChangeEventValueRelationalImpl implements ChangeEventValue {
+public class ChangeEventValueJsonImpl extends ChangeEventElementJsonImpl implements ChangeEventValue {
 
     private final String json;
     private final ThrowingSupplier<Optional<Long>, ParsingException> timestamp;
@@ -40,19 +37,18 @@ public class ChangeEventValueRelationalImpl implements ChangeEventValue {
     private final ThrowingSupplier<Optional<ChangeEventElement>, ParsingException> before;
     private final ThrowingSupplier<Optional<ChangeEventElement>, ParsingException> after;
 
-    public ChangeEventValueRelationalImpl(String valueJson, ObjectMapper mapper) {
-        Objects.requireNonNull(valueJson, "valueJson");
-        Objects.requireNonNull(mapper, "mapper");
+    public ChangeEventValueJsonImpl(String valueJson, ObjectMapper mapper) {
+        super(valueJson, mapper);
 
         ThrowingSupplier<JsonNode, ParsingException> node = parse(valueJson, mapper);
         this.timestamp = new LazyThrowingSupplier<>(() ->
-                getLong(node.get(), "ts_ms"));
+                JsonParsing.getLong(node.get(), "ts_ms"));
         this.operation = new LazyThrowingSupplier<>(() ->
-                Operation.get(getString(node.get(), "op").orElse(null)));
-        this.before = new LazyThrowingSupplier<>(() -> RelationalParsing.getNode(node.get(), "before", mapper).get()
-                .map(n -> new ChangeEventElementRelationalImpl(n, mapper)));
-        this.after = new LazyThrowingSupplier<>(() -> RelationalParsing.getNode(node.get(), "after", mapper).get()
-                .map(n -> new ChangeEventElementRelationalImpl(n, mapper)));
+                Operation.get(JsonParsing.getString(node.get(), "op").orElse(null)));
+        this.before = new LazyThrowingSupplier<>(() -> JsonParsing.getNode(node.get(), "before", mapper).get()
+                .map(n -> new ChangeEventElementJsonImpl(n, mapper)));
+        this.after = new LazyThrowingSupplier<>(() -> JsonParsing.getNode(node.get(), "after", mapper).get()
+                .map(n -> new ChangeEventElementJsonImpl(n, mapper)));
         this.json = valueJson;
     }
 

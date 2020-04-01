@@ -27,21 +27,21 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 
-public class ChangeEventRelationalImpl implements ChangeEvent {
+public class ChangeEventJsonImpl implements ChangeEvent {
 
     private final SupplierEx<String> json;
     private final SupplierEx<ChangeEventKey> key;
     private final SupplierEx<ChangeEventValue> value;
 
-    public ChangeEventRelationalImpl(@Nullable String keyJson,
-                                     @Nullable String valueJson,
-                                     @Nonnull ObjectMapper mapper) {
+    public ChangeEventJsonImpl(@Nullable String keyJson,
+                               @Nullable String valueJson,
+                               @Nonnull ObjectMapper mapper) {
         Objects.requireNonNull(keyJson, "keyJson");
         Objects.requireNonNull(valueJson, "valueJson");
         Objects.requireNonNull(mapper, "mapper");
 
-        this.key = new LazySupplier<>(() -> new ChangeEventKeyRelationalImpl(keyJson, mapper));
-        this.value = new LazySupplier<>(() -> new ChangeEventValueRelationalImpl(valueJson, mapper));
+        this.key = new LazySupplier<>(() -> new ChangeEventKeyJsonImpl(keyJson, mapper));
+        this.value = new LazySupplier<>(() -> new ChangeEventValueJsonImpl(valueJson, mapper));
         this.json = new LazySupplier<>(() -> String.format("key:{%s}, value:{%s}", keyJson, valueJson));
     }
 

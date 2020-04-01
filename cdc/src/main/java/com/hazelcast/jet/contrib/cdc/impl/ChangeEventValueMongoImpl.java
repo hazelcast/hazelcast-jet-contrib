@@ -24,15 +24,12 @@ import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
-import java.util.Objects;
 import java.util.Optional;
 
-import static com.hazelcast.jet.contrib.cdc.impl.MongoParsing.getLong;
-import static com.hazelcast.jet.contrib.cdc.impl.MongoParsing.getString;
 import static com.hazelcast.jet.contrib.cdc.impl.MongoParsing.getDocument;
 import static com.hazelcast.jet.contrib.cdc.impl.MongoParsing.parse;
 
-public class ChangeEventValueMongoImpl implements ChangeEventValue {
+public class ChangeEventValueMongoImpl extends ChangeEventElementMongoImpl implements ChangeEventValue {
 
     private final String json;
     private final ThrowingSupplier<Optional<Long>, ParsingException> timestamp;
@@ -42,13 +39,13 @@ public class ChangeEventValueMongoImpl implements ChangeEventValue {
     private final ThrowingSupplier<Optional<ChangeEventElement>, ParsingException> patch;
 
     public ChangeEventValueMongoImpl(String valueJson) {
-        Objects.requireNonNull(valueJson, "valueJson");
+        super(valueJson);
 
         ThrowingSupplier<Document, ParsingException> document = parse(valueJson);
         this.timestamp = new LazyThrowingSupplier<>(() ->
-                getLong(document.get(), "ts_ms"));
+                MongoParsing.getLong(document.get(), "ts_ms"));
         this.operation = new LazyThrowingSupplier<>(() ->
-                Operation.get(getString(document.get(), "op").orElse(null)));
+                Operation.get(MongoParsing.getString(document.get(), "op").orElse(null)));
         this.before = new LazyThrowingSupplier<>(() ->
                 getDocument(document.get(), "before").get().map(ChangeEventElementMongoImpl::new));
         this.after = new LazyThrowingSupplier<>(() ->
