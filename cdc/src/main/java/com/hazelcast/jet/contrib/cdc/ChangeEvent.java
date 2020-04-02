@@ -25,7 +25,7 @@ import java.io.Serializable;
  * NoSQL databases).
  * <p>
  * Each event has a <i>key</i>, which identifies the particular
- * record or document(s) being affected, and a <i>value</i>, which
+ * record or document being affected, and a <i>value</i>, which
  * describes the actual change itself.
  * <p>
  * Most events have an <i>operation</i> associated with them which
@@ -65,12 +65,14 @@ public interface ChangeEvent extends Serializable  {
     }
 
     /**
-     * TODO: javadoc
+     * Identifies the particular record or document being affected
+     * by the change event.
      */
     ChangeEventKey key();
 
     /**
-     * TODO: javadoc
+     * Describes the actual change affected on the record or ducument
+     * by the change event.
      */
     ChangeEventValue value();
 

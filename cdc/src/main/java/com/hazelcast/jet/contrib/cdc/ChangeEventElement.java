@@ -26,6 +26,8 @@ public interface ChangeEventElement extends Serializable {
 
     //todo: use better serialization
 
+    //todo: do we have enough getXXX() methods? can we completely parse all messages with them? TEST
+
     /**
      * TODO: javadoc
      *
