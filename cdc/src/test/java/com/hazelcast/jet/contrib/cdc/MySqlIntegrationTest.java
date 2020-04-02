@@ -25,6 +25,7 @@ import com.hazelcast.jet.contrib.cdc.data.Order;
 import com.hazelcast.jet.contrib.cdc.data.OrderPrimaryKey;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
 import org.junit.Rule;
@@ -66,7 +67,18 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         }; //todo: MySQL doesn't have SYNC operations...
 
         Pipeline pipeline = Pipeline.create();
-        pipeline.readFrom(CdcSources.mysql("customers", connectorProperties("customers")))
+
+        StreamSource<ChangeEvent> source = CdcSources.mysql("customers")
+                .setDatabaseAddress(mysql.getContainerIpAddress())
+                .setDatabasePort(mysql.getMappedPort(MYSQL_PORT))
+                .setDatabaseUser("debezium")
+                .setDatabasePassword("dbz")
+                .setDatabaseClusterName("dbserver1")
+                .setDatabaseWhitelist("inventory")
+                .setTableWhitelist("inventory.customers")
+                .build();
+
+        pipeline.readFrom(source)
                 .withNativeTimestamps(0)
                 .<ChangeEvent>customTransform("filter_timestamps", filterTimestampsProcessorSupplier())
                 .groupingKey(event -> event.key().getInteger("id").orElse(0))

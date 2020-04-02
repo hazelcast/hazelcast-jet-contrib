@@ -18,8 +18,8 @@ package com.hazelcast.jet.contrib.cdc;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hazelcast.jet.contrib.cdc.impl.ChangeEventMongoImpl;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventJsonImpl;
+import com.hazelcast.jet.contrib.cdc.impl.ChangeEventMongoImpl;
 import com.hazelcast.jet.contrib.connect.KafkaConnectSources;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.apache.kafka.connect.data.Values;
@@ -48,13 +48,26 @@ public final class CdcSources {
      * Creates a CDC source that streams change data from your MySQL
      * database to the Hazelcast Jet pipeline.
      *
+     * @param name name of this source, needs to be unique, will be
+     *             passed to the underlying Kafka Connect source
+     * @return builder that can be used to set source properties and also
+     * to construct the source once configuration is done
+     */
+    public static MySqlBuilder mysql(String name) {
+        return new MySqlBuilder(name);
+    }
+
+    /**
+     * Creates a CDC source that streams change data from your MySQL
+     * database to the Hazelcast Jet pipeline.
+     *
      * @param name       name of this source, needs to be unique, will be
      *                   passed to the underlying Kafka Connect source
      * @param properties configuration object which holds the configuration
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<ChangeEvent> mysql(String name, Properties properties) {
+    public static StreamSource<ChangeEvent> mysql(String name, Properties properties) { //todo: replace with builder
         properties = copy(properties);
 
         properties.put("name", name);
@@ -91,7 +104,7 @@ public final class CdcSources {
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<ChangeEvent> postgres(String name, Properties properties) {
+    public static StreamSource<ChangeEvent> postgres(String name, Properties properties) { //todo: replace with builder
         properties = copy(properties);
 
         properties.put("name", name);
@@ -123,7 +136,7 @@ public final class CdcSources {
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<ChangeEvent> sqlserver(String name, Properties properties) {
+    public static StreamSource<ChangeEvent> sqlserver(String name, Properties properties) { //todo: replace with builder
         properties = copy(properties);
 
         properties.put("name", name);
@@ -155,7 +168,7 @@ public final class CdcSources {
      *                   properties of the connector.
      * @return a source to use in {@link com.hazelcast.jet.pipeline.Pipeline#readFrom(StreamSource)}
      */
-    public static StreamSource<ChangeEvent> mongodb(String name, Properties properties) {
+    public static StreamSource<ChangeEvent> mongodb(String name, Properties properties) { //todo: replace with builder
         properties = copy(properties);
 
         /* Used internally as a unique identifier when recording the
@@ -243,6 +256,155 @@ public final class CdcSources {
     private static ObjectMapper createObjectMapper() {
         return new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
+
+    private abstract static class AbstractBuilder<SELF extends AbstractBuilder<SELF>> {
+
+        protected final Properties properties = new Properties();
+
+        /**
+         * @param name           name of the source, needs to be unique,
+         *                       will be passed to the underlying Kafka
+         *                       Connect source
+         * @param connectorClass name of the Java class for the connector,
+         *                       hardcoded for each type of DB
+         */
+        private AbstractBuilder(String name, String connectorClass) {
+            properties.put("name", name);
+            properties.put("connector.class", connectorClass);
+            properties.put("database.history", HazelcastListDatabaseHistory.class.getName());
+            properties.put("database.history.hazelcast.list.name", name);
+            properties.put("tombstones.on.delete", "false");
+        }
+
+        /**
+         * Can be used to set any property not covered by our builders,
+         * or to override properties we have hidden.
+         *
+         * @param key   the name of the property to set
+         * @param value the value of the property to set
+         * @return the builder itself
+         */
+        public SELF setCustomProperty(String key, String value) {
+            properties.put(key, value);
+            return (SELF) this;
+        }
+    }
+
+    /**
+     * TODO: javadoc
+     */
+    public static final class MySqlBuilder extends AbstractBuilder<MySqlBuilder> {
+
+        /**
+         * Name of the source, needs to be unique, will be passed to the
+         * underlying Kafka Connect source.
+         */
+        public MySqlBuilder(String name) {
+            super(name, "io.debezium.connector.mysql.MySqlConnector");
+            properties.put("include.schema.changes", "false");
+        }
+
+        /**
+         * IP address or hostname of the MySQL database server.
+         */
+        public MySqlBuilder setDatabaseAddress(String address) {
+            properties.put("database.hostname", address); //todo: no default, check is set on build
+            return this;
+        }
+
+        /**
+         * Integer port number of the MySQL database server, defaults to
+         * 3306.
+         */
+        public MySqlBuilder setDatabasePort(Integer port) {
+            properties.put("database.port", port);
+            return this;
+        }
+
+        /**
+         * Database user for connecting to the MySQL database server.
+         */
+        public MySqlBuilder setDatabaseUser(String user) {
+            properties.put("database.user", user); //todo: no default, check is set on build
+            return this;
+        }
+
+        /**
+         * Database user password for connecting to the MySQL database
+         * server.
+         */
+        public MySqlBuilder setDatabasePassword(String password) {
+            properties.put("database.password", password); //todo: mandatory, check on build
+            return this;
+        }
+
+        /**
+         * Logical name that identifies and provides a namespace for the
+         * particular MySQL database server/cluster being monitored. The
+         * logical name should be unique across all other connectors.
+         * Only alphanumeric characters and underscores should be used.
+         */
+        public MySqlBuilder setDatabaseClusterName(String cluster) {
+            properties.put("database.server.name", cluster); //todo: mandatory? needed? check on build
+            return this;
+        }
+
+        /**
+         * A numeric ID of this database client, which must be unique
+         * across all currently-running database processes in the MySQL
+         * cluster. This connector joins the MySQL database cluster as
+         * another server (with this unique ID) so it can read the
+         * binlog. By default, a random number is generated between
+         * 5400 and 6400, though we recommend setting an explicit value.
+         */
+        public MySqlBuilder setDatabaseClientId(int id) {
+            properties.put("database.server.id", id);
+            return this;
+        }
+
+        /**
+         * An optional comma-separated list of regular expressions that
+         * match database names to be monitored; any database name not
+         * included in the whitelist will be excluded from monitoring.
+         * By default all databases will be monitored. May not be used
+         * with database whitelist. //todo: check this on build
+         */
+        public MySqlBuilder setDatabaseWhitelist(String whitelist) { //todo: use String[] instead?
+            properties.put("database.whitelist", whitelist);
+            return this;
+        }
+
+        /**
+         * An optional comma-separated list of regular expressions that
+         * match fully-qualified table identifiers for tables to be
+         * monitored; any table not included in the whitelist will be
+         * excluded from monitoring. Each identifier is of the form
+         * 'databaseName.tableName'. By default the connector will
+         * monitor every non-system table in each monitored database.
+         * May not be used with table blacklist.
+         */
+        public MySqlBuilder setTableWhitelist(String whitelist) {
+            properties.put("table.whitelist", whitelist);
+            return this;
+        }
+
+        //todo: cover all other properties
+
+        /**
+         * Returns an actual source based on the properties set so far.
+         */
+        public StreamSource<ChangeEvent> build() {
+            return KafkaConnectSources.connect(properties,
+                    CdcSources::createObjectMapper,
+                    (mapper, event) -> event.timestamp(),
+                    (mapper, record) -> {
+                        String keyJson = Values.convertToString(record.keySchema(), record.key());
+                        String valueJson = Values.convertToString(record.valueSchema(), record.value());
+                        return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
+                    }
+            );
+        }
     }
 
 
