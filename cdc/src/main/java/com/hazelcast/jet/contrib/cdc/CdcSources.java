@@ -233,9 +233,7 @@ public final class CdcSources {
                 (mapper, event) -> event.value().getLong("ts_ms").orElse(0L),
                 (mapper, record) -> {
                     String keyJson = Values.convertToString(record.keySchema(), record.key());
-                    System.err.println("keyJson = " + keyJson); //todo: remove
                     String valueJson = Values.convertToString(record.valueSchema(), record.value());
-                    System.err.println("\tvalueJson = " + valueJson); //todo: remove
                     return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
                 }
         );

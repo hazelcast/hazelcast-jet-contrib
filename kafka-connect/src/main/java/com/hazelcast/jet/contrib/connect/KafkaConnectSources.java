@@ -154,10 +154,7 @@ public final class KafkaConnectSources {
                 BiFunctionEx<PC, T, Long> timestampProjectionFn,
                 BiFunctionEx<? super PC, ? super SourceRecord, ? extends T> dataProjectionFn) {
             try {
-                if (isDebezium(properties)) {
-                    // inject hazelcast.instance.name for retrieving from JVM instance factory in the Debezium source
-                    injectHazelcastInstanceNameProperty(ctx, properties);
-                }
+                injectHazelcastInstanceNameProperty(ctx, properties);
                 String connectorClazz = properties.getProperty("connector.class");
                 Class<?> connectorClass = Thread.currentThread().getContextClassLoader().loadClass(connectorClazz);
                 connector = (SourceConnector) connectorClass.getConstructor().newInstance();
@@ -180,10 +177,7 @@ public final class KafkaConnectSources {
             String instanceName = HazelcastInstanceFactory.getInstanceName(jet.getName(),
                     jet.getHazelcastInstance().getConfig());
             properties.setProperty("database.history.hazelcast.instance.name", instanceName);
-        }
-
-        private boolean isDebezium(Properties properties) {
-            return properties.containsKey("database.history"); //todo: seems weak for detecting Debezium sources..
+            //needed only by CDC sources... could be achieved via one more lambda, but we do have enough of those...
         }
 
         void fillBuffer(TimestampedSourceBuffer<T> buf) {
