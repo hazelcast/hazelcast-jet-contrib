@@ -35,6 +35,8 @@ import java.util.function.Consumer;
 
 /**
  * Database history implementation backed by Hazelcast IList {@link IList}.
+ *
+ * @since 4.1
  */
 public class HazelcastListDatabaseHistory extends AbstractDatabaseHistory {
 

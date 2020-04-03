@@ -19,23 +19,26 @@ package com.hazelcast.jet.contrib.cdc.util;
 import java.io.Serializable;
 
 /**
- * Serializable value supplier, one that can throw an {@code Exception}
- * of an explicitly specified type from it's {@code get()} method.
+ * Serializable function (with two arguments), one that can throw an
+ * {@code Exception} of an explicitly specified type from its
+ * {@code apply()} method.
  * <p>
  * <b>NOT</b> thread safe.
  *
- * @param <T> type of supplied values
+ * @param <T> type of first function parameter
+ * @param <U> type of second function parameter
+ * @param <R> type of function result
  * @param <E> type of thrown exception
  *
  * @since 4.1
  */
 @FunctionalInterface
-public interface ThrowingSupplier<T, E extends Exception> extends Serializable {
+public interface ThrowingBiFunction<T, U, R, E extends Exception> extends Serializable {
 
     /**
-     * Returns a/the supplied value, potentially throwing an
+     * Computes a result base on the two inputs, potentially throwing an
      * {@code E extends Exception} during the process.
      */
-    T get() throws E;
+    R apply(T t, U u) throws E;
 
 }

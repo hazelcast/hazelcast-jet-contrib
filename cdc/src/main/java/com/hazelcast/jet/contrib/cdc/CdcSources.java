@@ -18,6 +18,7 @@ package com.hazelcast.jet.contrib.cdc;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hazelcast.jet.annotation.EvolvingApi;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventJsonImpl;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventMongoImpl;
 import com.hazelcast.jet.contrib.connect.KafkaConnectSources;
@@ -28,7 +29,10 @@ import java.util.Properties;
 
 /**
  * Contains factory methods for creating change data capture sources
+ *
+ * @since 4.1
  */
+@EvolvingApi
 public final class CdcSources {
 
     //todo: use BUILDER instead of Properties
@@ -40,6 +44,10 @@ public final class CdcSources {
     //todo: review all Debezium config options, see if we need to add more
 
     //todo: further refine and document config option
+
+    //todo: the ObjectMapper, even if it's serializable, shouldn't be in each event!
+
+    //todo: sources could have an optional, custom ObjectMapper param, which would simplify the definition of data objects
 
     private CdcSources() {
     }

@@ -16,29 +16,59 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.hazelcast.jet.annotation.EvolvingApi;
+import org.bson.Document;
+
 import java.io.Serializable;
+import java.util.List;
 import java.util.Optional;
 
 /**
- * TODO: javadoc
+ * Arbitrary part of a {@link ChangeEvent}, as big as the whole body orz
+ * as small as a single patch expression, based on a complete JSON
+ * expression. Contains various methods for retrieving component values
+ * or for mapping itself to data objects.
+ *
+ * @since 4.1
  */
-public interface ChangeEventElement extends Serializable {
-
-    //todo: use better serialization
+@EvolvingApi
+public interface ChangeEventElement extends Serializable { //todo: use better serialization
 
     //todo: do we have enough getXXX() methods? can we completely parse all messages with them? TEST
 
+    //todo: method for Date? how would that work?
+
     /**
-     * TODO: javadoc
+     * Maps the entire element to an instance of the specified class.
+     * <p>
+     * For databases providing standard JSON syntax, parsing it is based
+     * on <a href="https://github.com/FasterXML/jackson-databind">Jackson Databind</a>,
+     * in particular on the Jackson {@code ObjectMapper}, so the
+     * parameter class needs to be annotated accordingly.
+     * <p>
+     * For MongoDB, which uses an extended JSON syntax, mapping is only
+     * supported to instances of the {@link org.bson.Document} class.
      *
+     * @return optional {@code Object} value, which is empty only if
+     * the specified key is not found or if it's value is null
      * @throws ParsingException if the whole structure containing this
      *                          element is unparsable or the mapping
      *                          fails to produce a result
      */
-    <T> T map(Class<T> clazz) throws ParsingException;
+    <T> T mapToObj(Class<T> clazz) throws ParsingException;
 
     /**
-     * TODO: javadoc
+     * Best effor method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value as is,
+     * without attempting to parse it in any way. This means that it
+     * can return objects specific to the parsing used by internal
+     * implementations, so Jackson classes (mostly {@link JsonNode}
+     * implementations), or MongoDB Java driver classes (for example
+     * embedded {@link Document} instances).
+     * <p>
+     * Should not be used normally, is intended as a fallback in case
+     * regular parsing fails for some reason.
      *
      * @throws ParsingException if the whole structure containing this
      *                          element or the element itself is unparsable
@@ -46,54 +76,100 @@ public interface ChangeEventElement extends Serializable {
     Optional<Object> getObject(String key) throws ParsingException;
 
     /**
-     * TODO: javadoc
+     * Best effort method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value as a
+     * {@link String}, but only as long as the value is indeed just a
+     * simple value. So numbers, strings, booleans will be converted,
+     * but complex structures like arrays and collections won't.
      *
-     * @throws ParsingException if the whole structure containing this
-     *                          element or the element itself is unparsable
+     * @return optional {@code String} value, which is empty if the
+     * specified key is not found or if the value is null or doesn't
+     * represent a single value.
+     * @throws ParsingException if the underlying JSON message, or any
+     *                          of its parent messages are unparsable
      */
     Optional<String> getString(String key) throws ParsingException;
 
     /**
-     * TODO: javadoc
+     * Best effort method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value in the form
+     * of an {@link Integer}, but only as long as the value is indeed
+     * a number or a string that can be parsed into one.
      *
-     * @throws ParsingException if the whole structure containing this
-     *                          element or the element itself is unparsable
+     * @return optional {@code Integer} value, which is empty if the
+     * specified key is not found or if the value is null or if it isn't
+     * a number or a string that can be parsed as a number
+     * @throws ParsingException if the underlying JSON message, or any
+     *                          of its parent messages are unparsable
      */
     Optional<Integer> getInteger(String key) throws ParsingException;
 
     /**
-     * TODO: javadoc
+     * Best effort method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value in the form
+     * of a {@link Long}, but only as long as the value is indeed
+     * a number or a string that can be parsed into one.
      *
-     * @throws ParsingException if the whole structure containing this
-     *                          element or the element itself is unparsable
+     * @return optional {@code Long} value, which is empty if the
+     * specified key is not found or if the value is null or if it isn't
+     * a number or a string that can be parsed as a number
+     * @throws ParsingException if the underlying JSON message, or any
+     *                          of its parent messages are unparsable
      */
     Optional<Long> getLong(String key) throws ParsingException;
 
     /**
-     * TODO: javadoc
+     * Best effort method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value in the form
+     * of a {@link Double}, but only as long as the value is indeed
+     * a number or a string that can be parsed into one.
      *
-     * @throws ParsingException if the whole structure containing this
-     *                          element or the element itself is unparsable
+     * @return optional {@code Double} value, which is empty if the
+     * specified key is not found or if the value is null or if it isn't
+     * a number or a string that can be parsed as a number
+     * @throws ParsingException if the underlying JSON message, or any
+     *                          of its parent messages are unparsable
      */
     Optional<Double> getDouble(String key) throws ParsingException;
 
     /**
-     * TODO: javadoc
+     * Best effort method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value in the form
+     * of a {@link Boolean}, but only as long as the value is indeed
+     * a boolean or a string that can be parsed into one.
      *
-     * @throws ParsingException if the whole structure containing this
-     *                          element or the element itself is unparsable
+     * @return optional {@code Boolean} value, which is empty if the
+     * specified key is not found or if the value is null or if it isn't
+     * a boolean or a string that can be parsed as a boolean
+     * @throws ParsingException if the underlying JSON message, or any
+     *                          of its parent messages are unparsable
      */
     Optional<Boolean> getBoolean(String key) throws ParsingException;
 
     /**
-     * Returns raw JSON string on which the content of this event is
-     * based. To be used when parsing fails for some reason (for example
-     * on some untested DB-connector version combination).
+     * Best effort method for finding the specified (top level) key in
+     * the underlying JSON message and returning its value a
+     * {@link List} of optional values of a certain type.
+     *
+     * @param <T> type of elements in the list
+     * @return optional {@code List} value, which is empty only if the
+     * specified key is not found or if the value is null or not a
+     * collection type; the optional {@code T} elements in the list
+     * are empty if they are null or can't be parsed as the specified
+     * type
+     * @throws ParsingException if the underlying JSON message, or any
+     *                          of its parent messages are unparsable
+     */
+    <T> Optional<List<Optional<T>>> getList(String key, Class<T> clazz) throws ParsingException;
+
+    /**
+     * Returns raw JSON string which the content of this event element
+     * is based on. To be used when parsing fails for some reason
+     * (for example on some untested DB-connector version combination).
      * <p>
      * While the format is standard for RELATIONAL DATABASES, for
      * MongoDB it's MongoDB Extended JSON v2 format and needs to be
      * parsed accordingly.
-     * TODO: javadoc
      */
     String asJson();
 

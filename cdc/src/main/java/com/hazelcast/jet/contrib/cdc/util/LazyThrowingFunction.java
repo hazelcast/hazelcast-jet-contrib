@@ -22,10 +22,20 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * TODO: javadoc
- * @param <T>
- * @param <R>
- * @param <E>
+ * Lazy version of {@link ThrowingFunction}, computes the result for any
+ * particular input only once, on first call, caches it, then
+ * returns it on every subsequent call with the same input.
+ * <p>
+ * Result cache never gets cleaned, so memory consumption can get out of
+ * hand, if used improperly.
+ * <p>
+ * <b>NOT</b> thread safe.
+ *
+ * @param <T> type of function parameter
+ * @param <R> type of function result
+ * @param <E> type of thrown exception
+ *
+ * @since 4.1
  */
 public class LazyThrowingFunction<T, R, E extends Exception> implements ThrowingFunction<T, R, E> {
 
@@ -35,14 +45,18 @@ public class LazyThrowingFunction<T, R, E extends Exception> implements Throwing
     private transient Map<T, R> values = new HashMap<>();
 
     /**
-     * TODO: javadoc
+     * Gets initialized with any {@link ThrowingFunction} that will be
+     * used at most once for any input, to create the cached result for
+     * that input.
      */
     public LazyThrowingFunction(@Nonnull ThrowingFunction<T, R, E> expensiveFunction) {
         this.expensiveFunction = Objects.requireNonNull(expensiveFunction);
     }
 
     /**
-     * TODO: javadoc
+     * Returns the cached result for a particular input, creating it if
+     * needed, potentially throwing an {@code E extends Exception}
+     * during the process.
      */
     @Override
     public R apply(T t) throws E {

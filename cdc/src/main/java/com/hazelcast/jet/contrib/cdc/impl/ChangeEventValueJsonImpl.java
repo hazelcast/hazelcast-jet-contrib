@@ -45,9 +45,9 @@ public class ChangeEventValueJsonImpl extends ChangeEventElementJsonImpl impleme
                 JsonParsing.getLong(node.get(), "ts_ms"));
         this.operation = new LazyThrowingSupplier<>(() ->
                 Operation.get(JsonParsing.getString(node.get(), "op").orElse(null)));
-        this.before = new LazyThrowingSupplier<>(() -> JsonParsing.getNode(node.get(), "before", mapper).get()
+        this.before = new LazyThrowingSupplier<>(() -> JsonParsing.getChild(node.get(), "before").get()
                 .map(n -> new ChangeEventElementJsonImpl(n, mapper)));
-        this.after = new LazyThrowingSupplier<>(() -> JsonParsing.getNode(node.get(), "after", mapper).get()
+        this.after = new LazyThrowingSupplier<>(() -> JsonParsing.getChild(node.get(), "after").get()
                 .map(n -> new ChangeEventElementJsonImpl(n, mapper)));
         this.json = valueJson;
     }

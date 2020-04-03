@@ -16,9 +16,14 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import com.hazelcast.jet.annotation.EvolvingApi;
+
 /**
  * TODO: javadoc
+ *
+ * @since 4.1
  */
+@EvolvingApi
 public class ParsingException extends Exception {
 
     /**

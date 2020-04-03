@@ -91,7 +91,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                             Operation operation = eventValue.operation();
                             ChangeEventElement mostRecentImage = DELETE.equals(operation) ?
                                     eventValue.before() : eventValue.after();
-                            Customer customer = mostRecentImage.map(Customer.class);
+                            Customer customer = mostRecentImage.mapToObj(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)
@@ -162,7 +162,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
                             Operation operation = eventValue.operation();
                             ChangeEventElement mostRecentImage = DELETE.equals(operation) ?
                                     eventValue.before() : eventValue.after();
-                            Order order = mostRecentImage.map(Order.class);
+                            Order order = mostRecentImage.mapToObj(Order.class);
                             return orderId + "/" + count + ":" + operation + ":" + order;
                         })
                 .setLocalParallelism(1)
@@ -211,7 +211,7 @@ public class MySqlIntegrationTest extends AbstractIntegrationTest {
         if (primitive) {
             return event.key().getInteger("order_number").orElse(0);
         } else {
-            return event.key().map(OrderPrimaryKey.class).id;
+            return event.key().mapToObj(OrderPrimaryKey.class).id;
         }
     }
 

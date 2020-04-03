@@ -16,11 +16,16 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import com.hazelcast.jet.annotation.EvolvingApi;
+
 import java.util.Objects;
 
 /**
  * TODO: javadoc
+ *
+ * @since 4.1
  */
+@EvolvingApi
 public enum Operation {
     /**
      * Change event doesn't have an operation field, for example heartbeats.

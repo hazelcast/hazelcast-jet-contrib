@@ -20,9 +20,16 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * TODO: javadoc
- * @param <T>
- * @param <E>
+ * Lazy version of {@link ThrowingSupplier}, initializes the value it's
+ * going to supply once, on first usage, caches it, then returns it on
+ * every subsequent {@code get}.
+ * <p>
+ * <b>NOT</b> thread safe.
+ *
+ * @param <T> type of supplied values
+ * @param <E> type of thrown exception
+ *
+ * @since 4.1
  */
 public class LazyThrowingSupplier<T, E extends Exception> implements ThrowingSupplier<T, E> {
 
@@ -32,14 +39,16 @@ public class LazyThrowingSupplier<T, E extends Exception> implements ThrowingSup
     private transient T value;
 
     /**
-     * TODO: javadoc
+     * Gets initialized with any {@link ThrowingSupplier} that will be
+     * used at most once, to create the cached value.
      */
     public LazyThrowingSupplier(@Nonnull ThrowingSupplier<T, E> expensiveSupplier) {
         this.expensiveSupplier = Objects.requireNonNull(expensiveSupplier);
     }
 
     /**
-     * TODO: javadoc
+     * Returns the cached result, creating it if needed, potentially
+     * throwing an {@code E extends Exception} during the process.
      */
     public T get() throws E {
         if (value == null) {

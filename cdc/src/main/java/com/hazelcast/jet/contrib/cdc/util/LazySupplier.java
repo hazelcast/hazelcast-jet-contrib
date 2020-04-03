@@ -22,8 +22,15 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * TODO: javadoc
- * @param <T>
+ * Lazy version of {@link SupplierEx}, initializes the value it's going
+ * to supply once, on first usage, caches it, then returns it on every
+ * subsequent {@code get}.
+ * <p>
+ * <b>NOT</b> thread safe.
+ *
+ * @param <T> type of value that will be supplied
+ *
+ * @since 4.1
  */
 public class LazySupplier<T> implements SupplierEx<T> {
 
@@ -33,14 +40,15 @@ public class LazySupplier<T> implements SupplierEx<T> {
     private transient T value;
 
     /**
-     * TODO: javadoc
+     * Gets initialized with any {@link SupplierEx} that will be used at
+     * most once, to create the cached value.
      */
     public LazySupplier(@Nonnull SupplierEx<T> expensiveSupplier) {
         this.expensiveSupplier = Objects.requireNonNull(expensiveSupplier);
     }
 
     /**
-     * TODO: javadoc
+     * Returns the cached result, creating it if needed.
      */
     @Override
     public T getEx() {

@@ -23,10 +23,12 @@ import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
+import com.hazelcast.jet.contrib.cdc.util.ThrowingBiFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Optional;
 
 class ChangeEventElementJsonImpl implements ChangeEventElement {
@@ -42,6 +44,7 @@ class ChangeEventElementJsonImpl implements ChangeEventElement {
     private final ThrowingFunction<String, Optional<Long>, ParsingException> longs;
     private final ThrowingFunction<String, Optional<Double>, ParsingException> doubles;
     private final ThrowingFunction<String, Optional<Boolean>, ParsingException> booleans;
+    private final ThrowingBiFunction<String, Class<Object>, Optional<List<Optional<Object>>>, ParsingException> lists;
 
     ChangeEventElementJsonImpl(@Nonnull String json, @Nonnull ObjectMapper mapper) {
         this(new LazyThrowingSupplier<>(JsonParsing.parse(json, mapper)), () -> json, mapper);
@@ -58,7 +61,7 @@ class ChangeEventElementJsonImpl implements ChangeEventElement {
         this.node = node;
         this.json = json;
 
-        this.mapper = new LazyThrowingFunction<>((clazz) -> JsonParsing.map(node.get(), clazz, mapper));
+        this.mapper = new LazyThrowingFunction<>((clazz) -> JsonParsing.mapToObj(node.get(), clazz, mapper));
 
         this.objects = (key) -> JsonParsing.getObject(node.get(), key);
         this.strings = (key) -> JsonParsing.getString(node.get(), key);
@@ -66,10 +69,11 @@ class ChangeEventElementJsonImpl implements ChangeEventElement {
         this.longs = (key) -> JsonParsing.getLong(node.get(), key);
         this.doubles = (key) -> JsonParsing.getDouble(node.get(), key);
         this.booleans = (key) -> JsonParsing.getBoolean(node.get(), key);
+        this.lists = (key, clazz) -> JsonParsing.getList(node.get(), key, clazz);
     }
 
     @Override
-    public <T> T map(Class<T> clazz) throws ParsingException {
+    public <T> T mapToObj(Class<T> clazz) throws ParsingException {
         return (T) mapper.apply(clazz);
     }
 
@@ -101,6 +105,11 @@ class ChangeEventElementJsonImpl implements ChangeEventElement {
     @Override
     public Optional<Boolean> getBoolean(String key) throws ParsingException {
         return booleans.apply(key);
+    }
+
+    @Override
+    public <T> Optional<List<Optional<T>>> getList(String key, Class<T> clazz) throws ParsingException {
+        return lists.apply(key, (Class) clazz);
     }
 
     @Override

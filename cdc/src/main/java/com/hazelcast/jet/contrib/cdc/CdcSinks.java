@@ -19,11 +19,13 @@ package com.hazelcast.jet.contrib.cdc;
 import com.hazelcast.jet.annotation.EvolvingApi;
 
 /**
- * Key portion of a {@link ChangeEvent}, identifies the database
- * record or document being affected by the event.
+ * TODO: javadoc
  *
  * @since 4.1
  */
 @EvolvingApi
-public interface ChangeEventKey extends ChangeEventElement {
+public final class CdcSinks {
+
+    //todo: define sink that writes out object images to map and actually deletes on delete
+
 }

@@ -20,10 +20,12 @@ import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.cdc.ChangeEventElement;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
+import com.hazelcast.jet.contrib.cdc.util.ThrowingBiFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingFunction;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
+import java.util.List;
 import java.util.Optional;
 
 class ChangeEventElementMongoImpl implements ChangeEventElement {
@@ -37,6 +39,7 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
     private final ThrowingFunction<String, Optional<Long>, ParsingException> longs;
     private final ThrowingFunction<String, Optional<Double>, ParsingException> doubles;
     private final ThrowingFunction<String, Optional<Boolean>, ParsingException> booleans;
+    private final ThrowingBiFunction<String, Class<Object>, Optional<List<Optional<Object>>>, ParsingException> lists;
 
     ChangeEventElementMongoImpl(String json) {
         this(new LazyThrowingSupplier<>(MongoParsing.parse(json)), () -> json);
@@ -56,10 +59,11 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
         this.longs = (key) -> MongoParsing.getLong(document.get(), key);
         this.doubles = (key) -> MongoParsing.getDouble(document.get(), key);
         this.booleans = (key) -> MongoParsing.getBoolean(document.get(), key);
+        this.lists = (key, clazz) -> MongoParsing.getList(document.get(), key, clazz);
     }
 
     @Override
-    public <T> T map(Class<T> clazz) throws ParsingException {
+    public <T> T mapToObj(Class<T> clazz) throws ParsingException {
         if (!clazz.equals(Document.class)) {
             throw new IllegalArgumentException("Content provided only as " + Document.class.getName());
         }
@@ -94,6 +98,11 @@ class ChangeEventElementMongoImpl implements ChangeEventElement {
     @Override
     public Optional<Boolean> getBoolean(String key) throws ParsingException {
         return booleans.apply(key);
+    }
+
+    @Override
+    public <T> Optional<List<Optional<T>>> getList(String key, Class<T> clazz) throws ParsingException {
+        return lists.apply(key, (Class) clazz);
     }
 
     @Override

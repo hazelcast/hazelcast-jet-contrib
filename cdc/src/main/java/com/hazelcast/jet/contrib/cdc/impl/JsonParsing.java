@@ -18,10 +18,13 @@ package com.hazelcast.jet.contrib.cdc.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.hazelcast.jet.contrib.cdc.ParsingException;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 
 import javax.ws.rs.ProcessingException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public final class JsonParsing {
@@ -39,8 +42,7 @@ public final class JsonParsing {
         };
     }
 
-    public static ThrowingSupplier<Optional<JsonNode>, ParsingException> getNode(
-            JsonNode node, String key, ObjectMapper mapper) {
+    public static ThrowingSupplier<Optional<JsonNode>, ParsingException> getChild(JsonNode node, String key) {
         return () -> {
             JsonNode subNode = node.get(key);
             if (subNode == null || subNode.isNull()) {
@@ -51,7 +53,7 @@ public final class JsonParsing {
         };
     }
 
-    public static <T> T map(JsonNode node, Class<T> clazz, ObjectMapper mapper) throws ParsingException {
+    public static <T> T mapToObj(JsonNode node, Class<T> clazz, ObjectMapper mapper) throws ParsingException {
         try {
             return mapper.treeToValue(node, clazz);
         } catch (Exception e) {
@@ -59,29 +61,102 @@ public final class JsonParsing {
         }
     }
 
+    public static <T> Optional<List<Optional<T>>> getList(JsonNode node, String key, Class<T> clazz) {
+        JsonNode value = node.get(key);
+        return getList(clazz, value);
+    }
+
     public static Optional<Object> getObject(JsonNode node, String key) {
-        Object object = node.get(key);
-        return Optional.ofNullable(object);
+        Object value = node.get(key);
+        return getObject(value);
     }
 
     public static Optional<String> getString(JsonNode node, String key) {
-        JsonNode valueNode = node.get(key);
-        if (valueNode != null && valueNode.isValueNode()) {
-            return Optional.of(valueNode.asText());
+        JsonNode value = node.get(key);
+        return getString(value);
+    }
+
+    public static Optional<Integer> getInteger(JsonNode node, String key) {
+        JsonNode value = node.get(key);
+        return getInteger(value);
+    }
+
+    public static Optional<Long> getLong(JsonNode node, String key) {
+        JsonNode value = node.get(key);
+        return getLong(value);
+    }
+
+    public static Optional<Double> getDouble(JsonNode node, String key) {
+        JsonNode value = node.get(key);
+        return getDouble(value);
+    }
+
+    public static Optional<Boolean> getBoolean(JsonNode node, String key) {
+        JsonNode value = node.get(key);
+        return getBoolean(value);
+    }
+
+    private static Optional<Object> getObject(Object value) {
+        return Optional.ofNullable(value);
+    }
+
+    private static Optional<String> getString(JsonNode value) {
+        if (value != null && value.isValueNode()) {
+            return Optional.of(value.asText());
         } else {
             return Optional.empty();
         }
     }
 
-    public static Optional<Integer> getInteger(JsonNode node, String key) {
-        JsonNode valueNode = node.get(key);
-        if (valueNode != null) {
-            if (valueNode.isNumber()) {
-                return Optional.of(valueNode.asInt());
-            } else {
+    private static Optional<Integer> getInteger(JsonNode value) {
+        if (value != null) {
+            if (value.isNumber()) {
+                return Optional.of(value.asInt());
+            } else if (value.isValueNode()) {
+                String stringValue = value.asText();
                 try {
-                    return getString(node, key).map(Integer::parseInt);
-                } catch (Exception e) {
+                    return Optional.of(Integer.parseInt(stringValue));
+                } catch (NumberFormatException ei) {
+                    try {
+                        return Optional.of(new Double(stringValue).intValue());
+                    } catch (NumberFormatException ef) {
+                        return Optional.empty();
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Long> getLong(JsonNode value) {
+        if (value != null) {
+            if (value.isNumber()) {
+                return Optional.of(value.asLong());
+            } else if (value.isValueNode()) {
+                String stringValue = value.asText();
+                try {
+                    return Optional.of(Long.parseLong(stringValue));
+                } catch (NumberFormatException ei) {
+                    try {
+                        return Optional.of(new Double(stringValue).longValue());
+                    } catch (NumberFormatException ef) {
+                        return Optional.empty();
+                    }
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<Double> getDouble(JsonNode value) {
+        if (value != null) {
+            if (value.isNumber()) {
+                return Optional.of(value.asDouble());
+            } else if (value.isValueNode()) {
+                String stringValue = value.asText();
+                try {
+                    return Optional.of(Double.parseDouble(stringValue));
+                } catch (NumberFormatException e) {
                     return Optional.empty();
                 }
             }
@@ -89,50 +164,42 @@ public final class JsonParsing {
         return Optional.empty();
     }
 
-    public static Optional<Long> getLong(JsonNode node, String key) {
-        JsonNode valueNode = node.get(key);
-        if (valueNode != null) {
-            if (valueNode.isNumber()) {
-                return Optional.of(valueNode.asLong());
-            } else {
-                try {
-                    return getString(node, key).map(Long::parseLong);
-                } catch (Exception e) {
-                    return Optional.empty();
-                }
+    private static Optional<Boolean> getBoolean(JsonNode value) {
+        if (value != null) {
+            if (value.isBoolean()) {
+                return Optional.of(value.asBoolean());
+            } else if (value.isValueNode()) {
+                String stringValue = value.asText();
+                return Optional.of(Boolean.parseBoolean(stringValue));
             }
         }
         return Optional.empty();
     }
 
-    public static Optional<Double> getDouble(JsonNode node, String key) {
-        JsonNode valueNode = node.get(key);
-        if (valueNode != null) {
-            if (valueNode.isNumber()) {
-                return Optional.of(valueNode.asDouble());
-            } else {
-                try {
-                    return getString(node, key).map(Double::parseDouble);
-                } catch (Exception e) {
-                    return Optional.empty();
+    private static <T> Optional<List<Optional<T>>> getList(Class<T> clazz, JsonNode value) {
+        if (value != null && value.isArray()) {
+            ArrayNode arrayNode = (ArrayNode) value;
+            List<Optional<T>> list = new ArrayList<>(arrayNode.size());
+            for (int i = 0; i < arrayNode.size(); i++) {
+                Optional<T> element;
+                if (clazz.equals(String.class)) {
+                    element = (Optional<T>) getString(arrayNode.get(i));
+                } else if (clazz.equals(Integer.class)) {
+                    element = (Optional<T>) getInteger(arrayNode.get(i));
+                } else if (clazz.equals(Long.class)) {
+                    element = (Optional<T>) getLong(arrayNode.get(i));
+                } else if (clazz.equals(Double.class)) {
+                    element = (Optional<T>) getDouble(arrayNode.get(i));
+                } else if (clazz.equals(Boolean.class)) {
+                    element = (Optional<T>) getBoolean(arrayNode.get(i));
+                } else if (clazz.equals(Object.class)) {
+                    element = (Optional<T>) getObject(arrayNode.get(i));
+                } else {
+                    throw new IllegalArgumentException(clazz.getName() + " not supported");
                 }
+                list.add(element);
             }
-        }
-        return Optional.empty();
-    }
-
-    public static Optional<Boolean> getBoolean(JsonNode node, String key) {
-        JsonNode valueNode = node.get(key);
-        if (valueNode != null) {
-            if (valueNode.isBoolean()) {
-                return Optional.of(valueNode.asBoolean());
-            } else {
-                try {
-                    return getString(node, key).map(Boolean::parseBoolean);
-                } catch (Exception e) {
-                    return Optional.empty();
-                }
-            }
+            return Optional.of(list);
         }
         return Optional.empty();
     }

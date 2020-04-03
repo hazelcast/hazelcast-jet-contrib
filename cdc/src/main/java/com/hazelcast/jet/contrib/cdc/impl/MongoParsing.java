@@ -21,7 +21,10 @@ import com.hazelcast.jet.contrib.cdc.util.LazyThrowingSupplier;
 import com.hazelcast.jet.contrib.cdc.util.ThrowingSupplier;
 import org.bson.Document;
 
+import java.util.Date;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public final class MongoParsing {
 
@@ -53,52 +56,98 @@ public final class MongoParsing {
         );
     }
 
+    public static <T> Optional<List<Optional<T>>> getList(Document document, String key, Class<T> clazz) {
+        Object value = document.get(key);
+        return getList(clazz, value);
+    }
+
     public static Optional<Object> getObject(Document document, String key) {
         Object object = document.get(key);
-        return Optional.ofNullable(object);
+        return getObject(object);
     }
 
     public static Optional<String> getString(Document document, String key) {
         Object object = document.get(key);
-        if (object instanceof String) {
-            return Optional.of((String) object);
-        } else {
-            return Optional.empty();
-        }
+        return getString(object);
     }
 
     public static Optional<Integer> getInteger(Document document, String key) {
         Object object = document.get(key);
-        if (object instanceof Number) {
-            return Optional.of(((Number) object).intValue());
-        } else if (object instanceof String) {
-            try {
-                return Optional.of(new Integer((String) object));
-            } catch (NumberFormatException e) {
-                return Optional.empty();
-            }
-        } else {
-            return Optional.empty();
-        }
+        return getInteger(object);
     }
 
     public static Optional<Long> getLong(Document document, String key) {
         Object object = document.get(key);
+        return getLong(object);
+    }
+
+    public static Optional<Double> getDouble(Document document, String key) {
+        Object object = document.get(key);
+        return getDouble(object);
+    }
+
+    public static Optional<Boolean> getBoolean(Document document, String key) {
+        Object object = document.get(key);
+        return getBoolean(object);
+    }
+
+    private static Optional<Object> getObject(Object object) {
+        return Optional.ofNullable(object);
+    }
+
+    private static Optional<String> getString(Object object) {
+        if (object instanceof String) {
+            return Optional.of((String) object);
+        } else if (object instanceof Number) {
+            return Optional.of(object.toString());
+        } else if (object instanceof Boolean) {
+            return Optional.of(object.toString());
+        } else if (object instanceof Date) {
+            return Optional.of(object.toString());
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Integer> getInteger(Object object) {
         if (object instanceof Number) {
-            return Optional.of(((Number) object).longValue());
+            return Optional.of(((Number) object).intValue());
         } else if (object instanceof String) {
+            String stringValue = (String) object;
             try {
-                return Optional.of(new Long((String) object));
-            } catch (NumberFormatException e) {
-                return Optional.empty();
+                return Optional.of(new Integer(stringValue));
+            } catch (NumberFormatException ei) {
+                try {
+                    return Optional.of(new Double(stringValue).intValue());
+                } catch (NumberFormatException ed) {
+                    return Optional.empty();
+                }
             }
         } else {
             return Optional.empty();
         }
     }
 
-    public static Optional<Double> getDouble(Document document, String key) {
-        Object object = document.get(key);
+    private static Optional<Long> getLong(Object object) {
+        if (object instanceof Number) {
+            return Optional.of(((Number) object).longValue());
+        } else if (object instanceof String) {
+            String stringValue = (String) object;
+            try {
+                return Optional.of(new Long(stringValue));
+            } catch (NumberFormatException ei) {
+                try {
+                    return Optional.of(new Double(stringValue).longValue());
+                } catch (NumberFormatException ed) {
+                    return Optional.empty();
+                }
+            }
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<Double> getDouble(Object object) {
         if (object instanceof Number) {
             return Optional.of(((Number) object).doubleValue());
         } else if (object instanceof String) {
@@ -112,8 +161,7 @@ public final class MongoParsing {
         }
     }
 
-    public static Optional<Boolean> getBoolean(Document document, String key) {
-        Object object = document.get(key);
+    private static Optional<Boolean> getBoolean(Object object) {
         if (object instanceof Boolean) {
             return Optional.of(((Boolean) object));
         } else if (object instanceof String) {
@@ -121,6 +169,31 @@ public final class MongoParsing {
         } else {
             return Optional.empty();
         }
+    }
+
+    private static <T> Optional<List<Optional<T>>> getList(Class<T> clazz, Object value) {
+        if (value instanceof List) {
+            return Optional.of(((List<?>) value).stream()
+                    .map(e -> {
+                        if (clazz.equals(String.class)) {
+                            return (Optional<T>) getString(e);
+                        } else if (clazz.equals(Integer.class)) {
+                            return (Optional<T>) getInteger(e);
+                        } else if (clazz.equals(Long.class)) {
+                            return (Optional<T>) getLong(e);
+                        } else if (clazz.equals(Double.class)) {
+                            return (Optional<T>) getDouble(e);
+                        } else if (clazz.equals(Boolean.class)) {
+                            return (Optional<T>) getBoolean(e);
+                        } else if (clazz.equals(Object.class)) {
+                            return (Optional<T>) getObject(e);
+                        } else {
+                            throw new IllegalArgumentException(clazz.getName() + " not supported");
+                        }
+                    })
+                    .collect(Collectors.toList()));
+        }
+        return Optional.empty();
     }
 
 }

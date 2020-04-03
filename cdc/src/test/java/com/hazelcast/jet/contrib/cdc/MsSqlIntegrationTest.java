@@ -85,7 +85,7 @@ public class MsSqlIntegrationTest extends AbstractIntegrationTest {
                             Operation operation = eventValue.operation();
                             ChangeEventElement mostRecentImage = DELETE.equals(operation) ?
                                     eventValue.before() : eventValue.after();
-                            Customer customer = mostRecentImage.map(Customer.class);
+                            Customer customer = mostRecentImage.mapToObj(Customer.class);
                             return customerId + "/" + count + ":" + operation + ":" + customer;
                         })
                 .setLocalParallelism(1)

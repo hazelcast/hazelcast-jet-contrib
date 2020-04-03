@@ -18,3 +18,5 @@
  * Utility classes for lazy parsing.
  */
 package com.hazelcast.jet.contrib.cdc.util;
+
+//todo: move all these classes to some other, Jet utils package, once it's in main repo

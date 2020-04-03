@@ -53,7 +53,7 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
         if (primitive) {
             return event.key().getInteger(idName).orElse(0);
         } else {
-            Document document = event.key().map(Document.class);
+            Document document = event.key().mapToObj(Document.class);
             return Integer.parseInt(document.getString(idName));
         }
     }
@@ -90,10 +90,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(event.value().after().map(Document.class));
+                                    state.set(event.value().after().mapToObj(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(event.value().change().map(Document.class));
+                                    state.update(event.value().change().mapToObj(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -150,10 +150,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(event.value().after().map(Document.class));
+                                    state.set(event.value().after().mapToObj(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(event.value().change().map(Document.class));
+                                    state.update(event.value().change().mapToObj(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();
@@ -218,10 +218,10 @@ public class MongoDbIntegrationTest extends AbstractIntegrationTest {
                             switch (operation) {
                                 case SYNC:
                                 case INSERT:
-                                    state.set(event.value().after().map(Document.class));
+                                    state.set(event.value().after().mapToObj(Document.class));
                                     break;
                                 case UPDATE:
-                                    state.update(event.value().change().map(Document.class));
+                                    state.update(event.value().change().mapToObj(Document.class));
                                     break;
                                 case DELETE:
                                     state.clear();

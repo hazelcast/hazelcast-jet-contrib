@@ -16,12 +16,17 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
-/**
- * TODO: javadoc
- */
-public interface ChangeEventValue extends ChangeEventElement {
+import com.hazelcast.jet.annotation.EvolvingApi;
 
-    //todo: use better serialization
+/**
+ * Value (body) portion of a {@link ChangeEvent}, describes the actual
+ * change that has been done to the affected database record or
+ * document.
+ *
+ * @since 4.1
+ */
+@EvolvingApi
+public interface ChangeEventValue extends ChangeEventElement {
 
     /**
      * Specifies the moment in time when the event happened. This
@@ -79,17 +84,5 @@ public interface ChangeEventValue extends ChangeEventElement {
      *                          have an 'patch' sub-element
      */
     ChangeEventElement change() throws ParsingException;
-
-    /**
-     * Returns raw JSON string on which the content of this event is
-     * based. To be used when parsing fails for some reason (for example
-     * on some untested DB-connector version combination).
-     * <p>
-     * While the format is standard for RELATIONAL DATABASES, for
-     * MongoDB it's MongoDB Extended JSON v2 format and needs to be
-     * parsed accordingly.
-     * TODO: javadoc
-     */
-    String asJson();
 
 }

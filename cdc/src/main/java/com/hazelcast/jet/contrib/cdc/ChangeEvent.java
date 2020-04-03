@@ -16,6 +16,8 @@
 
 package com.hazelcast.jet.contrib.cdc;
 
+import com.hazelcast.jet.annotation.EvolvingApi;
+
 import java.io.Serializable;
 
 /**
@@ -45,20 +47,23 @@ import java.io.Serializable;
  * artificial. Identifying snapshot events is possible most of the time,
  * because their operation will be {@link Operation#SYNC} instead of
  * {@link Operation#INSERT} (one notable exception being MySQL).
+ *
+ * @since 4.1
  */
-public interface ChangeEvent extends Serializable  {
-
-    //todo: use better serialization
+@EvolvingApi
+public interface ChangeEvent extends Serializable  { //todo: use better serialization
 
     /**
-     * TODO: javadoc
+     * Convenience method, see {@link ChangeEventValue#timestamp()} for
+     * details.
      */
     default long timestamp() throws ParsingException {
         return value().timestamp();
     }
 
     /**
-     * TODO: javadoc
+     * Convenience method, see {@link ChangeEventValue#operation()} for
+     * details.
      */
     default Operation operation() throws ParsingException {
         return value().operation();
@@ -77,8 +82,8 @@ public interface ChangeEvent extends Serializable  {
     ChangeEventValue value();
 
     /**
-     * Returns raw JSON string on which the content of this event is
-     * based. Mean to be used when higher level parsing (see other
+     * Returns raw JSON string which the content of this event is
+     * based on. Mean to be used when higher level parsing (see other
      * methods) fails for some reason (for example on some untested
      * DB-connector version combination).
      * <p>

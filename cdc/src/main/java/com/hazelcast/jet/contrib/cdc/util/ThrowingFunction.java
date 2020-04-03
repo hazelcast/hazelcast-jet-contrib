@@ -19,16 +19,24 @@ package com.hazelcast.jet.contrib.cdc.util;
 import java.io.Serializable;
 
 /**
- * TODO: javadoc
- * @param <T>
- * @param <R>
- * @param <E>
+ * Serializable function (with one argument), one that can throw an
+ * {@code Exception} of an explicitly specified type from its
+ * {@code apply()} method.
+ * <p>
+ * <b>NOT</b> thread safe.
+ *
+ * @param <T> type of function parameter
+ * @param <R> type of function result
+ * @param <E> type of thrown exception
+ *
+ * @since 4.1
  */
 @FunctionalInterface
 public interface ThrowingFunction<T, R, E extends Exception> extends Serializable {
 
     /**
-     * TODO: javadoc
+     * Computes a result based on the input, potentially throwing an
+     * {@code E extends Exception} during the process.
      */
     R apply(T t) throws E;
 
