@@ -18,13 +18,22 @@ package com.hazelcast.jet.contrib.cdc;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hazelcast.function.BiFunctionEx;
+import com.hazelcast.function.FunctionEx;
+import com.hazelcast.function.SupplierEx;
+import com.hazelcast.instance.impl.HazelcastInstanceFactory;
+import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.annotation.EvolvingApi;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventJsonImpl;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventMongoImpl;
-import com.hazelcast.jet.contrib.connect.KafkaConnectSources;
+import com.hazelcast.jet.contrib.connect.AbstractKafkaConnectContext;
+import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.apache.kafka.connect.data.Values;
+import org.apache.kafka.connect.source.SourceRecord;
 
+import javax.annotation.Nonnull;
 import java.util.Properties;
 
 /**
@@ -91,7 +100,7 @@ public final class CdcSources {
 
         properties.putIfAbsent("tombstones.on.delete", "false"); //todo: can this be parsed, if enabled? force it?
 
-        return KafkaConnectSources.connect(properties,
+        return connect(properties,
                 CdcSources::createObjectMapper,
                 (mapper, event) -> event.timestamp(),
                 (mapper, record) -> {
@@ -123,7 +132,7 @@ public final class CdcSources {
 
         properties.putIfAbsent("tombstones.on.delete", "false");
 
-        return KafkaConnectSources.connect(properties,
+        return connect(properties,
                 CdcSources::createObjectMapper,
                 (mapper, event) -> event.timestamp(),
                 (mapper, record) -> {
@@ -155,7 +164,7 @@ public final class CdcSources {
 
         properties.putIfAbsent("tombstones.on.delete", "false");
 
-        return KafkaConnectSources.connect(properties,
+        return connect(properties,
                 CdcSources::createObjectMapper,
                 (mapper, event) -> event.timestamp(),
                 (mapper, record) -> {
@@ -204,7 +213,7 @@ public final class CdcSources {
 
         properties.putIfAbsent("tombstones.on.delete", "false");
 
-        return KafkaConnectSources.connect(properties,
+        return connect(properties,
                 () -> null,
                 (IGNORED, event) -> event.timestamp(),
                 (IGNORED, record) -> {
@@ -236,7 +245,7 @@ public final class CdcSources {
 
         properties.putIfAbsent("tombstones.on.delete", "false");
 
-        return KafkaConnectSources.connect(properties,
+        return connect(properties,
                 CdcSources::createObjectMapper,
                 (mapper, event) -> event.value().getLong("ts_ms").orElse(0L),
                 (mapper, record) -> {
@@ -245,6 +254,22 @@ public final class CdcSources {
                     return new ChangeEventJsonImpl(keyJson, valueJson, mapper);
                 }
         );
+    }
+
+    private static StreamSource<ChangeEvent> connect(
+            @Nonnull Properties properties,
+            @Nonnull SupplierEx<ObjectMapper> objectMapperSupplier,
+            @Nonnull BiFunctionEx<ObjectMapper, ChangeEvent, Long> eventToTimestampMapper,
+            @Nonnull BiFunctionEx<ObjectMapper, SourceRecord, ChangeEvent> recordToEventMapper) {
+        String name = properties.getProperty("name");
+        FunctionEx<Processor.Context, KafkaConnectContext> createFn = ctx -> new KafkaConnectContext(ctx, properties,
+                objectMapperSupplier, recordToEventMapper, eventToTimestampMapper);
+        return SourceBuilder.timestampedStream(name, createFn)
+                .fillBufferFn(KafkaConnectContext::fillBuffer)
+                .createSnapshotFn(KafkaConnectContext::createSnapshot)
+                .restoreSnapshotFn(KafkaConnectContext::restoreSnapshot)
+                .destroyFn(KafkaConnectContext::destroy)
+                .build();
     }
 
     private static void checkSet(Properties properties, String key) {
@@ -401,7 +426,7 @@ public final class CdcSources {
          * Returns an actual source based on the properties set so far.
          */
         public StreamSource<ChangeEvent> build() {
-            return KafkaConnectSources.connect(properties,
+            return connect(properties,
                     CdcSources::createObjectMapper,
                     (mapper, event) -> event.timestamp(),
                     (mapper, record) -> {
@@ -413,5 +438,43 @@ public final class CdcSources {
         }
     }
 
+    private static class KafkaConnectContext extends AbstractKafkaConnectContext<ChangeEvent> {
 
+        private final ObjectMapper objectMapper;
+        private final BiFunctionEx<ObjectMapper, SourceRecord, ChangeEvent> recordToEventMapper;
+        private final BiFunctionEx<ObjectMapper, ChangeEvent, Long> timestampProjectionFn;
+
+        KafkaConnectContext(
+                Processor.Context ctx,
+                Properties properties,
+                SupplierEx<ObjectMapper> objectMapperSupplier,
+                BiFunctionEx<ObjectMapper, SourceRecord, ChangeEvent> recordToEventMapper,
+                BiFunctionEx<ObjectMapper, ChangeEvent, Long> eventToTimestampMapper
+        ) {
+            super(ctx, injectHazelcastInstanceNameProperty(ctx, properties));
+            this.objectMapper = objectMapperSupplier.get();
+            this.recordToEventMapper = recordToEventMapper;
+            this.timestampProjectionFn = eventToTimestampMapper;
+        }
+
+        @Override
+        protected boolean addToBuffer(SourceRecord record, SourceBuilder.TimestampedSourceBuffer<ChangeEvent> buf) {
+            ChangeEvent event = recordToEventMapper.apply(objectMapper, record);
+            if (event != null) {
+                long ts = timestampProjectionFn.apply(objectMapper, event);
+                buf.add(event, ts);
+                return true;
+            }
+            return false;
+        }
+
+        private static Properties injectHazelcastInstanceNameProperty(Processor.Context ctx, Properties properties) {
+            JetInstance jet = ctx.jetInstance();
+            String instanceName = HazelcastInstanceFactory.getInstanceName(jet.getName(),
+                    jet.getHazelcastInstance().getConfig());
+            properties.setProperty("database.history.hazelcast.instance.name", instanceName);
+            //needed only by CDC sources... could be achieved via one more lambda, but we do have enough of those...
+            return properties;
+        }
+    }
 }
