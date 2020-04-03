@@ -26,7 +26,7 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.annotation.EvolvingApi;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventJsonImpl;
 import com.hazelcast.jet.contrib.cdc.impl.ChangeEventMongoImpl;
-import com.hazelcast.jet.contrib.connect.AbstractKafkaConnectContext;
+import com.hazelcast.jet.contrib.connect.impl.AbstractKafkaConnectSource;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
@@ -262,13 +262,13 @@ public final class CdcSources {
             @Nonnull BiFunctionEx<ObjectMapper, ChangeEvent, Long> eventToTimestampMapper,
             @Nonnull BiFunctionEx<ObjectMapper, SourceRecord, ChangeEvent> recordToEventMapper) {
         String name = properties.getProperty("name");
-        FunctionEx<Processor.Context, KafkaConnectContext> createFn = ctx -> new KafkaConnectContext(ctx, properties,
+        FunctionEx<Processor.Context, KafkaConnectSource> createFn = ctx -> new KafkaConnectSource(ctx, properties,
                 objectMapperSupplier, recordToEventMapper, eventToTimestampMapper);
         return SourceBuilder.timestampedStream(name, createFn)
-                .fillBufferFn(KafkaConnectContext::fillBuffer)
-                .createSnapshotFn(KafkaConnectContext::createSnapshot)
-                .restoreSnapshotFn(KafkaConnectContext::restoreSnapshot)
-                .destroyFn(KafkaConnectContext::destroy)
+                .fillBufferFn(KafkaConnectSource::fillBuffer)
+                .createSnapshotFn(KafkaConnectSource::createSnapshot)
+                .restoreSnapshotFn(KafkaConnectSource::restoreSnapshot)
+                .destroyFn(KafkaConnectSource::destroy)
                 .build();
     }
 
@@ -438,20 +438,20 @@ public final class CdcSources {
         }
     }
 
-    private static class KafkaConnectContext extends AbstractKafkaConnectContext<ChangeEvent> {
+    private static class KafkaConnectSource extends AbstractKafkaConnectSource<ChangeEvent> {
 
         private final ObjectMapper objectMapper;
         private final BiFunctionEx<ObjectMapper, SourceRecord, ChangeEvent> recordToEventMapper;
         private final BiFunctionEx<ObjectMapper, ChangeEvent, Long> timestampProjectionFn;
 
-        KafkaConnectContext(
+        KafkaConnectSource(
                 Processor.Context ctx,
                 Properties properties,
                 SupplierEx<ObjectMapper> objectMapperSupplier,
                 BiFunctionEx<ObjectMapper, SourceRecord, ChangeEvent> recordToEventMapper,
                 BiFunctionEx<ObjectMapper, ChangeEvent, Long> eventToTimestampMapper
         ) {
-            super(ctx, injectHazelcastInstanceNameProperty(ctx, properties));
+            super(injectHazelcastInstanceNameProperty(ctx, properties));
             this.objectMapper = objectMapperSupplier.get();
             this.recordToEventMapper = recordToEventMapper;
             this.timestampProjectionFn = eventToTimestampMapper;

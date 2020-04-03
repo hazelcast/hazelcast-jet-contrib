@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.connect;
 
-import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.contrib.connect.impl.AbstractKafkaConnectSource;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -59,18 +59,18 @@ public final class KafkaConnectSources {
     public static StreamSource<SourceRecord> connect(Properties properties) {
         String name = properties.getProperty("name");
         return SourceBuilder.timestampedStream(name, ctx ->
-                new KafkaConnectContext(ctx, properties))
-                .fillBufferFn(KafkaConnectContext::fillBuffer)
-                .createSnapshotFn(KafkaConnectContext::createSnapshot)
-                .restoreSnapshotFn(KafkaConnectContext::restoreSnapshot)
-                .destroyFn(KafkaConnectContext::destroy)
+                new KafkaConnectSource(properties))
+                .fillBufferFn(KafkaConnectSource::fillBuffer)
+                .createSnapshotFn(KafkaConnectSource::createSnapshot)
+                .restoreSnapshotFn(KafkaConnectSource::restoreSnapshot)
+                .destroyFn(KafkaConnectSource::destroy)
                 .build();
     }
 
-    private static class KafkaConnectContext extends AbstractKafkaConnectContext<SourceRecord> {
+    private static class KafkaConnectSource extends AbstractKafkaConnectSource<SourceRecord> {
 
-        KafkaConnectContext(Processor.Context ctx, Properties properties) {
-            super(ctx, properties);
+        KafkaConnectSource(Properties properties) {
+            super(properties);
         }
 
         @Override

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.connect;
+package com.hazelcast.jet.contrib.connect.impl;
 
-import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import org.apache.kafka.connect.connector.ConnectorContext;
 import org.apache.kafka.connect.source.SourceConnector;
@@ -34,11 +33,7 @@ import java.util.Properties;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.rethrow;
 
-/**
- * TODO: Javadoc
- * @param <T>
- */
-public abstract class AbstractKafkaConnectContext<T> {
+public abstract class AbstractKafkaConnectSource<T> {
 
     private final SourceConnector connector;
     private final SourceTask task;
@@ -55,10 +50,7 @@ public abstract class AbstractKafkaConnectContext<T> {
     private Map<Map<String, ?>, Map<String, ?>> partitionsToOffset = new HashMap<>();
     private boolean taskInit;
 
-    /**
-     * TODO: javadoc
-     */
-    public AbstractKafkaConnectContext(Processor.Context ctx, Properties properties) {
+    public AbstractKafkaConnectSource(Properties properties) {
         try {
             String connectorClazz = properties.getProperty("connector.class");
             Class<?> connectorClass = Thread.currentThread().getContextClassLoader().loadClass(connectorClazz);
@@ -73,9 +65,6 @@ public abstract class AbstractKafkaConnectContext<T> {
         }
     }
 
-    /**
-     * TODO: javadoc
-     */
     public void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> buf) {
         if (!taskInit) {
             task.initialize(new JetSourceTaskContext());
@@ -101,9 +90,6 @@ public abstract class AbstractKafkaConnectContext<T> {
 
     protected abstract boolean addToBuffer(SourceRecord record, SourceBuilder.TimestampedSourceBuffer<T> buf);
 
-    /**
-     * TODO: javadoc
-     */
     public void destroy() {
         try {
             task.stop();
@@ -112,16 +98,10 @@ public abstract class AbstractKafkaConnectContext<T> {
         }
     }
 
-    /**
-     * TODO: javadoc
-     */
     public Map<Map<String, ?>, Map<String, ?>> createSnapshot() {
         return partitionsToOffset;
     }
 
-    /**
-     * TODO: javadoc
-     */
     public void restoreSnapshot(List<Map<Map<String, ?>, Map<String, ?>>> snapshots) {
         this.partitionsToOffset = snapshots.get(0);
     }
