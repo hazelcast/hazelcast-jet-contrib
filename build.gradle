@@ -88,6 +88,19 @@ subprojects {
         }
     }
 
+    task testJar(type: Jar) {
+        from sourceSets.test.output.classesDirs
+        archiveClassifier = 'tests'
+    }
+
+    configurations {
+        tests
+        published.extendsFrom tests, archives
+    }
+
+    artifacts {
+        tests testJar
+    }
 
     task sourcesJar(type: Jar) {
         from sourceSets.main.allJava
@@ -105,6 +118,7 @@ subprojects {
                 from components.java
                 artifact sourcesJar
                 artifact javadocJar
+                artifact testJar
                 pom {
                     name = project.name
                     description = project.description
