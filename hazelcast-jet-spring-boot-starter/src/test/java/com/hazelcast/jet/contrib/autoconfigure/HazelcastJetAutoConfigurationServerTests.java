@@ -53,7 +53,7 @@ public class HazelcastJetAutoConfigurationServerTests {
         this.contextRunner
                 .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.xml")
-                .run(assertSpecificJetServer("xml"));
+                .run(assertSpecificJetServer("wrongxml"));
     }
 
     @Test
