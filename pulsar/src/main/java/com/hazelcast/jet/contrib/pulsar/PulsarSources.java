@@ -114,7 +114,7 @@ public final class PulsarSources {
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
-        return SourceBuilder.timestampedStream("pulsar-distributed-stream-source", ctx -> new ConsumerContext<>(
+        return SourceBuilder.timestampedStream("pulsar-consumer-source", ctx -> new ConsumerContext<>(
                 ctx.logger(), connectionSupplier.get(), topics, consumerConfig,
                 schemaSupplier, batchReceivePolicySupplier, projectionFn))
                 .<T>fillBufferFn(ConsumerContext::fillBuffer)
@@ -157,7 +157,7 @@ public final class PulsarSources {
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
-        return SourceBuilder.timestampedStream("pulsar-ft-stream-source", ctx -> new ReaderContext<>(
+        return SourceBuilder.timestampedStream("pulsar-reader-source", ctx -> new ReaderContext<>(
                 ctx.logger(), connectionSupplier.get(), topic, readerConfig, schemaSupplier, projectionFn))
                 .<T>fillBufferFn(ReaderContext::fillBuffer)
                 .createSnapshotFn(ReaderContext::createSnapshot)
@@ -197,10 +197,10 @@ public final class PulsarSources {
             this.client = client;
             this.consumer = client.newConsumer(schemaSupplier.get())
                                   .topics(topics)
-                                  .loadConf(consumerConfig)
-                                  .subscriptionType(SubscriptionType.Shared)
                                   .subscriptionInitialPosition(SubscriptionInitialPosition.Earliest)
+                                  .loadConf(consumerConfig)
                                   .batchReceivePolicy(batchReceivePolicySupplier.get())
+                                  .subscriptionType(SubscriptionType.Shared)
                                   .subscribe();
         }
 
@@ -303,8 +303,8 @@ public final class PulsarSources {
             this.client = client;
             this.reader = client.newReader(schemaSupplier.get())
                                 .topic(topic)
-                                .loadConf(readerConfig)
                                 .startMessageId(MessageId.earliest)
+                                .loadConf(readerConfig)
                                 .create();
         }
 

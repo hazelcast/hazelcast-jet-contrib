@@ -35,8 +35,9 @@ import org.testcontainers.containers.PulsarContainer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 
@@ -104,30 +105,30 @@ public class PulsarTestSupport extends JetTestSupport {
     protected static void produceMessages(String message, String topicName, int count) {
         for (int i = 0; i < count; i++) {
             try {
-                produceAsync(message + "-" + i, topicName);
+                produceMessage(message + "-" + i, topicName);
             } catch (PulsarClientException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    protected static CompletableFuture<MessageId> produceAsync(String message, String topicName)
+    protected static MessageId produceMessage(String message, String topicName)
             throws PulsarClientException {
-        return getProducer(topicName).sendAsync(message.getBytes(StandardCharsets.UTF_8));
+        return getProducer(topicName).send(message.getBytes(StandardCharsets.UTF_8));
     }
 
 
-    protected static CompletableFuture<Message<Double>> consumeMessages(String topicName, int count)
+    protected static List<Double> consumeMessages(String topicName, int count)
             throws PulsarClientException {
-        CompletableFuture<Message<Double>> last = null;
+        List<Double> list = new LinkedList<>();
         for (int i = 0; i < count; i++) {
-            last = consumeAsync(topicName);
+            list.add(consumeMessage(topicName).getValue());
         }
-        return last;
+        return list;
     }
 
-    protected static CompletableFuture<Message<Double>> consumeAsync(String topicName) throws PulsarClientException {
-        return getConsumer(topicName).receiveAsync();
+    protected static Message<Double> consumeMessage(String topicName) throws PulsarClientException {
+        return getConsumer(topicName).receive(1, TimeUnit.SECONDS);
     }
 
     protected static Consumer<Double> getConsumer(String topicName) throws PulsarClientException {

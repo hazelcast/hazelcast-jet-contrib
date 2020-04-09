@@ -26,16 +26,19 @@ import org.apache.pulsar.client.api.PulsarClientException;
 
 import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.stream.IntStream;
 
-import static com.hazelcast.jet.core.test.JetAssert.assertTrue;
+import static org.junit.Assert.assertTrue;
+
 
 public class PulsarSinkTest extends PulsarTestSupport {
 
-    private static final int ITEM_COUNT = 100_000;
+    private static final int ITEM_COUNT = 1_000;
     private JetInstance jet;
 
     @Before
@@ -54,7 +57,6 @@ public class PulsarSinkTest extends PulsarTestSupport {
         shutdown();
     }
 
-
     @Test
     public void testPulsarSink() throws PulsarClientException {
         String sourceImapName = randomMapName();
@@ -63,7 +65,7 @@ public class PulsarSinkTest extends PulsarTestSupport {
         IntStream.range(0, ITEM_COUNT).forEach(i -> sourceIMap.put(String.valueOf(i), String.valueOf(i)));
 
         String topicName = randomName();
-        Sink<Integer> pulsarSink = setupSink(topicName);
+        Sink<Integer> pulsarSink = setupSink(topicName); // Its projection function -> Integer::doubleValue
 
         Pipeline p = Pipeline.create();
         p.readFrom(Sources.<String, String>map(sourceImapName))
@@ -71,17 +73,13 @@ public class PulsarSinkTest extends PulsarTestSupport {
          .writeTo(pulsarSink);
 
         jet.newJob(p).join();
+        List<Double> list = consumeMessages(topicName, ITEM_COUNT);
 
-        consumeMessages(topicName, ITEM_COUNT).thenRun(
-                () -> {
-                    try {
-                        assertTrue("It should reach end of topic after consuming produced number of messages",
-                                getConsumer(topicName).hasReachedEndOfTopic());
-                    } catch (PulsarClientException e) {
-                        e.printStackTrace();
-                    }
-                });
+        assertTrueEventually(() -> {
+            Assert.assertEquals(ITEM_COUNT, list.size());
+            for (double i = 0; i < ITEM_COUNT; i++) {
+                assertTrue("missing entry: " + i, list.contains(i));
+            }
+        }, 10);
     }
-
-
 }
