@@ -1,0 +1,14 @@
+ext {
+    springBootVersion = '2.2.5.RELEASE'
+}
+
+dependencies {
+    compile "org.springframework.boot:spring-boot-autoconfigure:" + springBootVersion
+    compile "org.springframework.boot:spring-boot-actuator:" + springBootVersion
+    compile "org.springframework.boot:spring-boot-actuator-autoconfigure:" + springBootVersion
+    compile "com.hazelcast.jet:hazelcast-jet-spring:" + jetVersion
+
+    testCompile "org.springframework.boot:spring-boot-test:" + springBootVersion
+    testCompile "org.mockito:mockito-core:3.3.0"
+    testCompile "org.assertj:assertj-core:3.11.1"
+}

@@ -10,6 +10,7 @@ include 'mongodb'
 include 'debezium'
 include 'twitter'
 include 'xa-test'
+include 'hazelcast-jet-spring-boot-starter'
 include 'pulsar'
 
 project(':elasticsearch-5').projectDir = file('elasticsearch/elasticsearch-5')

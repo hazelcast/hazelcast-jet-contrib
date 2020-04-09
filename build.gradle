@@ -68,12 +68,38 @@ subprojects {
     }
 
     test {
+        ignoreFailures = project.findProperty('testFailureIgnore') ? project.testFailureIgnore : false
+
         systemProperty "hazelcast.phone.home.enabled", "false"
         systemProperty "hazelcast.logging.type", "log4j"
 
         minHeapSize = "1g"
         maxHeapSize = "1g"
+        useJUnit {
+            excludeCategories 'com.hazelcast.test.annotation.NightlyTest'
+        }
 
+    }
+
+    task testIntegration(type: Test) {
+        ignoreFailures = project.findProperty('testFailureIgnore') ? project.testFailureIgnore : false
+        useJUnit {
+            includeCategories 'com.hazelcast.test.annotation.NightlyTest'
+        }
+    }
+
+    task testJar(type: Jar) {
+        from sourceSets.test.output.classesDirs
+        archiveClassifier = 'tests'
+    }
+
+    configurations {
+        tests
+        published.extendsFrom tests, archives
+    }
+
+    artifacts {
+        tests testJar
     }
 
     task sourcesJar(type: Jar) {
@@ -92,6 +118,7 @@ subprojects {
                 from components.java
                 artifact sourcesJar
                 artifact javadocJar
+                artifact testJar
                 pom {
                     name = project.name
                     description = project.description
@@ -166,7 +193,7 @@ subprojects {
             !it.project.version.endsWith('SNAPSHOT')
         }
     }
-    
+
     tasks.withType(Test) {
         maxParallelForks = 1
     }
@@ -174,7 +201,7 @@ subprojects {
 
     build.dependsOn javadoc
     test.finalizedBy jacocoTestReport
-    
+
     release {
         failOnCommitNeeded = true
         failOnPublishNeeded = true
