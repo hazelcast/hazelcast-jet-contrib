@@ -27,29 +27,36 @@ import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.StreamStage;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
+import com.hazelcast.test.annotation.NightlyTest;
 import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.experimental.categories.Category;
 import twitter4j.Status;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletionException;
 
+import static com.hazelcast.jet.impl.util.ExceptionUtil.rethrow;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+
+@Category(NightlyTest.class)
 public class TwitterSourceTest extends JetTestSupport {
 
     private JetInstance jet;
     private Properties credentials;
 
+
     @Before
     public void setup() {
         jet = createJetMember();
-        credentials = loadCredentialsFromEnv();
+        credentials = loadCredentials();
     }
 
     @Test
@@ -62,8 +69,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
 
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.", list.size(), 20)));
@@ -90,8 +97,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withoutTimestamps()
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
                         list.size(), 15)));
@@ -118,8 +125,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withNativeTimestamps(0)
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
                         list.size(), 20)));
@@ -146,8 +153,8 @@ public class TwitterSourceTest extends JetTestSupport {
                 .readFrom(twitterTestStream)
                 .withNativeTimestamps(1)
                 .map(rawJson -> Json.parse(rawJson)
-                        .asObject()
-                        .getString("text", null));
+                                    .asObject()
+                                    .getString("text", null));
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
                         list.size(), 15)));
@@ -167,8 +174,7 @@ public class TwitterSourceTest extends JetTestSupport {
     public void testBatch() {
         Pipeline pipeline = Pipeline.create();
         String query = "Jet flies";
-        BatchSource<Status> twitterSearch = TwitterSources.search(
-                credentials, query);
+        BatchSource<Status> twitterSearch = TwitterSources.search(credentials, query);
         BatchStage<String> tweets = pipeline
                 .readFrom(twitterSearch)
                 .map(status -> "@" + status.getUser() + " - " + status.getText());
@@ -187,12 +193,42 @@ public class TwitterSourceTest extends JetTestSupport {
         }
     }
 
-    private static Properties loadCredentialsFromEnv() {
+    void containsKey(String key, Properties credentials) {
+        if (!credentials.containsKey(key) ||
+                credentials.getProperty(key).equals("REPLACE_THIS")) {
+            throw new IllegalArgumentException("The Twitter credentials," + key + ", should not be null.\n" +
+                    "Set the parameter \"" +  key + "\" in twitter-security.properties OR " +
+                    "Set the corresponding environment variable. (e.g. JET_TWITTER_CONNECTOR_CONSUMER_KEY" +
+                    " for consumerKey.)");
+        }
+    }
+
+    private Properties loadCredentials() {
         Properties credentials = new Properties();
-        credentials.put("consumerKey", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY"));
-        credentials.put("consumerSecret", System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET"));
-        credentials.put("token", System.getenv("JET_TWITTER_CONNECTOR_TOKEN"));
-        credentials.put("tokenSecret", System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET"));
+        String consumerKey = System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_KEY");
+        String consumerSecret = System.getenv("JET_TWITTER_CONNECTOR_CONSUMER_SECRET");
+        String token = System.getenv("JET_TWITTER_CONNECTOR_TOKEN");
+        String tokenSecret = System.getenv("JET_TWITTER_CONNECTOR_TOKEN_SECRET");
+
+        if (consumerKey != null || consumerSecret != null | token != null || tokenSecret != null) {
+            credentials.put("consumerKey", consumerKey);
+            credentials.put("consumerSecret", consumerSecret);
+            credentials.put("token", token);
+            credentials.put("tokenSecret", tokenSecret);
+        } else {
+            try {
+                credentials.load(Thread.currentThread().getContextClassLoader()
+                                       .getResourceAsStream("twitter-security.properties"));
+            } catch (IOException e) {
+                System.out.println("Exception is thrown while loading Twitter credentials from" +
+                        "twitter-security.properties file");
+                throw rethrow(e);
+            }
+        }
+        containsKey("consumerKey", credentials);
+        containsKey("consumerSecret", credentials);
+        containsKey("token", credentials);
+        containsKey("tokenSecret", credentials);
         return credentials;
     }
 }
