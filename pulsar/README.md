@@ -1,7 +1,17 @@
 # Apache Pulsar Connector
 
-A Hazelcast Jet connector for Apache Pulsar which enables Hazelcast Jet pipelines to read/write from/to Pulsar topics.
+A Hazelcast Jet connector for Apache Pulsar which enables Hazelcast Jet 
+pipelines to read/write from/to Pulsar topics.
 
+It uses the Pulsar client library to read and publish messages from/to a
+Pulsar topic. Pulsar client library provides two different ways of
+reading messages from a topic. They are namely Consumer API and Reader
+API that have major differences. Pulsar connectors have benefits of both
+Consumer API and Reader API.
+
+Besides, this Pulsar client library has an API called the Producer API.
+The Pulsar connector enables users to use the Pulsar topic as a sink in
+Jet pipelines.
 ## Connector Attributes
 
 ### Source Attributes
@@ -16,7 +26,7 @@ A Hazelcast Jet connector for Apache Pulsar which enables Hazelcast Jet pipeline
 |  Atrribute  | Value |
 |:-----------:|-------|
 | Has Sink    |  Yes  |
-| Distributed |   No  |
+| Distributed |  Yes  |
 
 
 ## Getting Started
@@ -48,9 +58,14 @@ To run the tests run the command below:
 
 ### Usage
 
-#### Reading from Pulsar topic
+#### Reading from a Pulsar topic
 
-In practice, using distributed stream source like this:
+##### Using Pulsar Reader Source
+We have tutorial for the Pulsar reader source [here](https://jet-start.sh/docs/tutorials/cdc).
+
+##### Using Pulsar Consumer Source
+
+In practice, using Pulsar consumer stream source like this:
 ```java
 import com.hazelcast.jet.contrib.pulsar.*;
 [...]
@@ -73,6 +88,31 @@ StreamSource<String> pulsarSource = PulsarSources.pulsarConsumer(
 pipeline.readFrom(pulsarSource)
         .writeTo(Sinks.logger()); 
 ```
+
+### Publish Messages to a Pulsar topic
+
+The pipeline below connects the local Pulsar cluster located at 
+`localhost:6650`(default address) and then publishes messages
+to the pulsar topic, `hazelcast-demo-topic`,
+
+```java
+import com.hazelcast.jet.contrib.pulsar.*;
+[...]
+Map<String, Object> producerConfig = new HashMap<>();
+Sink<Integer> pulsarSink = PulsarSinks.builder("hazelcast-demo-topic",
+        producerConfig,
+        () -> PulsarClient.builder()
+                          .serviceUrl("pulsar://localhost:6650")
+                          .build(),
+        () -> Schema.INT32,
+        FunctionEx.identity()).build();
+p.readFrom(TestSources.itemStream(15))
+ .withoutTimestamps()
+ .map(x -> (int) x.sequence())
+ .writeTo(pulsarSink);
+
+```
+
 ## Authors
 
 * **Ufuk Yılmaz**
