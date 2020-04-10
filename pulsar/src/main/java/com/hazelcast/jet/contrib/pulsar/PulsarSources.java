@@ -37,13 +37,12 @@ import org.apache.pulsar.client.api.SubscriptionType;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
@@ -276,14 +275,15 @@ public final class PulsarSources {
      * @param <T> the type of the emitted item after projection.
      */
     private static final class ReaderContext<M, T> {
-        private static final int MAX_NUM_MESSAGES = 512;
-        private static final int TIMEOUT_IN_MS = 500;
+        private static final int QUEUE_CAP = 1024;
+        private static final int MAX_FILL_MESSAGES = 128;
 
         private final ILogger logger;
         private final PulsarClient client;
         private final Reader<M> reader;
+        private final BlockingQueue<Message<M>> queue = new ArrayBlockingQueue<>(QUEUE_CAP);
+        private final ArrayList<Message<M>> buffer = new ArrayList<>(MAX_FILL_MESSAGES);
 
-        private final Queue<Message<M>> messageBuffer = new LinkedList<>();
         private final FunctionEx<Message<M>, T> projectionFn;
 
         private MessageId offset = MessageId.earliest;
@@ -305,6 +305,14 @@ public final class PulsarSources {
                                 .topic(topic)
                                 .startMessageId(MessageId.earliest)
                                 .loadConf(readerConfig)
+                                .readerListener((r, msg) -> {
+                                    try {
+                                        queue.put(msg);
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                })
+                                .receiverQueueSize(QUEUE_CAP)
                                 .create();
         }
 
@@ -316,21 +324,9 @@ public final class PulsarSources {
          * emitted item. Otherwise, it sets the publish time(which always exists)
          * of the message as the timestamp.
          */
-        private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer) throws PulsarClientException {
-
-            // Read messages into a buffer in a blocking manner.
-            for (int i = 0; i < MAX_NUM_MESSAGES; i++) {
-                if (reader.hasMessageAvailable()) {
-                    Message<M> message = reader.readNext(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
-                    if (message != null) {
-                        messageBuffer.add(message);
-                    } else {
-                        break;
-                    }
-                }
-            }
-
-            for (Message<M> message : messageBuffer) {
+        private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer)  {
+            queue.drainTo(buffer, MAX_FILL_MESSAGES);
+            for (Message<M> message : buffer) {
                 long timestamp;
                 if (message.getEventTime() != 0) {
                     timestamp = message.getEventTime();
@@ -343,7 +339,7 @@ public final class PulsarSources {
                     sourceBuffer.add(item, timestamp);
                 }
             }
-            messageBuffer.clear();
+            buffer.clear();
         }
 
         byte[] createSnapshot() {
