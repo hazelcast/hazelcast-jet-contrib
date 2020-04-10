@@ -18,7 +18,7 @@ package com.hazelcast.jet.contrib.pulsar;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.core.Vertex;
+import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
@@ -118,7 +118,7 @@ public final class PulsarSources {
                 schemaSupplier, batchReceivePolicySupplier, projectionFn))
                 .<T>fillBufferFn(ConsumerContext::fillBuffer)
                 .destroyFn(ConsumerContext::destroy)
-                .distributed(Vertex.checkLocalParallelism(preferredLocalParallelism))
+                .distributed(preferredLocalParallelism)
                 .build();
     }
 
@@ -172,7 +172,7 @@ public final class PulsarSources {
      * @param <T> the type of the emitted item after projection.
      */
     private static final class ConsumerContext<M, T> {
-        private static final int MAX_ACK_RETRIES = 10;
+        private static final int MAX_ACK_RETRIES = 3;
 
         private final ILogger logger;
         private final PulsarClient client;
@@ -204,34 +204,6 @@ public final class PulsarSources {
         }
 
 
-        public CompletableFuture<Void> acknowledgeWithRetryAsync(MessageId messageId) {
-            return consumer.acknowledgeAsync(messageId)
-                           .thenApply(CompletableFuture::completedFuture)
-                           .exceptionally(t -> retry(t, messageId, 0))
-                           .thenCompose(FunctionEx.identity());
-        }
-
-        public static <T> CompletableFuture<T> failedFuture(Throwable t) {
-            final CompletableFuture<T> cf = new CompletableFuture<>();
-            cf.completeExceptionally(t);
-            return cf;
-        }
-
-        private CompletableFuture<Void> retry(Throwable first, MessageId messageId, int retry) {
-            if (retry >= MAX_ACK_RETRIES) {
-                logger.warning("The consumed message with MessageId: "
-                        + messageId.toString() + "cannot be acknowledged.", first);
-                return failedFuture(first);
-            }
-            return consumer.acknowledgeAsync(messageId)
-                           .thenApply(CompletableFuture::completedFuture)
-                           .exceptionally(t -> {
-                               first.addSuppressed(t);
-                               return retry(first, messageId, retry + 1);
-                           })
-                           .thenCompose(FunctionEx.identity());
-        }
-
         /**
          * Receive the messages as a batch. The {@link BatchReceivePolicy} is
          * configured while creating the Pulsar {@link Consumer}.
@@ -249,15 +221,48 @@ public final class PulsarSources {
                 } else {
                     sourceBuffer.add(projectionFn.apply(message), message.getPublishTime());
                 }
-                acknowledgeWithRetryAsync(message.getMessageId());
             }
+            acknowledgeWithRetryAsync(messages);
+        }
+
+        public void acknowledgeWithRetryAsync(Messages<M> messages) {
+            consumer.acknowledgeAsync(messages)
+                    .thenApply(CompletableFuture::completedFuture)
+                    .exceptionally(t -> retry(messages, t, 0));
+        }
+
+        private CompletableFuture<Void> retry(Messages<M> messages, Throwable throwable, int retry) {
+            if (retry >= MAX_ACK_RETRIES) {
+                logger.warning(buildLogMessage(messages));
+                ExceptionUtil.sneakyThrow(throwable);
+            }
+            return consumer.acknowledgeAsync(messages)
+                    .thenApply(CompletableFuture::completedFuture)
+                    .exceptionally(t -> {
+                        throwable.addSuppressed(t);
+                        return retry(messages, t, retry + 1);
+                    })
+                    .thenCompose(FunctionEx.identity());
+        }
+
+        private String buildLogMessage(Messages<M> messages) {
+            StringBuilder builder = new StringBuilder();
+            builder.append("Received batch with message ids: ");
+            String prefix = "";
+            for (Message<M> message : messages) {
+                builder.append(prefix);
+                prefix = ", ";
+                builder.append(message.getMessageId());
+            }
+            builder.append(" cannot be acknowledged.");
+            return builder.toString();
         }
 
         private void destroy() {
             try {
                 consumer.close();
             } catch (PulsarClientException e) {
-                logger.warning("Error while closing the 'PulsarProducer'.", e);
+                logger.warning("Error while closing the 'PulsarConsumer'.", e);
             }
             try {
                 client.shutdown();

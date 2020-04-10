@@ -19,6 +19,7 @@ package com.hazelcast.jet.contrib.pulsar;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.core.Vertex;
+import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.logging.ILogger;
@@ -46,8 +47,8 @@ import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 public final class PulsarSinkBuilder<E, M> implements Serializable {
     private final SupplierEx<PulsarClient> connectionSupplier;
     private final String topic;
-    private Map<String, Object> producerConfig;
-    private SupplierEx<Schema<M>> schemaSupplier;
+    private final Map<String, Object> producerConfig;
+    private final SupplierEx<Schema<M>> schemaSupplier;
     private FunctionEx<? super E, M> extractValueFn = (FunctionEx<? super E, M>) FunctionEx.identity();
     private FunctionEx<? super E, String> extractKeyFn;
     private FunctionEx<? super E, Map<String, String>> extractPropertiesFn;
@@ -141,7 +142,7 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
 
 
     private static final class PulsarSinkContext<E, M> {
-        private static final int MAX_RETRIES = 10;
+        private static final int MAX_RETRIES = 3;
 
         private final ILogger logger;
         private final PulsarClient client;
@@ -179,29 +180,21 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
             producer.flush();
         }
 
-        public static <T> CompletableFuture<T> failedFuture(Throwable t) {
-            final CompletableFuture<T> cf = new CompletableFuture<>();
-            cf.completeExceptionally(t);
-            return cf;
+        public void sendWithRetryAsync(TypedMessageBuilder<M> messageBuilder) {
+            messageBuilder.sendAsync()
+                    .thenApply(CompletableFuture::completedFuture)
+                    .exceptionally(t -> retry(t, messageBuilder, 0));
         }
 
-        public CompletableFuture<MessageId> sendWithRetryAsync(TypedMessageBuilder<M> messageBuilder) {
-            return messageBuilder.sendAsync()
-                                 .thenApply(CompletableFuture::completedFuture)
-                                 .exceptionally(t -> retry(t, messageBuilder, 0))
-                                 .thenCompose(FunctionEx.identity());
-        }
-
-        private CompletableFuture<MessageId> retry(Throwable first, TypedMessageBuilder<M> messageBuilder, int retry) {
+        private CompletableFuture<MessageId> retry(Throwable throwable, TypedMessageBuilder<M> messageBuilder, int retry) {
             if (retry >= MAX_RETRIES) {
-                logger.warning("Async Error: Cannot send the message.", first);
-                return failedFuture(first);
+                ExceptionUtil.sneakyThrow(throwable);
             }
             return messageBuilder.sendAsync()
                                  .thenApply(CompletableFuture::completedFuture)
                                  .exceptionally(t -> {
-                                     first.addSuppressed(t);
-                                     return retry(first, messageBuilder, retry + 1);
+                                     throwable.addSuppressed(t);
+                                     return retry(throwable, messageBuilder, retry + 1);
                                  })
                                  .thenCompose(FunctionEx.identity());
         }

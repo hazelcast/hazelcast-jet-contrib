@@ -30,11 +30,7 @@ import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 
 import com.hazelcast.jet.pipeline.test.AssertionSinks;
-import org.apache.pulsar.client.api.PulsarClientException;
-import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -52,23 +48,6 @@ import static org.junit.Assert.assertNotNull;
 
 public class PulsarSourceTest extends PulsarTestSupport {
     private static final int ITEM_COUNT = 1_000;
-    private JetInstance jet;
-
-    @Before
-    public void setup() {
-        jet = createJetMember();
-    }
-
-    @After
-    public void after() {
-        jet.shutdown();
-
-    }
-
-    @AfterClass
-    public static void afterClass() throws PulsarClientException {
-        shutdown();
-    }
 
     @Test
     public void when_projectionFunctionProvided_thenAppliedToReadRecords() {
@@ -90,7 +69,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
                             }
                         })
                 );
-        Job job = jet.newJob(pipeline);
+        Job job = createJetMember().newJob(pipeline);
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
         produceMessages("hello-pulsar", topicName, ITEM_COUNT);
@@ -105,11 +84,9 @@ public class PulsarSourceTest extends PulsarTestSupport {
         }
     }
 
-
-
     @Test
     public void when_readFromPulsarConsumer_then_jobGetsAllPublishedMessages() {
-        JetInstance[] instances = new JetInstance[3];
+        JetInstance[] instances = new JetInstance[2];
         Arrays.setAll(instances, i -> createJetMember());
 
         String topicName = randomName();
@@ -129,7 +106,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
                             }
                         })
                 );
-        Job job = jet.newJob(pipeline);
+        Job job = instances[0].newJob(pipeline);
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
         produceMessages("hello-pulsar", topicName, ITEM_COUNT);
@@ -179,12 +156,12 @@ public class PulsarSourceTest extends PulsarTestSupport {
         JobConfig jobConfig = new JobConfig();
         jobConfig.setProcessingGuarantee(guarantee);
         jobConfig.setSnapshotIntervalMillis(SECONDS.toMillis(1));
-        Job job = jet.newJob(pipeline, jobConfig);
+        Job job = instances[0].newJob(pipeline, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
 
         produceMessages("before-restart", topicName, 2 * ITEM_COUNT);
 
-        Collection<Object> list = jet.getHazelcastInstance().getList("test-list");
+        Collection<Object> list = instances[0].getHazelcastInstance().getList("test-list");
         assertTrueEventually(() -> {
             Assert.assertEquals(2 * ITEM_COUNT, list.size());
             for (int i = 0; i < 2 * ITEM_COUNT; i++) {

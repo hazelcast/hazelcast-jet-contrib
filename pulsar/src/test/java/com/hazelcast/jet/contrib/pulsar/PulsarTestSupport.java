@@ -29,6 +29,7 @@ import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.api.SubscriptionInitialPosition;
 import org.apache.pulsar.client.api.SubscriptionType;
+import org.junit.AfterClass;
 import org.junit.ClassRule;
 import org.testcontainers.containers.PulsarContainer;
 
@@ -44,13 +45,14 @@ import java.util.concurrent.TimeUnit;
 public class PulsarTestSupport extends JetTestSupport {
     @ClassRule
     public static PulsarContainer pulsarContainer = new PulsarContainer("2.5.0");
+
+    private static final Map<String, Producer<byte[]>> producerMap = new HashMap<>();
+    private static final Map<String, Consumer<Double>> integerConsumerMap = new HashMap<>();
     private static final int QUEUE_CAPACITY = 1000;
     private static PulsarClient client;
 
-    private static Map<String, Producer<byte[]>> producerMap = new HashMap<>();
-    private static Map<String, Consumer<Double>> integerConsumerMap = new HashMap<>();
-
-    protected static void shutdown() throws PulsarClientException {
+    @AfterClass
+    public static void shutdown() throws PulsarClientException {
         producerMap.forEach((s, producer) -> {
             try {
                 producer.close();
@@ -71,6 +73,9 @@ public class PulsarTestSupport extends JetTestSupport {
         }
         client = null;
     }
+
+
+
 
     protected static String getServiceUrl() {
         return pulsarContainer.getPulsarBrokerUrl();
