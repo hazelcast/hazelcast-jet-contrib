@@ -285,12 +285,14 @@ public final class PulsarSources {
 
         private final ILogger logger;
         private final PulsarClient client;
-        private final Reader<M> reader;
         private final BlockingQueue<Message<M>> queue = new ArrayBlockingQueue<>(QUEUE_CAP);
         private final ArrayList<Message<M>> buffer = new ArrayList<>(MAX_FILL_MESSAGES);
 
         private final FunctionEx<Message<M>, T> projectionFn;
-
+        private final Map<String, Object> readerConfig;
+        private final Schema<M> schema;
+        private final String topic;
+        private Reader<M> reader;
         private MessageId offset = MessageId.earliest;
 
         private ReaderContext(
@@ -300,25 +302,15 @@ public final class PulsarSources {
                 @Nonnull Map<String, Object> readerConfig,
                 @Nonnull SupplierEx<Schema<M>> schemaSupplier,
                 @Nonnull FunctionEx<Message<M>, T> projectionFn
-        ) throws PulsarClientException {
+        ) {
             checkSerializable(schemaSupplier, "schemaSupplier");
             checkSerializable(projectionFn, "projectionFn");
             this.logger = logger;
-            this.projectionFn = projectionFn;
             this.client = client;
-            this.reader = client.newReader(schemaSupplier.get())
-                                .topic(topic)
-                                .startMessageId(MessageId.earliest)
-                                .loadConf(readerConfig)
-                                .readerListener((r, msg) -> {
-                                    try {
-                                        queue.put(msg);
-                                    } catch (InterruptedException e) {
-                                        Thread.currentThread().interrupt();
-                                    }
-                                })
-                                .receiverQueueSize(QUEUE_CAP)
-                                .create();
+            this.topic = topic;
+            this.readerConfig = readerConfig;
+            this.schema = schemaSupplier.get();
+            this.projectionFn = projectionFn;
         }
 
         /**
@@ -329,7 +321,10 @@ public final class PulsarSources {
          * emitted item. Otherwise, it sets the publish time(which always exists)
          * of the message as the timestamp.
          */
-        private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer)  {
+        private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer) throws PulsarClientException {
+            if (reader == null) {
+                createReader();
+            }
             queue.drainTo(buffer, MAX_FILL_MESSAGES);
             for (Message<M> message : buffer) {
                 long timestamp;
@@ -347,13 +342,28 @@ public final class PulsarSources {
             buffer.clear();
         }
 
+        private void createReader() throws PulsarClientException {
+            reader = client.newReader(schema)
+                    .topic(topic)
+                    .startMessageId(offset)
+                    .loadConf(readerConfig)
+                    .readerListener((r, msg) -> {
+                        try {
+                            queue.put(msg);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    })
+                    .receiverQueueSize(QUEUE_CAP)
+                    .create();
+        }
+
         byte[] createSnapshot() {
             return offset.toByteArray();
         }
 
         void restoreSnapshot(List<byte[]> snapshots) throws IOException {
             offset = MessageId.fromByteArray(snapshots.get(0));
-            reader.seek(offset);
         }
 
         private void destroy() {

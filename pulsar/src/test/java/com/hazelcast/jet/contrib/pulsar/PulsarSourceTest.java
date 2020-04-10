@@ -24,8 +24,7 @@ import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.impl.JobExecutionRecord;
 import com.hazelcast.jet.impl.JobRepository;
 import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.Sink;
-import com.hazelcast.jet.pipeline.SinkBuilder;
+import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 
@@ -36,7 +35,6 @@ import org.junit.Test;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletionException;
 
 import static com.hazelcast.jet.core.test.JetAssert.assertEquals;
@@ -142,16 +140,10 @@ public class PulsarSourceTest extends PulsarTestSupport {
         StreamSource<String> pulsarReaderSrc = setupReaderSource(topicName,
                 x -> new String(x.getData(), StandardCharsets.UTF_8));
 
-        // Create a list sink to collect the emitted items.
-        Sink<String> listSink = SinkBuilder
-                .sinkBuilder("list-source", c -> c.jetInstance().getList("test-list"))
-                .<String>receiveFn(List::add)
-                .build();
-
         Pipeline pipeline = Pipeline.create();
         pipeline.readFrom(pulsarReaderSrc)
                 .withoutTimestamps()
-                .writeTo(listSink);
+                .writeTo(Sinks.list("test-list"));
 
         JobConfig jobConfig = new JobConfig();
         jobConfig.setProcessingGuarantee(guarantee);
