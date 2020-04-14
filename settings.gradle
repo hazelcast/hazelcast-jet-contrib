@@ -11,8 +11,8 @@ include 'debezium'
 include 'twitter'
 include 'xa-test'
 include 'hazelcast-jet-spring-boot-starter'
+include 'pulsar'
 
 project(':elasticsearch-5').projectDir = file('elasticsearch/elasticsearch-5')
 project(':elasticsearch-6').projectDir = file('elasticsearch/elasticsearch-6')
 project(':elasticsearch-7').projectDir = file('elasticsearch/elasticsearch-7')
-
