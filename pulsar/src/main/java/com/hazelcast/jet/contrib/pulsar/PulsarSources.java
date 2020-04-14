@@ -304,7 +304,7 @@ public final class PulsarSources {
                 createReader();
             }
             int count = 0;
-            while (!queue.isEmpty() && count++ <= MAX_FILL_MESSAGES) {
+            while (!queue.isEmpty() && count++ < MAX_FILL_MESSAGES) {
                 Message<M> message = queue.poll();
                 long timestamp;
                 if (message.getEventTime() != 0) {
