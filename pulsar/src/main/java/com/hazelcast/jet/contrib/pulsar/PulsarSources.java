@@ -18,7 +18,6 @@ package com.hazelcast.jet.contrib.pulsar;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
@@ -37,12 +36,10 @@ import org.apache.pulsar.client.api.SubscriptionType;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
@@ -172,8 +169,6 @@ public final class PulsarSources {
      * @param <T> the type of the emitted item after projection.
      */
     private static final class ConsumerContext<M, T> {
-        private static final int MAX_ACK_RETRIES = 3;
-
         private final ILogger logger;
         private final PulsarClient client;
         private final Consumer<M> consumer;
@@ -222,27 +217,11 @@ public final class PulsarSources {
                     sourceBuffer.add(projectionFn.apply(message), message.getPublishTime());
                 }
             }
-            acknowledgeWithRetryAsync(messages);
-        }
-
-        public void acknowledgeWithRetryAsync(Messages<M> messages) {
             consumer.acknowledgeAsync(messages)
-                    .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(t -> retry(messages, t, 0));
-        }
-
-        private CompletableFuture<Void> retry(Messages<M> messages, Throwable throwable, int retry) {
-            if (retry >= MAX_ACK_RETRIES) {
-                logger.warning(buildLogMessage(messages));
-                ExceptionUtil.sneakyThrow(throwable);
-            }
-            return consumer.acknowledgeAsync(messages)
-                    .thenApply(CompletableFuture::completedFuture)
                     .exceptionally(t -> {
-                        throwable.addSuppressed(t);
-                        return retry(messages, t, retry + 1);
-                    })
-                    .thenCompose(FunctionEx.identity());
+                        logger.warning(buildLogMessage(messages));
+                        return null;
+                    });
         }
 
         private String buildLogMessage(Messages<M> messages) {
@@ -286,7 +265,6 @@ public final class PulsarSources {
         private final ILogger logger;
         private final PulsarClient client;
         private final BlockingQueue<Message<M>> queue = new ArrayBlockingQueue<>(QUEUE_CAP);
-        private final ArrayList<Message<M>> buffer = new ArrayList<>(MAX_FILL_MESSAGES);
 
         private final FunctionEx<Message<M>, T> projectionFn;
         private final Map<String, Object> readerConfig;
@@ -325,8 +303,9 @@ public final class PulsarSources {
             if (reader == null) {
                 createReader();
             }
-            queue.drainTo(buffer, MAX_FILL_MESSAGES);
-            for (Message<M> message : buffer) {
+            int count = 0;
+            while (!queue.isEmpty() && count++ <= MAX_FILL_MESSAGES) {
+                Message<M> message = queue.poll();
                 long timestamp;
                 if (message.getEventTime() != 0) {
                     timestamp = message.getEventTime();
@@ -339,7 +318,6 @@ public final class PulsarSources {
                     sourceBuffer.add(item, timestamp);
                 }
             }
-            buffer.clear();
         }
 
         private void createReader() throws PulsarClientException {
@@ -368,7 +346,9 @@ public final class PulsarSources {
 
         private void destroy() {
             try {
-                reader.close();
+                if (reader != null) {
+                    reader.close();
+                }
             } catch (IOException e) {
                 logger.warning("Error while closing the 'Pulsar Reader'.", e);
             }

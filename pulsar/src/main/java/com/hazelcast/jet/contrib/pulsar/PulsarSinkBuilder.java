@@ -23,7 +23,6 @@ import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import com.hazelcast.logging.ILogger;
-import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -49,7 +48,7 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
     private final String topic;
     private final Map<String, Object> producerConfig;
     private final SupplierEx<Schema<M>> schemaSupplier;
-    private FunctionEx<? super E, M> extractValueFn = (FunctionEx<? super E, M>) FunctionEx.identity();
+    private FunctionEx<? super E, M> extractValueFn;
     private FunctionEx<? super E, String> extractKeyFn;
     private FunctionEx<? super E, Map<String, String>> extractPropertiesFn;
     private FunctionEx<? super E, Long> extractTimestampFn;
@@ -142,8 +141,6 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
 
 
     private static final class PulsarSinkContext<E, M> {
-        private static final int MAX_RETRIES = 3;
-
         private final ILogger logger;
         private final PulsarClient client;
         private final Producer<M> producer;
@@ -180,25 +177,6 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
             producer.flush();
         }
 
-        public void sendWithRetryAsync(TypedMessageBuilder<M> messageBuilder) {
-            messageBuilder.sendAsync()
-                    .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(t -> retry(t, messageBuilder, 0));
-        }
-
-        private CompletableFuture<MessageId> retry(Throwable throwable, TypedMessageBuilder<M> messageBuilder, int retry) {
-            if (retry >= MAX_RETRIES) {
-                ExceptionUtil.sneakyThrow(throwable);
-            }
-            return messageBuilder.sendAsync()
-                                 .thenApply(CompletableFuture::completedFuture)
-                                 .exceptionally(t -> {
-                                     throwable.addSuppressed(t);
-                                     return retry(throwable, messageBuilder, retry + 1);
-                                 })
-                                 .thenCompose(FunctionEx.identity());
-        }
-
         private void add(E item) {
             TypedMessageBuilder<M> messageBuilder = producer.newMessage()
                                                             .value(extractValueFn.apply(item));
@@ -211,7 +189,12 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
             if (extractTimestampFn != null) {
                 messageBuilder.eventTime(extractTimestampFn.apply(item));
             }
-            sendWithRetryAsync(messageBuilder);
+            messageBuilder.sendAsync()
+                    .thenApply(CompletableFuture::completedFuture)
+                    .exceptionally(t -> {
+                        ExceptionUtil.sneakyThrow(t);
+                        return null;
+                    });
         }
 
         private void destroy() {
