@@ -19,6 +19,7 @@ package com.hazelcast.jet.contrib.autoconfigure;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.config.EdgeConfig;
 import com.hazelcast.jet.config.JetConfig;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -40,7 +41,7 @@ public class HazelcastJetAutoConfigurationServerTests {
 
     @Test
     public void defaultConfigFile() {
-        // hazelcast-jet.xml present in root classpath
+        // hazelcast-jet.yaml present in root classpath
         this.contextRunner.run((context) -> {
             JetConfig jetConfig = context.getBean(JetInstance.class).getConfig();
             EdgeConfig defaultEdgeConfig = jetConfig.getDefaultEdgeConfig();
@@ -52,7 +53,23 @@ public class HazelcastJetAutoConfigurationServerTests {
     public void systemPropertyWithXml() {
         this.contextRunner
                 .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.xml")
+                .run(assertSpecificJetServer("xml"));
+    }
+
+    @Test
+    public void systemPropertyClassPathWithXml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.xml")
+                .run(assertSpecificJetServer("xml"));
+    }
+
+    @Test
+    public void systemPropertyFileWithXml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=file:src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.xml")
                 .run(assertSpecificJetServer("xml"));
     }
 
@@ -60,39 +77,80 @@ public class HazelcastJetAutoConfigurationServerTests {
     public void systemPropertyWithYaml() {
         this.contextRunner
                 .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.yaml")
+                .run(assertSpecificJetServer("yaml"));
+    }
+
+    @Test
+    public void systemPropertyClassPathWithYaml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.yaml")
+                .run(assertSpecificJetServer("yaml"));
+    }
+
+    @Test
+    public void systemPropertyFileWithYaml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=file:src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.yaml")
                 .run(assertSpecificJetServer("yaml"));
     }
 
     @Test
     public void explicitConfigFileWithXml() {
         this.contextRunner.withPropertyValues("hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
-                + "hazelcast-jet-specific.xml").run(assertSpecificJetServer("xml"));
+                + "hazelcast-jet-specific.xml")
+                .run(assertSpecificJetServer("xml"));
     }
 
     @Test
     public void explicitConfigFileWithYaml() {
         this.contextRunner.withPropertyValues("hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
-                + "hazelcast-jet-specific.yaml").run(assertSpecificJetServer("yaml"));
+                + "hazelcast-jet-specific.yaml")
+                .run(assertSpecificJetServer("yaml"));
     }
 
     @Test
-    public void explicitConfigUrlWithXml() {
+    public void explicitConfigClassPathUrlWithXml() {
         this.contextRunner.withPropertyValues("hazelcast.jet.config=classpath:com/hazelcast/jet/contrib/"
-                + "autoconfigure/hazelcast-jet-specific.xml").run(assertSpecificJetServer("xml"));
+                + "autoconfigure/hazelcast-jet-specific.xml")
+                .run(assertSpecificJetServer("xml"));
     }
 
     @Test
-    public void explicitConfigUrlWithYaml() {
+    public void explicitConfigClassPathUrlWithYaml() {
         this.contextRunner.withPropertyValues("hazelcast.jet.config=classpath:com/hazelcast/jet/contrib/"
-                + "autoconfigure/hazelcast-jet-specific.yaml").run(assertSpecificJetServer("yaml"));
+                + "autoconfigure/hazelcast-jet-specific.yaml")
+                .run(assertSpecificJetServer("yaml"));
+    }
+
+    @Test
+    public void explicitConfigFileUrlWithXml() {
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=file:src/test/resources/com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-jet-specific.xml")
+                .run(assertSpecificJetServer("xml"));
+    }
+
+    @Test
+    public void explicitConfigFileUrlWithYaml() {
+        this.contextRunner.withPropertyValues("hazelcast.jet.config=file:src/test/resources/com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-jet-specific.yaml")
+                .run(assertSpecificJetServer("yaml"));
+    }
+
+    @Test
+    public void unknownSystemPropertyConfigFile() {
+        this.contextRunner.withSystemProperties("hazelcast.jet.config=foo/bar/unknown.xml")
+                .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
+                .hasMessageContaining("foo/bar/unknown.xml"));
     }
 
     @Test
     public void unknownConfigFile() {
         this.contextRunner.withPropertyValues("hazelcast.jet.config=foo/bar/unknown.xml")
-                          .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
-                                                               .hasMessageContaining("foo/bar/unknown.xml"));
+                .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
+                .hasMessageContaining("foo/bar/unknown.xml"));
     }
 
     @Test
@@ -102,10 +160,168 @@ public class HazelcastJetAutoConfigurationServerTests {
                           .run(assertSpecificJetServer("configAsBean"));
     }
 
+    @Test
+    public void defaultImdgConfigFile() {
+        // hazelcast.yaml present in root classpath
+        this.contextRunner
+                .run(assertSpecificJetImdgServer("default-cluster"));
+    }
+
+    @Test
+    public void systemPropertyImdgWithXml() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"));
+    }
+
+    @Test
+    public void systemPropertyClassPathImdgWithXml() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/73")
+    public void systemPropertyFileImdgWithXml() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=file:src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"));
+    }
+
+    @Test
+    public void systemPropertyImdgWithYaml() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"));
+    }
+
+    @Test
+    public void systemPropertyClassPathImdgWithYaml() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/73")
+    public void systemPropertyFileImdgWithYaml() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=file:src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigImdgFileWithXml() {
+        this.contextRunner.withPropertyValues("hazelcast.config=src/test/resources/com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigImdgFileWithYaml() {
+        this.contextRunner.withPropertyValues("hazelcast.config=src/test/resources/com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigImdgClassPathUrlWithXml() {
+        this.contextRunner.withPropertyValues("hazelcast.config=classpath:com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigImdgClassPathUrlWithYaml() {
+        this.contextRunner.withPropertyValues("hazelcast.config=classpath:com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigImdgFileUrlWithXml() {
+        this.contextRunner.withPropertyValues("hazelcast.config=file:src/test/resources/com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigImdgFileUrlWithYaml() {
+        this.contextRunner.withPropertyValues("hazelcast.config=file:src/test/resources/com/hazelcast/jet/contrib/"
+                + "autoconfigure/hazelcast-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"));
+    }
+
+    @Test
+    public void unknownSystemPropertyConfigImdgFile() {
+        this.contextRunner.withSystemProperties("hazelcast.config=foo/bar/unknown.xml")
+                .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
+                .hasMessageContaining("foo/bar/unknown.xml"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void unknownConfigImdgFile() {
+        this.contextRunner.withPropertyValues("hazelcast.config=foo/bar/unknown.xml")
+                .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
+                .hasMessageContaining("foo/bar/unknown.xml"));
+    }
+
+    @Test
+    public void configImdgInstanceWithoutName() {
+        this.contextRunner.withUserConfiguration(HazelcastJetConfig.class)
+                .withPropertyValues("hazelcast.config=this-is-ignored.xml")
+                .run(assertSpecificJetImdgServer("configAsBean-cluster"));
+    }
+
+    @Test
+    public void systemProperty_bothConfigFile() {
+        this.contextRunner
+                .withSystemProperties("hazelcast.config"
+                        + "=src/test/resources/com/hazelcast/jet/contrib/autoconfigure/hazelcast-specific.xml")
+                .withSystemProperties(HazelcastJetConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-specific.xml")
+                .run(assertSpecificJetImdgServer("explicit-xml-cluster"))
+                .run(assertSpecificJetServer("xml"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/71")
+    public void explicitConfigFile_bothConfigFile() {
+        this.contextRunner
+                .withPropertyValues("hazelcast.config=src/test/resources/com/hazelcast/jet/contrib/autoconfigure/"
+                        + "hazelcast-specific.yaml")
+                .withPropertyValues("hazelcast.jet.config=com/hazelcast/jet/contrib/autoconfigure/"
+                        + "hazelcast-jet-specific.yaml")
+                .run(assertSpecificJetImdgServer("explicit-yaml-cluster"))
+                .run(assertSpecificJetServer("yaml"));
+
+    }
+
     private static ContextConsumer<AssertableApplicationContext> assertSpecificJetServer(String suffix) {
         return (context) -> {
             JetConfig jetConfig = context.getBean(JetInstance.class).getConfig();
             assertThat(jetConfig.getProperties().getProperty("foo")).isEqualTo("bar-" + suffix);
+        };
+    }
+
+    private static ContextConsumer<AssertableApplicationContext> assertSpecificJetImdgServer(String clusterName) {
+        return (context) -> {
+            JetConfig jetConfig = context.getBean(JetInstance.class).getConfig();
+            assertThat(jetConfig.getHazelcastConfig().getClusterName()).isEqualTo(clusterName);
         };
     }
 
@@ -117,6 +333,7 @@ public class HazelcastJetAutoConfigurationServerTests {
             JetConfig jetConfig = new JetConfig();
             jetConfig.getHazelcastConfig().getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
             jetConfig.setProperty("foo", "bar-configAsBean");
+            jetConfig.getHazelcastConfig().setClusterName("configAsBean-cluster");
             return jetConfig;
         }
 

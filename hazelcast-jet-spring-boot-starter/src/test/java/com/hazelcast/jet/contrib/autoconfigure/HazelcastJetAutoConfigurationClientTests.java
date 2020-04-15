@@ -16,19 +16,25 @@
 
 package com.hazelcast.jet.contrib.autoconfigure;
 
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.config.JetConfig;
 import com.hazelcast.jet.impl.JetClientInstanceImpl;
+import java.util.HashSet;
+import java.util.Set;
 import org.assertj.core.api.Condition;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.ContextConsumer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,7 +72,26 @@ public class HazelcastJetAutoConfigurationClientTests {
     public void systemPropertyWithXml() {
         this.contextRunner
                 .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=src/test/resources/com/hazelcast/jet/contrib/autoconfigure/"
+                        + "hazelcast-jet-client-specific.xml")
+                .run(assertSpecificHazelcastJetClient("explicit-xml"));
+    }
+
+    @Test
+    public void systemPropertyClassPathWithXml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-client-specific.xml")
+                .run(assertSpecificHazelcastJetClient("explicit-xml"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/73")
+    public void systemPropertyFileWithXml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=file:src/test/resources/com/hazelcast/jet/contrib/autoconfigure/"
+                        + "hazelcast-jet-client-specific.xml")
                 .run(assertSpecificHazelcastJetClient("explicit-xml"));
     }
 
@@ -74,7 +99,26 @@ public class HazelcastJetAutoConfigurationClientTests {
     public void systemPropertyWithYaml() {
         this.contextRunner
                 .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=src/test/resources/com/hazelcast/jet/contrib/autoconfigure/"
+                        + "hazelcast-jet-client-specific.yaml")
+                .run(assertSpecificHazelcastJetClient("explicit-yaml"));
+    }
+
+    @Test
+    public void systemPropertyClassPathWithYaml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
                         + "=classpath:com/hazelcast/jet/contrib/autoconfigure/hazelcast-jet-client-specific.yaml")
+                .run(assertSpecificHazelcastJetClient("explicit-yaml"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/73")
+    public void systemPropertyFileWithYaml() {
+        this.contextRunner
+                .withSystemProperties(HazelcastJetClientConfigAvailableCondition.CONFIG_SYSTEM_PROPERTY
+                        + "=file:src/test/resources/com/hazelcast/jet/contrib/autoconfigure/"
+                        + "hazelcast-jet-client-specific.yaml")
                 .run(assertSpecificHazelcastJetClient("explicit-yaml"));
     }
 
@@ -95,7 +139,7 @@ public class HazelcastJetAutoConfigurationClientTests {
     }
 
     @Test
-    public void explicitConfigUrlWithXml() {
+    public void explicitConfigClassPathUrlWithXml() {
         this.contextRunner
                 .withPropertyValues("hazelcast.jet.client.config=classpath:com/hazelcast/jet/contrib/autoconfigure/"
                         + "hazelcast-jet-client-specific.xml")
@@ -103,10 +147,26 @@ public class HazelcastJetAutoConfigurationClientTests {
     }
 
     @Test
-    public void explicitConfigUrlWithYaml() {
+    public void explicitConfigClassPathUrlWithYaml() {
         this.contextRunner
                 .withPropertyValues("hazelcast.jet.client.config=classpath:com/hazelcast/jet/contrib/autoconfigure/"
                         + "hazelcast-jet-client-specific.yaml")
+                .run(assertSpecificHazelcastJetClient("explicit-yaml"));
+    }
+
+    @Test
+    public void explicitConfigFileUrlWithXml() {
+        this.contextRunner
+                .withPropertyValues("hazelcast.jet.client.config=file:src/test/resources/com/hazelcast/jet/contrib/"
+                        + "autoconfigure/hazelcast-jet-client-specific.xml")
+                .run(assertSpecificHazelcastJetClient("explicit-xml"));
+    }
+
+    @Test
+    public void explicitConfigFileUrlWithYaml() {
+        this.contextRunner
+                .withPropertyValues("hazelcast.jet.client.config=file:src/test/resources/com/hazelcast/jet/contrib/"
+                        + "autoconfigure/hazelcast-jet-client-specific.yaml")
                 .run(assertSpecificHazelcastJetClient("explicit-yaml"));
     }
 
@@ -115,6 +175,14 @@ public class HazelcastJetAutoConfigurationClientTests {
         this.contextRunner.withPropertyValues("hazelcast.jet.client.config=foo/bar/unknown.xml")
                           .run((context) -> assertThat(context).getFailure().isInstanceOf(BeanCreationException.class)
                                                                .hasMessageContaining("foo/bar/unknown.xml"));
+    }
+
+    @Test
+    @Ignore("https://github.com/hazelcast/hazelcast-jet-contrib/issues/72")
+    public void configInstanceWithoutName() {
+        this.contextRunner.withUserConfiguration(HazelcastClientConfig.class)
+                .withPropertyValues("hazelcast.jet.client.config=this-is-ignored.xml")
+                .run(assertSpecificHazelcastJetClient("configAsBean-label"));
     }
 
     private static ContextConsumer<AssertableApplicationContext> assertSpecificHazelcastJetClient(String label) {
@@ -126,6 +194,20 @@ public class HazelcastJetAutoConfigurationClientTests {
         return new Condition<>((o) -> ((JetClientInstanceImpl) o)
                 .getHazelcastClient().getClientConfig().getLabels()
                 .stream().anyMatch((e) -> e.equals(label)), "Label equals to " + label);
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class HazelcastClientConfig {
+
+        @Bean
+        ClientConfig anotherHazelcastClientConfig() {
+            ClientConfig config = new ClientConfig();
+            Set<String> labels = new HashSet<>();
+            labels.add("configAsBean-label");
+            config.setLabels(labels);
+            return config;
+        }
+
     }
 
 }
