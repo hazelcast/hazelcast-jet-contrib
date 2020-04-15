@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.autoconfigure;
+package com.hazelcast.jet.contrib.autoconfigure.conditions;
 
 /**
  * {@link HazelcastJetConfigResourceCondition} that checks if the

@@ -1,10 +1,3 @@
 hazelcast-jet:
   edge-defaults:
     queue-size: 2048
-
-  hazelcast:
-    instance-name: default-instance
-    network:
-      join:
-        multicast:
-          enabled: false

@@ -29,17 +29,18 @@ compile group: 'com.hazelcast.jet.contrib', name: 'hazelcast-jet-spring-boot-sta
 ### Usage
 
 If [Hazelcast Jet](https://jet.hazelcast.org/) is on the classpath and
-a suitable configuration is found, Spring Boot auto-configures a
+a suitable configuration is found, the starter auto-configures a
 `JetInstance` that you can inject in your application.
 
-If you define a `com.hazelcast.jet.config.JetConfig` bean, Spring Boot
-uses that.
+If you define a `JetConfig` bean, the starter creates a Jet server
+using that bean or if you define a `ClientConfig` bean, the starter
+creates a Jet client using that bean.
 
 You could also specify the Hazelcast Jet server configuration file to
 use through configuration, as shown in the following example:
 
 ```text
-hazelcast.jet.config=classpath:config/my-hazelcast-jet.xml
+hazelcast.jet.server.config=classpath:config/my-hazelcast-jet.xml
 ```
 
 Or you could specify Hazelcast Jet client configuration as shown in the
@@ -65,15 +66,13 @@ See the
 Spring Boot attempts to create a `JetInstance` by checking following 
 configuration options:
 
-* The presence of a `com.hazelcast.jet.config.JetConfig` bean (a Jet
-member will be created).
+* The presence of a `JetConfig` bean (a Jet member will be created).
 * The presence of the `hazelcast.jet.config` system property (a Jet
 member will be created).
 * A configuration file defined by the 
-`configprop:hazelcast.jet.config[]` property (a Jet member will
+`configprop:hazelcast.jet.server.config[]` property (a Jet member will
  be created).
-* The presence of a `com.hazelcast.client.config.ClientConfig` bean (a
-Jet client will be created).
+* The presence of a `ClientConfig` bean (a Jet client will be created).
 * The presence of the `hazelcast.client.config` system property (a Jet
 client will be created).
 * A configuration file defined by the 

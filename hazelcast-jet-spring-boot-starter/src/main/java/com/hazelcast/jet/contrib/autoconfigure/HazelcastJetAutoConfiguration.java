@@ -17,6 +17,7 @@
 package com.hazelcast.jet.contrib.autoconfigure;
 
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.contrib.autoconfigure.conditions.HazelcastJetConfigResourceCondition;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Configuration;

@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.autoconfigure;
+package com.hazelcast.jet.contrib.autoconfigure.properties;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.core.io.Resource;
 import org.springframework.util.Assert;
 
 /**
- * Configuration properties for the hazelcast jet integration.
+ * todo add proper javadoc
  */
-@ConfigurationProperties(prefix = "hazelcast.jet")
-public class HazelcastJetProperties {
+public abstract class AbstractConfigProperty {
 
     /**
      * The location of the server configuration file to use to initialize
@@ -60,8 +58,12 @@ public class HazelcastJetProperties {
             return null;
         }
         Assert.isTrue(config.exists(),
-                () -> "Hazelcast Jet configuration does not exist '" + config.getDescription() + "'");
+                () -> "Hazelcast Jet " + name() + " configuration does not exist '" + config.getDescription() + "'");
         return config;
     }
 
+    /**
+     * @return the name of the property
+     */
+    public abstract String name();
 }
