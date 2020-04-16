@@ -38,22 +38,6 @@ If you define a `JetConfig` bean, the starter creates a Jet server
 using that bean or if you define a `ClientConfig` bean, the starter
 creates a Jet client using that bean.
 
-#### System Properties
-
-You can define configuration files using system properties. For
-Hazelcast Jet server and Hazelcast IMDG:
-
-```java
-System.setProperty("hazelcast.jet.config", "config/hazelcast-jet-specific.yaml");
-System.setProperty("hazelcast.config", "config/hazelcast-specific.yaml");
-``` 
-
-For Hazelcast Jet client:
-
-```java
-System.setProperty("hazelcast.client.config", "config/hazelcast-client-specific.yaml");
-```
-
 #### Config Properties
 
 You can define configuration files using config properties. For
@@ -70,6 +54,22 @@ For Hazelcast Jet client:
 hazelcast.jet.client.config=classpath:config/hazelcast-client-specific.yaml
 ```
 
+#### System Properties
+
+You can also define configuration files using system properties. For
+Hazelcast Jet server and Hazelcast IMDG:
+
+```java
+System.setProperty("hazelcast.jet.config", "config/hazelcast-jet-specific.yaml");
+System.setProperty("hazelcast.config", "config/hazelcast-specific.yaml");
+``` 
+
+For Hazelcast Jet client:
+
+```java
+System.setProperty("hazelcast.client.config", "config/hazelcast-client-specific.yaml");
+```
+
 #### Default Configuration Files
 
 If no configuration file is defined explicitly, Spring Boot tries to
@@ -83,16 +83,16 @@ Spring Boot attempts to create a `JetInstance` by checking following
 configuration options:
 
 * The presence of a `JetConfig` bean (a Jet member will be created).
-* The presence of the `hazelcast.jet.config` system property (a Jet
-member will be created).
+* The presence of a `ClientConfig` bean (a Jet client will be created).
 * A configuration file defined by the 
 `configprop:hazelcast.jet.server.config[]` property (a Jet member will
  be created).
-* The presence of a `ClientConfig` bean (a Jet client will be created).
-* The presence of the `hazelcast.client.config` system property (a Jet
-client will be created).
+* The presence of the `hazelcast.jet.config` system property (a Jet
+member will be created).
 * A configuration file defined by the 
 `configprop:hazelcast.jet.client.config[]` property (a Jet
+client will be created).
+* The presence of the `hazelcast.client.config` system property (a Jet
 client will be created).
 * `hazelcast-jet.yaml`, `hazelcast-jet.yml` or `hazelcast-jet.xml` in
 the working directory or at the root of the classpath. (a Jet member

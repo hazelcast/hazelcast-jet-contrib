@@ -90,16 +90,15 @@ public class HazelcastJetServerConfiguration {
         JetInstance jetInstance(HazelcastJetServerProperty serverProperty,
                                 HazelcastJetIMDGProperty imdgProperty) throws IOException {
             Resource serverConfigLocation = serverProperty.resolveConfigLocation();
-            JetConfig jetConfig = (serverConfigLocation != null) ? getJetConfig(serverConfigLocation)
-                    : ConfigProvider.locateAndGetJetConfig();
-
             Resource imdgConfigLocation = imdgProperty.resolveConfigLocation();
-            Config config = imdgConfigLocation != null ? getIMDGConfig(imdgConfigLocation)
-                    : ConfigProvider.locateAndGetMemberConfig(System.getProperties());
 
-            injectSpringManagedContext(config);
+            JetConfig jetConfig = serverConfigLocation != null ? getJetConfig(serverConfigLocation)
+                    : ConfigProvider.locateAndGetJetConfig();
+            if (imdgConfigLocation != null) {
+                jetConfig.setHazelcastConfig(getIMDGConfig(imdgConfigLocation));
+            }
 
-            jetConfig.setHazelcastConfig(config);
+            injectSpringManagedContext(jetConfig.getHazelcastConfig());
 
             return Jet.newJetInstance(jetConfig);
         }
