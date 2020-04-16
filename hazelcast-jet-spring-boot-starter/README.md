@@ -32,32 +32,48 @@ If [Hazelcast Jet](https://jet.hazelcast.org/) is on the classpath and
 a suitable configuration is found, the starter auto-configures a
 `JetInstance` that you can inject in your application.
 
+#### Config Beans
+
 If you define a `JetConfig` bean, the starter creates a Jet server
 using that bean or if you define a `ClientConfig` bean, the starter
 creates a Jet client using that bean.
 
-You could also specify the Hazelcast Jet server configuration file to
-use through configuration, as shown in the following example:
+#### System Properties
 
-```text
-hazelcast.jet.server.config=classpath:config/my-hazelcast-jet.xml
+You can define configuration files using system properties. For
+Hazelcast Jet server and Hazelcast IMDG:
+
+```java
+System.setProperty("hazelcast.jet.config", "config/hazelcast-jet-specific.yaml");
+System.setProperty("hazelcast.config", "config/hazelcast-specific.yaml");
+``` 
+
+For Hazelcast Jet client:
+
+```java
+System.setProperty("hazelcast.client.config", "config/hazelcast-client-specific.yaml");
 ```
 
-Or you could specify Hazelcast Jet client configuration as shown in the
-following example:
+#### Config Properties
 
-```text
-hazelcast.jet.client.config=classpath:config/my-hazelcast-client.xml
+You can define configuration files using config properties. For
+Hazelcast Jet server and Hazelcast IMDG:
+
+```properties
+hazelcast.jet.server.config=classpath:config/hazelcast-jet-specific.yaml
+hazelcast.jet.imdg.config=classpath:config/hazelcast-specific.yaml
 ```
 
-Otherwise, Spring Boot tries to find the Hazelcast Jet configuration
-from the default locations: `hazelcast-jet.xml` in the working
-directory or at the root of the classpath, or a `.yaml`/`.yml`
-counterpart in the same locations.
+For Hazelcast Jet client:
 
-We also check if the `hazelcast.jet.config` system property set for
-server configuration and `hazelcast.client.config` system property set
-for client configuration.
+```properties
+hazelcast.jet.client.config=classpath:config/hazelcast-client-specific.yaml
+```
+
+#### Default Configuration Files
+
+If no configuration file is defined explicitly, Spring Boot tries to
+find default configuration files in the working directory or classpath. 
 
 See the 
 [Hazelcast Jet documentation](https://docs.hazelcast.org/docs/jet/latest/manual/#declarative-configuration)

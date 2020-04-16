@@ -55,7 +55,7 @@ import java.net.URL;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({HazelcastJetServerProperty.class, HazelcastJetIMDGProperty.class})
-@ConditionalOnMissingBean({JetInstance.class, ClientConfig.class})
+@ConditionalOnMissingBean(JetInstance.class)
 public class HazelcastJetServerConfiguration {
 
     private static JetConfig getJetConfig(Resource configLocation) throws IOException {
@@ -79,7 +79,7 @@ public class HazelcastJetServerConfiguration {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnMissingBean(JetConfig.class)
+    @ConditionalOnMissingBean({JetConfig.class, ClientConfig.class})
     @Conditional(HazelcastJetServerConfigAvailableCondition.class)
     static class HazelcastJetServerConfigFileConfiguration {
 
