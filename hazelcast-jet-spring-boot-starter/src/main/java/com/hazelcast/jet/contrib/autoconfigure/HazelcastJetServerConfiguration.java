@@ -16,9 +16,17 @@
 
 package com.hazelcast.jet.contrib.autoconfigure;
 
+import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.XmlConfigBuilder;
+import com.hazelcast.config.YamlConfigBuilder;
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.config.JetConfig;
+import com.hazelcast.jet.contrib.autoconfigure.conditions.HazelcastJetConfigResourceCondition;
+import com.hazelcast.jet.contrib.autoconfigure.conditions.HazelcastJetServerConfigAvailableCondition;
+import com.hazelcast.jet.contrib.autoconfigure.properties.HazelcastJetIMDGProperty;
+import com.hazelcast.jet.contrib.autoconfigure.properties.HazelcastJetServerProperty;
 import com.hazelcast.jet.impl.config.ConfigProvider;
 import com.hazelcast.jet.impl.config.XmlJetConfigBuilder;
 import com.hazelcast.jet.impl.config.YamlJetConfigBuilder;
@@ -46,7 +54,7 @@ import java.net.URL;
  * @see HazelcastJetConfigResourceCondition
  */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(HazelcastJetProperties.class)
+@EnableConfigurationProperties({HazelcastJetServerProperty.class, HazelcastJetIMDGProperty.class})
 @ConditionalOnMissingBean(JetInstance.class)
 public class HazelcastJetServerConfiguration {
 
@@ -60,27 +68,45 @@ public class HazelcastJetServerConfiguration {
         return new XmlJetConfigBuilder(inputStream).build();
     }
 
+    private static Config getIMDGConfig(Resource configLocation) throws IOException {
+        URL configUrl = configLocation.getURL();
+        String configFileName = configUrl.getPath();
+        InputStream inputStream = configUrl.openStream();
+        if (configFileName.endsWith(".yaml") || configFileName.endsWith("yml")) {
+            return new YamlConfigBuilder(inputStream).build();
+        }
+        return new XmlConfigBuilder(inputStream).build();
+    }
+
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnMissingBean(JetConfig.class)
-    @Conditional(HazelcastJetConfigAvailableCondition.class)
+    @ConditionalOnMissingBean({JetConfig.class, ClientConfig.class})
+    @Conditional(HazelcastJetServerConfigAvailableCondition.class)
     static class HazelcastJetServerConfigFileConfiguration {
 
         @Autowired
         private ApplicationContext applicationContext;
 
         @Bean
-        JetInstance jetInstance(HazelcastJetProperties properties) throws IOException {
-            Resource configLocation = properties.resolveConfigLocation();
-            JetConfig jetConfig = (configLocation != null) ? getJetConfig(configLocation)
+        JetInstance jetInstance(HazelcastJetServerProperty serverProperty,
+                                HazelcastJetIMDGProperty imdgProperty) throws IOException {
+            Resource serverConfigLocation = serverProperty.resolveConfigLocation();
+            Resource imdgConfigLocation = imdgProperty.resolveConfigLocation();
+
+            JetConfig jetConfig = serverConfigLocation != null ? getJetConfig(serverConfigLocation)
                     : ConfigProvider.locateAndGetJetConfig();
-            injectSpringManagedContext(jetConfig);
+            if (imdgConfigLocation != null) {
+                jetConfig.setHazelcastConfig(getIMDGConfig(imdgConfigLocation));
+            }
+
+            injectSpringManagedContext(jetConfig.getHazelcastConfig());
+
             return Jet.newJetInstance(jetConfig);
         }
 
-        private void injectSpringManagedContext(JetConfig jetConfig) {
+        private void injectSpringManagedContext(Config config) {
             SpringManagedContext springManagedContext = new SpringManagedContext();
-            springManagedContext.setApplicationContext(this.applicationContext);
-            jetConfig.getHazelcastConfig().setManagedContext(springManagedContext);
+            springManagedContext.setApplicationContext(applicationContext);
+            config.setManagedContext(springManagedContext);
         }
 
     }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.autoconfigure;
+package com.hazelcast.jet.contrib.autoconfigure.conditions;
 
 import org.springframework.boot.autoconfigure.condition.ConditionOutcome;
 import org.springframework.context.annotation.ConditionContext;
@@ -24,17 +24,17 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
  * {@link HazelcastJetConfigResourceCondition} that checks if the
  * {@code hazelcast.jet.config} configuration key is defined.
  */
-public class HazelcastJetConfigAvailableCondition extends HazelcastJetConfigResourceCondition {
+public class HazelcastJetServerConfigAvailableCondition extends HazelcastJetConfigResourceCondition {
 
     /**
-     * Spring property for Hazelcast Jet server configuration
+     * Config property for Hazelcast Jet server configuration
      */
-    public static final String CONFIG_SYSTEM_PROPERTY = "hazelcast.jet.config";
+    public static final String CONFIG_ENVIRONMENT_PROPERTY = "hazelcast.jet.server.config";
 
     /**
      * System property for Hazelcast Jet server configuration
      */
-    public static final String CONFIG_ENVIRONMENT_PROPERTY = "hazelcast.jet.config";
+    public static final String CONFIG_SYSTEM_PROPERTY = "hazelcast.jet.config";
 
     private final HazelcastJetClientConfigAvailableCondition clientConfigAvailableCondition =
             new HazelcastJetClientConfigAvailableCondition();
@@ -80,7 +80,7 @@ public class HazelcastJetConfigAvailableCondition extends HazelcastJetConfigReso
      *     </li>
      * </ul>
      */
-    public HazelcastJetConfigAvailableCondition() {
+    public HazelcastJetServerConfigAvailableCondition() {
         super("HazelcastJet", CONFIG_ENVIRONMENT_PROPERTY, CONFIG_SYSTEM_PROPERTY,
                 "file:./hazelcast-jet.xml", "classpath:/hazelcast-jet.xml",
                 "file:./hazelcast-jet.yaml", "classpath:/hazelcast-jet.yaml",

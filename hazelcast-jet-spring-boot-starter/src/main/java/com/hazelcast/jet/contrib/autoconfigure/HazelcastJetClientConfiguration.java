@@ -21,6 +21,8 @@ import com.hazelcast.client.config.XmlClientConfigBuilder;
 import com.hazelcast.client.config.YamlClientConfigBuilder;
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.contrib.autoconfigure.conditions.HazelcastJetClientConfigAvailableCondition;
+import com.hazelcast.jet.contrib.autoconfigure.properties.HazelcastJetClientProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnSingleCandidate;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -36,7 +38,7 @@ import java.net.URL;
  * Configuration for Hazelcast Jet client.
  */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(HazelcastJetClientProperties.class)
+@EnableConfigurationProperties(HazelcastJetClientProperty.class)
 @ConditionalOnMissingBean(JetInstance.class)
 public class HazelcastJetClientConfiguration {
 
@@ -56,7 +58,7 @@ public class HazelcastJetClientConfiguration {
     static class HazelcastJetClientConfigFileConfiguration {
 
         @Bean
-        JetInstance jetInstance(HazelcastJetClientProperties properties) throws IOException {
+        JetInstance jetInstance(HazelcastJetClientProperty properties) throws IOException {
             Resource configLocation = properties.resolveConfigLocation();
             if (configLocation == null) {
                 return Jet.newJetClient();
