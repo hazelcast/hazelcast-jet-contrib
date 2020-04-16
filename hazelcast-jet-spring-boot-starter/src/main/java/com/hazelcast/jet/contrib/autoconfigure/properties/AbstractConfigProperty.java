@@ -20,7 +20,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.util.Assert;
 
 /**
- * todo add proper javadoc
+ * Base class for Hazelcast Jet resource configuration properties
  */
 public abstract class AbstractConfigProperty {
 
