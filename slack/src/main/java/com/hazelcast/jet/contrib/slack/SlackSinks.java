@@ -16,14 +16,15 @@
 
 package com.hazelcast.jet.contrib.slack;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.function.SupplierEx;
+import com.hazelcast.jet.contrib.slack.util.SlackResponse;
 import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpRequest;
 import org.apache.http.NameValuePair;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -37,7 +38,6 @@ import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,38 +49,28 @@ public final class SlackSinks {
 
     private static final String URL = "https://slack.com/api/chat.postMessage";
 
-    private static final int RETRY_COUNT = 5;
+    private static final int RETRY_COUNT = Integer.MAX_VALUE;
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private SlackSinks() {
     }
 
     /**
-     * Creates a sink to send messages to requested channel id.
-     * Here the sink will be created with the default name as slack-sink.
+     * Creates a slack sink to send messages to the requested channelId.
+     * Internally Apache {@link org.apache.http.client.HttpClient} is used with
+     * custom {@link HttpRequestRetryHandler} to post the messages.
+     * Following exceptions {@link ConnectTimeoutException}, {@link HttpHostConnectException},
+     * {@link IOException}, {@link UnknownHostException}
+     * are handled through custom retry handler.
+     * Other error scenarios will lead to the failure of the Jet job.
      *
      * @param accessToken String Bearer token to authenticate the slack web api requests
      * @param slackChannelId String Unique channel id to send messages to the slack channel.
      * @return
      */
     public static Sink sink(String accessToken, String slackChannelId) {
-        return sink("slack-sink", accessToken, slackChannelId);
-    }
-
-    /**
-     * Creates a slack sink to send messages to the slack channel with the given slack channel name.
-     * Internally apache {@link org.apache.http.client.HttpClient} is used with
-     * custom {@link HttpRequestRetryHandler} to post the messages to slack channels.
-     * Following error causes {@link ConnectTimeoutException}, {@link HttpHostConnectException}, {@link IOException}
-     * are handled through custom retry handler.The max retry count has been configured to 5.
-     * Other error causes will lead to the breakage of the jet pipeline.
-     *
-     * @param accessToken String Bearer token to authenticate the slack web api requests
-     * @param slackChannelId String Unique channel id to send messages to the slack channel.
-     * @param slackChannelName String channel name to be used as sink name
-     * @return
-     */
-    public static Sink sink(String accessToken, String slackChannelId, String slackChannelName) {
-        return SinkBuilder.sinkBuilder(slackChannelName,
+        return SinkBuilder.sinkBuilder("slack(" + slackChannelId + ")",
                 ctx -> new SlackContext(() -> HttpClients.custom().setRetryHandler(httpRetryHandler())
                         .build(), accessToken, slackChannelId))
                 .<String>receiveFn((ctx, item) -> ctx.receiveFn(item)).destroyFn(ctx -> ctx.destroy()).build();
@@ -94,7 +84,7 @@ public final class SlackSinks {
             }
             if (exception instanceof UnknownHostException) {
                 // Unknown host
-                return false;
+                return true;
             }
             if (exception instanceof ConnectTimeoutException) {
                 // Connection refused
@@ -137,6 +127,7 @@ public final class SlackSinks {
             HttpPost request =  new HttpPost(URL);
             CloseableHttpResponse response = null;
             String result = "";
+            SlackResponse slackResponse;
             try {
                 // add request headers
                 request.addHeader("Authorization", String.format("Bearer %s", accessToken));
@@ -146,10 +137,10 @@ public final class SlackSinks {
                 request.setEntity(new UrlEncodedFormEntity(urlParameters));
                 response = (CloseableHttpResponse) closeableHttpClient.execute(request);
                 result = EntityUtils.toString(response.getEntity());
-            } catch (UnsupportedEncodingException var) {
-                throw ExceptionUtil.rethrow(var);
-            } catch (ClientProtocolException var) {
-                throw ExceptionUtil.rethrow(var);
+                slackResponse = MAPPER.readValue(result, SlackResponse.class);
+                if (!slackResponse.isOk()) {
+                    throw new RuntimeException(slackResponse.getError());
+                }
             } catch (IOException var) {
                 throw ExceptionUtil.rethrow(var);
             } finally {

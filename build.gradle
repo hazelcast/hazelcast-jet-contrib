@@ -59,6 +59,10 @@ subprojects {
     dependencies {
         compile group: 'com.hazelcast.jet', name: 'hazelcast-jet', version: jetVersion
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+        compile 'com.fasterxml.jackson.core:jackson-core:2.10.3'
+        compile 'com.fasterxml.jackson.core:jackson-annotations:2.10.3'
+        compile 'com.fasterxml.jackson.core:jackson-databind:2.10.3'
+
         testCompile "com.hazelcast.jet:hazelcast-jet-core:" + jetVersion + ":tests"
         testCompile "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
         testCompile "javax.cache:cache-api:1.1.0"
