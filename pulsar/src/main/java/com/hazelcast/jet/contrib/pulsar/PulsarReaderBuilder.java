@@ -73,7 +73,6 @@ public final class PulsarReaderBuilder<M, T> implements Serializable {
         this.topic = topic;
         this.connectionSupplier = connectionSupplier;
         this.readerConfig = getDefaultReaderConfig();
-        checkSerializable(getDefaultReaderConfig(), "readerConfig");
         this.schemaSupplier = schemaSupplier;
         this.projectionFn = projectionFn;
     }

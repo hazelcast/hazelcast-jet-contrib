@@ -70,8 +70,6 @@ public final class PulsarConsumerBuilder<M, T> implements Serializable {
         checkSerializable(connectionSupplier, "connectionSupplier");
         checkSerializable(schemaSupplier, "schemaSupplier");
         checkSerializable(projectionFn, "projectionFn");
-        checkSerializable(getDefaultConsumerConfig(), "consumerConfig");
-        checkSerializable(getDefaultBatchReceivePolicySupplier(), "batchReceivePolicySupplier");
 
         this.topics = topics;
         this.connectionSupplier = connectionSupplier;
@@ -156,9 +154,7 @@ public final class PulsarConsumerBuilder<M, T> implements Serializable {
                 @Nonnull SupplierEx<BatchReceivePolicy> batchReceivePolicySupplier,
                 @Nonnull FunctionEx<Message<M>, T> projectionFn
         ) throws PulsarClientException {
-            checkSerializable(schemaSupplier, "schemaSupplier");
-            checkSerializable(batchReceivePolicySupplier, "batchReceivePolicySupplier");
-            checkSerializable(projectionFn, "projectionFn");
+
             this.logger = logger;
             this.projectionFn = projectionFn;
             this.client = client;
