@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.hazelcast.jet.contrib.pulsar;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.StreamSource;
-import org.apache.pulsar.client.api.BatchReceivePolicy;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
@@ -34,7 +34,6 @@ import org.junit.ClassRule;
 import org.testcontainers.containers.PulsarContainer;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -73,8 +72,6 @@ public class PulsarTestSupport extends JetTestSupport {
         }
         client = null;
     }
-
-
 
 
     protected static String getServiceUrl() {
@@ -156,40 +153,24 @@ public class PulsarTestSupport extends JetTestSupport {
 
     protected static StreamSource<String> setupConsumerSource(String topicName,
                                                               FunctionEx<Message<byte[]>, String> projectionFn) {
-        final int MAX_NUM_MESSAGES = 512;
-        final int TIMEOUT_IN_MS = 1000;
-        Map<String, Object> consumerConfig = new HashMap<>();
-        consumerConfig.put("consumerName", "hazelcast-jet-consumer");
-        consumerConfig.put("subscriptionName", "hazelcast-jet-subscription");
         return PulsarSources.pulsarConsumer(
-                Collections.singletonList(topicName),
-                2,
-                consumerConfig,
+                topicName,
                 () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
                 () -> Schema.BYTES,
-                () -> BatchReceivePolicy.builder()
-                                        .maxNumMessages(MAX_NUM_MESSAGES)
-                                        .timeout(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS)
-                                        .build(),
                 projectionFn);
     }
 
     protected static StreamSource<String> setupReaderSource(String topicName,
                                                             FunctionEx<Message<byte[]>, String> projectionFn) {
-        Map<String, Object> readerConfig = new HashMap<>();
-        readerConfig.put("readerName", "hazelcast-jet-reader");
         return PulsarSources.pulsarReader(
                 topicName,
-                readerConfig,
                 () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
                 () -> Schema.BYTES,
                 projectionFn);
     }
 
     protected static Sink<Integer> setupSink(String topicName) {
-        Map<String, Object> producerConfig = new HashMap<>();
-        producerConfig.put("maxPendingMessages", 15000);
-        return PulsarSinks.pulsarSink(topicName, getServiceUrl(), producerConfig, () -> Schema.DOUBLE,
-                Integer::doubleValue);
+        return PulsarSinks.pulsarSink(topicName, () -> PulsarClient.builder().serviceUrl(getServiceUrl()).build(),
+                () -> Schema.DOUBLE, Integer::doubleValue);
     }
 }
