@@ -40,7 +40,7 @@ import java.util.concurrent.BlockingQueue;
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
 /**
- * See {@link PulsarSources#readerSrcBuilder(String, SupplierEx, SupplierEx, FunctionEx)}
+ * See {@link PulsarSources#pulsarReaderBuilder(String, SupplierEx, SupplierEx, FunctionEx)}
  *
  * @param <M> the type of the message read by {@code pulsarReader}
  * @param <T> the type of data emitted from {@code StreamSource}
@@ -57,7 +57,7 @@ public final class PulsarReaderBuilder<M, T> implements Serializable {
     /**
      * Required fields of Pulsar reader
      *
-     * @param topic              Pulsar topic name to publish to
+     * @param topic              Pulsar topic name to consume from
      * @param connectionSupplier Pulsar client supplier
      * @param schemaSupplier     Pulsar messaging schema supplier.
      * @param projectionFn       converts a Pulsar message to an emitted item.

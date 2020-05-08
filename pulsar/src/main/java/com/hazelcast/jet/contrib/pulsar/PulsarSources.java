@@ -55,7 +55,7 @@ public final class PulsarSources {
      * Example usage:
      * <pre>{@code
      *
-     * StreamSource<String> pulsarSource = PulsarSources.consumerSrcBuilder(
+     * StreamSource<String> pulsarSource = PulsarSources.pulsarConsumerBuilder(
      *          Arrays.asList(topicName, topicName2 ...),
      *          () -> PulsarClient.builder()
      *                            .serviceUrl("pulsar://exampleserviceurl")
@@ -81,7 +81,7 @@ public final class PulsarSources {
      * @return {@link PulsarConsumerBuilder} that used to create a {@link StreamSource}
      */
 
-    public static <M, T> PulsarConsumerBuilder<M, T> consumerSrcBuilder(
+    public static <M, T> PulsarConsumerBuilder<M, T> pulsarConsumerBuilder(
             @Nonnull List<String> topics,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
@@ -92,25 +92,31 @@ public final class PulsarSources {
     }
 
     /**
-     * See the {@link #consumerSrcBuilder(List, SupplierEx, SupplierEx, FunctionEx)}
+     * See the {@link #pulsarConsumerBuilder(List, SupplierEx, SupplierEx, FunctionEx)}
      * It gets a single String for the topic name in case it should read only
      * from a single topic.
      *
      * @param topic the single topic to consume
+     * @param connectionSupplier Pulsar client supplier
+     * @param schemaSupplier     supplies the schema for consuming messages
+     * @param projectionFn       converts a Pulsar message to an emitted item.
+     * @param <M>                the type of the message read by {@code PulsarConsumer}
+     * @param <T>                the type of data emitted from {@code StreamSource}
+     * @return {@link PulsarConsumerBuilder} that used to create a {@link StreamSource}
      */
-    public static <M, T> PulsarConsumerBuilder<M, T> consumerSrcBuilder(
+    public static <M, T> PulsarConsumerBuilder<M, T> pulsarConsumerBuilder(
             @Nonnull String topic,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
             @Nonnull FunctionEx<Message<M>, T> projectionFn
 
     ) {
-        return consumerSrcBuilder(Collections.singletonList(topic), connectionSupplier, schemaSupplier, projectionFn);
+        return pulsarConsumerBuilder(Collections.singletonList(topic), connectionSupplier, schemaSupplier, projectionFn);
     }
 
 
     /**
-     * Convenience for {@link #readerSrcBuilder(String, SupplierEx, SupplierEx, FunctionEx)}.
+     * Convenience for {@link #pulsarConsumerBuilder(String, SupplierEx, SupplierEx, FunctionEx)}.
      * It creates a basic Pulsar consumer that connects the topic by using Pulsar client.
      * <p>
      *
@@ -120,6 +126,7 @@ public final class PulsarSources {
      * @param projectionFn       converts a Pulsar message to an emitted item.
      * @param <M>                the type of the message read by {@code pulsarReader}
      * @param <T>                the type of data emitted from {@code StreamSource}
+     * @return {@link StreamSource}
      */
     public static <M, T> StreamSource<T> pulsarConsumer(
             @Nonnull String topic,
@@ -127,7 +134,7 @@ public final class PulsarSources {
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
-        return PulsarSources.consumerSrcBuilder(topic, connectionSupplier, schemaSupplier, projectionFn)
+        return PulsarSources.pulsarConsumerBuilder(topic, connectionSupplier, schemaSupplier, projectionFn)
                             .build();
     }
 
@@ -143,7 +150,7 @@ public final class PulsarSources {
      * Example usage:
      * <pre>{@code
      *
-     * StreamSource<String> pulsarSource = PulsarSources.readerSrcBuilder(
+     * StreamSource<String> pulsarSource = PulsarSources.pulsarReaderBuilder(
      *          topicName,
      *          () -> PulsarClient.builder()
      *                            .serviceUrl("pulsar://exampleserviceurl")
@@ -166,8 +173,9 @@ public final class PulsarSources {
      * @param projectionFn       converts a Pulsar message to an emitted item.
      * @param <M>                the type of the message read by {@code pulsarReader}
      * @param <T>                the type of data emitted from {@code StreamSource}
+     * @return {@link PulsarReaderBuilder} that used to create a {@link StreamSource}
      */
-    public static <M, T> PulsarReaderBuilder<M, T> readerSrcBuilder(
+    public static <M, T> PulsarReaderBuilder<M, T> pulsarReaderBuilder(
             @Nonnull String topic,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
@@ -178,7 +186,7 @@ public final class PulsarSources {
 
 
     /**
-     * Convenience for {@link #readerSrcBuilder(String, SupplierEx, SupplierEx, FunctionEx)}.
+     * Convenience for {@link #pulsarReaderBuilder(String, SupplierEx, SupplierEx, FunctionEx)}.
      * It creates a basic Pulsar reader that connects the topic by using Pulsar client.
      * <p>
      *
@@ -188,6 +196,7 @@ public final class PulsarSources {
      * @param projectionFn       converts a Pulsar message to an emitted item.
      * @param <M>                the type of the message read by {@code pulsarReader}
      * @param <T>                the type of data emitted from {@code StreamSource}
+     * @return {@link StreamSource}
      */
     public static <M, T> StreamSource<T> pulsarReader(
             @Nonnull String topic,
@@ -195,7 +204,7 @@ public final class PulsarSources {
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
             @Nonnull FunctionEx<Message<M>, T> projectionFn
     ) {
-        return PulsarSources.readerSrcBuilder(topic, connectionSupplier, schemaSupplier, projectionFn)
+        return PulsarSources.pulsarReaderBuilder(topic, connectionSupplier, schemaSupplier, projectionFn)
                             .build();
     }
 

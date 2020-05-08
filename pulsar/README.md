@@ -69,7 +69,7 @@ In practice, using Pulsar consumer stream source like this:
 ```java
 import com.hazelcast.jet.contrib.pulsar.*;
 [...]
-StreamSource<String> pulsarSource = PulsarSources.consumerSrcBuilder(
+StreamSource<String> pulsarReaderSource = PulsarSources.pulsarConsumerBuilder(
             "topicName",
             () -> PulsarClient.builder().serviceUrl("pulsar://localhost:6650").build(),
             () -> Schema.BYTES, /* Schema Supplier Function */

@@ -42,7 +42,7 @@ import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
 
 /**
- * See {@link PulsarSources#consumerSrcBuilder(List, SupplierEx, SupplierEx, FunctionEx)}}
+ * See {@link PulsarSources#pulsarConsumerBuilder(List, SupplierEx, SupplierEx, FunctionEx)}}
  *
  * @param <M> the type of the value of message read by {@code PulsarConsumer}
  * @param <T> the type of the emitted item after projection.
