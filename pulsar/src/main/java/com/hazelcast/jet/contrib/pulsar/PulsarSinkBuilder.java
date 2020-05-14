@@ -32,13 +32,14 @@ import org.apache.pulsar.client.api.TypedMessageBuilder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 
 /**
- * See {@link PulsarSinks#builder(String, Map, SupplierEx, SupplierEx, FunctionEx)}
+ * See {@link PulsarSinks#builder(String, SupplierEx, SupplierEx, FunctionEx)}
  *
  * @param <E> the type of stream item
  * @param <M> the type of the message published by {@code PulsarProducer}
@@ -46,8 +47,9 @@ import static com.hazelcast.jet.impl.util.Util.checkSerializable;
 public final class PulsarSinkBuilder<E, M> implements Serializable {
     private final SupplierEx<PulsarClient> connectionSupplier;
     private final String topic;
-    private final Map<String, Object> producerConfig;
     private final SupplierEx<Schema<M>> schemaSupplier;
+
+    private Map<String, Object> producerConfig;
     private FunctionEx<? super E, M> extractValueFn;
     private FunctionEx<? super E, String> extractKeyFn;
     private FunctionEx<? super E, Map<String, String>> extractPropertiesFn;
@@ -59,29 +61,40 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
      * Required fields of Pulsar sink
      *
      * @param topic              Pulsar topic name to publish to
-     * @param producerConfig     The configurations for {@code PulsarProducer}
      * @param connectionSupplier Pulsar client supplier
      * @param extractValueFn     extracts the message value from the emitted items.
      * @param schemaSupplier     Pulsar messaging schema supplier.
      */
     public PulsarSinkBuilder(
             @Nonnull String topic,
-            @Nonnull Map<String, Object> producerConfig,
             @Nonnull SupplierEx<PulsarClient> connectionSupplier,
             @Nonnull SupplierEx<Schema<M>> schemaSupplier,
             @Nonnull FunctionEx<? super E, M> extractValueFn
     ) {
         checkSerializable(connectionSupplier, "connectionSupplier");
-        checkSerializable(producerConfig, "producerConfig");
         checkSerializable(schemaSupplier, "schemaSupplier");
         checkSerializable(extractValueFn, "extractValueFn");
 
         this.topic = topic;
-        this.producerConfig = producerConfig;
+        this.producerConfig = getDefaultProducerConfig();
         this.connectionSupplier = connectionSupplier;
         this.schemaSupplier = schemaSupplier;
         this.extractValueFn = extractValueFn;
+    }
 
+    private static Map<String, Object> getDefaultProducerConfig() {
+        return new HashMap<>();
+    }
+
+    /**
+     * @param producerConfig The configurations for {@code PulsarProducer}
+     */
+    public PulsarSinkBuilder<E, M> producerConfig(
+            Map<String, Object> producerConfig
+    ) {
+        checkSerializable(producerConfig, "producerConfig");
+        this.producerConfig = producerConfig;
+        return this;
     }
 
     /**
@@ -190,11 +203,11 @@ public final class PulsarSinkBuilder<E, M> implements Serializable {
                 messageBuilder.eventTime(extractTimestampFn.apply(item));
             }
             messageBuilder.sendAsync()
-                    .thenApply(CompletableFuture::completedFuture)
-                    .exceptionally(t -> {
-                        ExceptionUtil.sneakyThrow(t);
-                        return null;
-                    });
+                          .thenApply(CompletableFuture::completedFuture)
+                          .exceptionally(t -> {
+                              ExceptionUtil.sneakyThrow(t);
+                              return null;
+                          });
         }
 
         private void destroy() {

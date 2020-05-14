@@ -61,7 +61,7 @@ To run the tests run the command below:
 #### Reading from a Pulsar topic
 
 ##### Using Pulsar Reader Source
-We have tutorial for the Pulsar reader source [here](https://jet-start.sh/docs/tutorials/cdc).
+We have tutorial for the Pulsar reader source [here](https://jet-start.sh/docs/tutorials/pulsar).
 
 ##### Using Pulsar Consumer Source
 
@@ -69,22 +69,14 @@ In practice, using Pulsar consumer stream source like this:
 ```java
 import com.hazelcast.jet.contrib.pulsar.*;
 [...]
-StreamSource<String> pulsarSource = PulsarSources.pulsarConsumer(
-          Collections.singletonList(topicName),
-          2, /* Preferred Number of Local Parallelism */
-          consumerConfig,
-          () -> PulsarClient.builder()
-                            .serviceUrl("pulsar://exampleserviceurl")
-                            .build(), /* Pulsar Client Supplier */
-          () -> Schema.BYTES, /* Schema Supplier Function */
-          () -> BatchReceivePolicy.builder()
-                                  .maxNumMessages(512)
-                                  .timeout(1000, TimeUnit.MILLISECONDS)
-                                  .build(), /* Batch Receive Policy Supplier */
-          x -> new String(x.getData(), StandardCharsets.UTF_8) /*
-               Projection function that converts receiving bytes
-               to String before emitting. */
-          );
+StreamSource<String> pulsarReaderSource = PulsarSources.pulsarConsumerBuilder(
+            "topicName",
+            () -> PulsarClient.builder().serviceUrl("pulsar://localhost:6650").build(),
+            () -> Schema.BYTES, /* Schema Supplier Function */
+            x -> new String(x.getData(), StandardCharsets.UTF_8) /*
+                           Projection function that converts receiving bytes
+                           to String before emitting. */
+            ).build();
 pipeline.readFrom(pulsarSource)
         .writeTo(Sinks.logger()); 
 ```
@@ -98,9 +90,7 @@ to the pulsar topic, `hazelcast-demo-topic`,
 ```java
 import com.hazelcast.jet.contrib.pulsar.*;
 [...]
-Map<String, Object> producerConfig = new HashMap<>();
 Sink<Integer> pulsarSink = PulsarSinks.builder("hazelcast-demo-topic",
-        producerConfig,
         () -> PulsarClient.builder()
                           .serviceUrl("pulsar://localhost:6650")
                           .build(),

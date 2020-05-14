@@ -175,12 +175,9 @@ public class PulsarSourceTest extends PulsarTestSupport {
             });
             // Bring down one member. Job should restart and drain additional items (and maybe
             // some of the previous duplicately).
+            Long lastExecutionId = assertJobRunningEventually(instances[0], job, null);
             instances[1].getHazelcastInstance().getLifecycleService().terminate();
-            // Wait for job restart to be performed
-            // TODO: https://github.com/hazelcast/hazelcast-jet/pull/2135/commits/cea42b7296974e53ea55a6f2cb3f4a38a956d9f8
-            // When the jet-core dependency of this repository get sync with this PR,
-            // remove the sleep and add this restarting guarantee.
-            Thread.sleep(500);
+            assertJobRunningEventually(instances[0], job, lastExecutionId);
             produceMessages("after-restart", topicName, 2 * ITEM_COUNT);
 
             assertTrueEventually(() -> {
