@@ -37,6 +37,10 @@ of failure, the job restarts from the latest snapshot and reads from the
 stored MessageId. Since it requires a partition-mapping logic, this
 source is not a distributed source.
 
+The Consumer Source is faster than the Reader Source because the
+Consumer source is a distributed source. But, the Reader Source is
+better than the Consumer in terms of processing guarantee it provides.
+
 Besides, this Pulsar client library has an API called the Producer API.
 The Pulsar connector enables users to use the Pulsar topic as a sink in
 Jet pipelines.
@@ -48,6 +52,9 @@ prints log at warn level. The reason for this is that the Pulsar Client
 tries to reconnect to the broker with exponential backoff in this case,
 and while doing this, we cannot notice the connection issue because it
 only prints logs without throwing an exception.
+
+For more detailed information about the design of this connector
+[look](https://jet-start.sh/docs/design-docs/009-pulsar-connector)
 
 ## Connector Attributes
 
