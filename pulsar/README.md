@@ -18,34 +18,24 @@ receive policy of the consumer is more likely to change, a separate
 builder setter is created for it.
 
  The Pulsar Consumer Source is a distributed source that is created
- without dealing with the partition mapping - it is handled below the
- abstraction level of the Consumer API. The Consumer API has a
- subscription mechanism which is used to consume messages from the first
- unacknowledged message of this subscription. The consumer source uses
- shared (or round-robin) subscription mode. The shared subscription
- allows multiple consumers to attach to the same subscription. The
- messages belong to the subscribed topic are delivered in a round-robin
- distribution across consumers, and any given message is delivered to
- only one consumer. When a consumer disconnects, all the messages that
- were sent to it and not acknowledged will be rescheduled for sending to
- the remaining consumers. We create one consumer for each source
- processor of Hazelcast Jet, and these allow consuming messages in a
- distributed manner. This source consumes messages in a blocking batch
- manner, and the batch receive policy can be configurable in the builder
- methods. The distributed manner prevents the order of messages from
- being preserved. Since the Pulsar Consumer API does not return the
- cursor for the last consumed message, it is incapable of assuring
- fault-tolerance.
+using the Consumer abstraction of the Pulsar. The Consumer API has a
+subscription mechanism which is used to consume messages from the first
+unacknowledged message of this subscription. The consumer source uses
+shared (or round-robin) subscription mode. We create one consumer client
+per source processor of Hazelcast Jet, and these allow consuming
+messages in a distributed manner. This source consumes messages in a
+blocking batch manner, and the batch receive policy can be configurable
+in the builder methods. The distributed manner prevents the order of
+messages from being preserved. Since the Pulsar Consumer API does not
+return the cursor for the last consumed message, it is incapable of
+assuring fault-tolerance.
 
  The Pulsar Reader Source is a fault-tolerant source that provides the
-exactly-once processing guarantee. Since Reader API returns the
-MessageId while reading and enables us to start reading from a specified
-message, the source using Reader API can provide exactly-once
-processing. In Pulsar Reader Source, the MessageId of the latest read
-message is stored in the snapshot. In case of failure, the job restarts
-from the latest snapshot and reads from the stored MessageId. Since it
-requires a partition-mapping logic, this source is not a distributed
-source.
+exactly-once processing guarantee. In Pulsar Reader Source, the
+MessageId of the latest read message is stored in the snapshot. In case
+of failure, the job restarts from the latest snapshot and reads from the
+stored MessageId. Since it requires a partition-mapping logic, this
+source is not a distributed source.
 
 Besides, this Pulsar client library has an API called the Producer API.
 The Pulsar connector enables users to use the Pulsar topic as a sink in
