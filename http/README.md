@@ -22,7 +22,7 @@ A Hazelcast Jet source for listening HTTP(S) requests which contains JSON payloa
 
 ### Installing
 
-The HTTP(S) Listener Source artifacts are published on the Maven repositories. 
+The HTTP(S) Listener Source artifacts published to the Maven Central repositories. 
 
 Add the following lines to your pom.xml to include it as a dependency to your project:
 
@@ -49,16 +49,15 @@ the same host with the Hazelcast Jet instance on user configured port offset.
 Imagine if we have a running Hazelcast Jet member running on `localhost:5701`,
 if we submit following pipeline which listens for HTTP messages with port offset `100`,
 the actual port of the HTTP listener will be `5801` (base port(`5701`) + port offset(`100`)).
-Then it maps the JSON messages to JSON objects, filters them based 
-on its id property and logs them to standard output.
+The source will map payload JSON messages to POJOs of provided class, filters them based 
+on its age property and logs them to standard output.
 
 ```java
 Pipeline p = Pipeline.create();
-p.drawFrom(HttpListenerSources.httpListener(100))
+p.readFrom(HttpListenerSources.httpListener(100, Employee.class))
  .withoutTimestamps()
- .map(JsonValue::asObject)
- .filter(employee -> employee.get("age").asInt() > 40)
- .drainTo(Sinks.logger());
+ .filter(employee -> employee.getAge() < 25)
+ .writeTo(Sinks.logger());
 ```
 
 #### HTTPS Source
@@ -67,10 +66,10 @@ HTTPS Listener Source (`HttpListenerSource.httpsListener()`) creates HTTP listen
 the same host with the Hazelcast Jet instance on user configured port offset. 
 
 Imagine if we have a running Hazelcast Jet member running on `localhost:5701`,
-if we submit following pipeline which listens for HTTPS messages with port offset `100`,
-the actual port of the HTTPS listener will be `5801` (base port(`5701`) + port offset(`100`)).
-Then it maps the JSON messages to JSON objects, filters them based 
-on its id property and logs them to standard output.
+if we submit following pipeline which listens for HTTP messages with port offset `100`,
+the actual port of the HTTP listener will be `5801` (base port(`5701`) + port offset(`100`)).
+The source will map payload JSON messages to POJOs of provided class, filters them based 
+on its age property and logs them to standard output.
 
 ```java
 SupplierEx<SSLContext> contextSupplier = () -> {
@@ -96,11 +95,10 @@ SupplierEx<SSLContext> contextSupplier = () -> {
 };
 
 Pipeline p = Pipeline.create();
-p.drawFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier))
+p.readFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier, Employee.class))
  .withoutTimestamps()
- .map(JsonValue::asObject)
- .filter(employee -> employee.get("age").asInt() > 40)
- .drainTo(Sinks.logger());
+ .filter(employee -> employee.getAge() < 25)
+ .writeTo(Sinks.logger());
 ```
 
 ### Running the tests
