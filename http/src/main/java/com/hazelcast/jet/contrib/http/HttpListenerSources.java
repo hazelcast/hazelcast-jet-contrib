@@ -26,7 +26,6 @@ import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import io.undertow.Undertow;
-import io.undertow.server.HttpHandler;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -167,14 +166,7 @@ public final class HttpListenerSources {
         private final BlockingQueue<T> queue = new ArrayBlockingQueue<>(1000);
         private final ArrayList<T> buffer = new ArrayList<>(MAX_FILL_ELEMENTS);
         private final Undertow undertow;
-        private FunctionEx<String, T> mappingFunction;
-        private final HttpHandler handler = exchange ->
-                exchange
-                        .getRequestReceiver()
-                        .receiveFullString((e, message) -> {
-                            queue.offer(mappingFunction.apply(message));
-                            e.endExchange();
-                        });
+        private final FunctionEx<String, T> mappingFunction;
 
         HttpListenerSourceContext(JetInstance jet, int portOffset, @Nullable Class<T> type) {
             this(jet, portOffset, type, null);
@@ -190,19 +182,21 @@ public final class HttpListenerSources {
             Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
             String host = localAddress.getHost();
             int port = localAddress.getPort() + portOffset;
+            Undertow.Builder builder = Undertow.builder();
             if (sslContext != null) {
-                undertow = Undertow.builder()
-                        .addHttpsListener(port, host, sslContext)
-                        .setHandler(handler)
-                        .build();
+                builder.addHttpsListener(port, host, sslContext);
                 LOGGER.info("Starting to listen HTTPS messages on https://" + host + ":" + port);
             } else {
-                undertow = Undertow.builder()
-                        .addHttpListener(port, host)
-                        .setHandler(handler)
-                        .build();
+                builder.addHttpListener(port, host);
                 LOGGER.info("Starting to listen HTTP messages on http://" + host + ":" + port);
             }
+            undertow = builder.setHandler(exchange -> exchange
+                    .getRequestReceiver()
+                    .receiveFullString((e, message) -> {
+                        queue.offer(mappingFunction.apply(message));
+                        e.endExchange();
+                    }))
+                    .build();
             undertow.start();
         }
 
