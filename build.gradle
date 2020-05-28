@@ -32,6 +32,10 @@ subprojects {
                 snapshotsOnly()
             }
         }
+        maven {
+            url "https://repository.hazelcast.com/release"
+        }
+
     }
 
     idea {
@@ -52,7 +56,7 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        jetVersion = '4.1'
+        jetVersion = '4.2-SNAPSHOT'
         hazelcastVersion = '4.0.1'
     }
 
@@ -64,7 +68,7 @@ subprojects {
         testCompile "com.hazelcast:hazelcast-enterprise:" + hazelcastVersion + ":tests"
         testCompile "javax.cache:cache-api:1.1.0"
         testCompile 'log4j:log4j:1.2.17'
-        testCompile 'junit:junit:4.11'
+        testCompile 'junit:junit:4.12'
         testCompile 'org.awaitility:awaitility:3.1.6'
     }
 
