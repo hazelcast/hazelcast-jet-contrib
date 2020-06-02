@@ -15,14 +15,14 @@ A Hazelcast Jet source for listening HTTP(S) requests which contains JSON payloa
 ### Sink Attributes
 |  Atrribute  | Value |
 |:-----------:|-------|
-| Has Sink    |  No   |
-| Distributed |  No   |
+| Has Sink    |  Yes  |
+| Distributed |  Yes  |
 
 ## Getting Started
 
 ### Installing
 
-The HTTP(S) Listener Source artifacts published to the Maven Central repositories. 
+The http module artifacts published to the Maven Central repositories. 
 
 Add the following lines to your pom.xml to include it as a dependency to your project:
 
@@ -100,6 +100,71 @@ p.readFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier, Employ
  .filter(employee -> employee.getAge() < 25)
  .writeTo(Sinks.logger());
 ```
+
+#### Websocket Server Sink
+
+Below is an example pipeline which generates 5 items per second and publishes those items
+with the websocket server. After the job has been submitted, you can use `HttpSinks.getWebSocketAddress()`
+static method to retrieve the websocket server address. You can use that address with any websocket client
+to start streaming the results.
+
+```java
+JetInstance jet = Jet.newJetInstance();
+
+Pipeline p = Pipeline.create();
+p.readFrom(TestSources.itemStream(5))
+        .withoutTimestamps()
+        .writeTo(HttpSinks.websocket("/items", 100));
+
+Job job = jet.newJob(p);
+String webSocketAddress = HttpSinks.getWebSocketAddress(jet, job);
+```
+
+Check out the `HttpSinkTest` for an example implementation with Undertow WebSocket Client.
+
+#### Server-Sent Events Server Sink
+
+Below is an example pipeline which generates 5 items per second and publishes those items
+with the http server using SSE. After the job has been submitted, you can use `HttpSinks.getSseAddress()`
+static method to retrieve the server address. You can use that address with any http client which has
+see
+to start streaming the results.
+
+```java
+JetInstance jet = Jet.newJetInstance();
+
+Pipeline p = Pipeline.create();
+p.readFrom(TestSources.itemStream(5))
+        .withoutTimestamps()
+        .writeTo(HttpSinks.sse("/items", 100));
+
+Job job = jet.newJob(p);
+String sseAddress = HttpSinks.getSseAddress(jet, job);
+```
+
+While the pipeline above runs, if you make a GET request to the HTTP endpoint 
+you should see a similar output:
+
+```bash
+$ curl -X GET http://192.168.1.25:5801/items  
+data:SimpleEvent(timestamp=21:20:21.000, sequence=41)
+
+data:SimpleEvent(timestamp=21:20:21.200, sequence=42)
+
+data:SimpleEvent(timestamp=21:20:21.400, sequence=43)
+
+data:SimpleEvent(timestamp=21:20:21.600, sequence=44)
+
+data:SimpleEvent(timestamp=21:20:21.800, sequence=45)
+
+data:SimpleEvent(timestamp=21:20:22.000, sequence=46)
+
+data:SimpleEvent(timestamp=21:20:22.200, sequence=47)
+
+data:SimpleEvent(timestamp=21:20:22.400, sequence=48)
+
+```
+
 
 ### Running the tests
 
