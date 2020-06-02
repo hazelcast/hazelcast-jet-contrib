@@ -127,8 +127,7 @@ Check out the `HttpSinkTest` for an example implementation with Undertow WebSock
 Below is an example pipeline which generates 5 items per second and publishes those items
 with the http server using SSE. After the job has been submitted, you can use `HttpSinks.getSseAddress()`
 static method to retrieve the server address. You can use that address with any http client which has
-see
-to start streaming the results.
+sse support to start streaming the results.
 
 ```java
 JetInstance jet = Jet.newJetInstance();
@@ -143,7 +142,7 @@ String sseAddress = HttpSinks.getSseAddress(jet, job);
 ```
 
 While the pipeline above runs, if you make a GET request to the HTTP endpoint 
-you should see a similar output:
+you should see a similar output like below:
 
 ```bash
 $ curl -X GET http://192.168.1.25:5801/items  
