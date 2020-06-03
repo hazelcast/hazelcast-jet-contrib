@@ -17,6 +17,7 @@
 package com.hazelcast.jet.contrib.mqtt;
 
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.utility.MountableFile;
 
 import java.util.Collections;
 import java.util.Set;
@@ -30,6 +31,7 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
     public static final Integer PORT = 1883;
 
     private static final String IMAGE_NAME = "eclipse-mosquitto";
+    private static final String CONFIG_FILE = "mosquitto.conf";
 
     public MosquittoContainer() {
         super(IMAGE_NAME + ":" + VERSION);
@@ -38,6 +40,8 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
     @Override
     protected void configure() {
         addExposedPort(PORT);
+        withCopyFileToContainer(MountableFile.forClasspathResource(CONFIG_FILE), "/")
+                .withCommand("mosquitto", "-c", CONFIG_FILE);
     }
 
     @Override

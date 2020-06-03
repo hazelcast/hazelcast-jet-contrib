@@ -114,7 +114,7 @@ public final class MqttSinks {
         }
 
         public void close() throws MqttException {
-            client.disconnect();
+            client.disconnect().waitForCompletion();
             client.close();
         }
 
