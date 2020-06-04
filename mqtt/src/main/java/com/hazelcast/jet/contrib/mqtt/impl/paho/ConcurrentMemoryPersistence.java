@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.mqtt.impl;
+package com.hazelcast.jet.contrib.mqtt.impl.paho;
 
 import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttPersistable;

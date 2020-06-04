@@ -50,9 +50,17 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
     }
 
     /**
-     * @return the connection string to MongoDB
+     * @return the connection string to Mosquitto
      */
     public String connectionString() {
         return "tcp://" + getContainerIpAddress() + ":" + getMappedPort(PORT);
+    }
+
+    public String host() {
+        return getContainerIpAddress();
+    }
+
+    public int port() {
+        return getMappedPort(PORT);
     }
 }

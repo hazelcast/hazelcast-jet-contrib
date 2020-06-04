@@ -16,16 +16,13 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
-import com.hazelcast.collection.IList;
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.Job;
+import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
-import com.hazelcast.jet.pipeline.Sinks;
-import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
+import com.hazelcast.jet.pipeline.test.TestSources;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -34,12 +31,16 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.IntStream.range;
 
 /**
  * todo add proper javadoc
  */
-public class MqttSourceTest extends JetTestSupport {
+public class PahoMqttSinkTest extends JetTestSupport {
 
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
@@ -47,22 +48,14 @@ public class MqttSourceTest extends JetTestSupport {
     private JetInstance jet;
     private IMqttClient client;
     private String broker;
-    private IList<MqttMessage> sinkList;
 
     @Before
     public void setup() throws MqttException {
         jet = createJetMember();
         createJetMember();
-
-        sinkList = jet.getList("sinkList");
-
         broker = mosquittoContainer.connectionString();
-        client = MqttSources.client(broker, newUnsecureUuidString());
+        client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
         client.connect();
-
-        client.publish("/topic1", "retain".getBytes(), 2, true);
-        client.publish("/topic2", "retain".getBytes(), 2, true);
-        client.publish("/topic3", "retain".getBytes(), 2, true);
     }
 
     @After
@@ -73,25 +66,35 @@ public class MqttSourceTest extends JetTestSupport {
 
     @Test
     public void test() throws MqttException {
-        int messageCount = 100;
-        String[] topics = {"/topic1", "/topic2", "/topic3"};
+        int itemCount = 2800;
+        AtomicInteger counter = new AtomicInteger();
+        client.subscribe("/topic", 2, (topic, message) -> counter.incrementAndGet());
+
         Pipeline p = Pipeline.create();
-        p.readFrom(MqttSources.subscribe(broker, newUnsecureUuidString(), topics, MqttConnectOptions::new, (t, m) -> m))
-         .withoutTimestamps()
-         .writeTo(Sinks.list(sinkList));
 
-        Job job = jet.newJob(p);
+        p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
+         .rebalance()
+         .writeTo(PahoMqttSinks.publish(broker, "sinkClient", "/topic", MqttConnectOptions::new, item -> {
+             MqttMessage message = new MqttMessage(intToByteArray(item));
+             message.setQos(2);
+             return message;
+         }));
 
-        assertEqualsEventually(sinkList::size, topics.length);
+        jet.newJob(p).join();
 
-        for (int i = 0; i < 100; i++) {
-            for(String topic: topics) {
-                client.publish(topic, ("mes" + i).getBytes(), 2, false);
-            }
-        }
+        assertEqualsEventually(itemCount, counter);
+    }
 
-        assertEqualsEventually(sinkList::size, (messageCount+1)*topics.length);
 
-        job.cancel();
+    private static byte[] intToByteArray(int value) {
+        return new byte[]{
+                (byte) (value >>> 24),
+                (byte) (value >>> 16),
+                (byte) (value >>> 8),
+                (byte) value};
+    }
+
+    private static int byteArrayToInt(byte[] data) {
+        return data[0] << 24 | (data[1] & 0xFF) << 16 | (data[2] & 0xFF) << 8 | (data[3] & 0xFF);
     }
 }

@@ -1,5 +1,6 @@
 dependencies {
     compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.4'
+    compile 'com.hivemq:hivemq-mqtt-client:1.2.0'
     testCompile "org.testcontainers:testcontainers:1.11.2"
 }
 
