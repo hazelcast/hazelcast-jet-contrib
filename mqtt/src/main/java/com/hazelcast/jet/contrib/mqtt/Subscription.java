@@ -18,29 +18,55 @@ package com.hazelcast.jet.contrib.mqtt;
 
 import java.io.Serializable;
 
+import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.AT_LEAST_ONCE;
+
 /**
  * todo add proper javadoc
  */
 public class Subscription implements Serializable {
 
-    final String topic;
-    final QualityOfService qualityOfService;
+    private final String topic;
+    private final QualityOfService qualityOfService;
 
     Subscription(String topic, QualityOfService qualityOfService) {
         this.topic = topic;
         this.qualityOfService = qualityOfService;
     }
 
+    /**
+     * Creates a subscription using given topic and
+     * {@link QualityOfService#AT_LEAST_ONCE}.
+     */
     public static Subscription of(String topic) {
-        return new Subscription(topic, QualityOfService.AT_LEAST_ONCE);
+        return new Subscription(topic, AT_LEAST_ONCE);
     }
 
+    /**
+     * Creates a subscription using given topic and qualityOfService
+     */
     public static Subscription of(String topic, QualityOfService qualityOfService) {
         return new Subscription(topic, qualityOfService);
     }
 
+    /**
+     * Creates a subscription using given topic and qos
+     */
     public static Subscription of(String topic, int qos) {
         return new Subscription(topic, QualityOfService.of(qos));
+    }
+
+    /**
+     * @return the topic name or pattern
+     */
+    public String getTopic() {
+        return topic;
+    }
+
+    /**
+     * @return the quality of service
+     */
+    public QualityOfService getQualityOfService() {
+        return qualityOfService;
     }
 
     @Override
@@ -51,15 +77,36 @@ public class Subscription implements Serializable {
                 '}';
     }
 
+    /**
+     * Represents the quality of service for the subscription.
+     */
     public enum QualityOfService {
+        /**
+         * AT_MOST_ONCE, QoS(0)
+         */
         AT_MOST_ONCE(0),
+
+        /**
+         * AT_LEAST_ONCE, QoS(1)
+         */
         AT_LEAST_ONCE(1),
+
+        /**
+         * EXACTLY_ONCE, QoS(2)
+         */
         EXACTLY_ONCE(2);
 
-        int qos;
+        private final int qos;
 
         QualityOfService(int qos) {
             this.qos = qos;
+        }
+
+        /**
+         * @return QoS representation
+         */
+        public int getQos() {
+            return qos;
         }
 
         static QualityOfService of(int qos) {

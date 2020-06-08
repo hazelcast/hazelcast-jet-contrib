@@ -19,77 +19,73 @@ package com.hazelcast.jet.contrib.mqtt;
 import com.hazelcast.collection.IList;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
-import com.hivemq.client.mqtt.MqttClient;
-import com.hivemq.client.mqtt.datatypes.MqttQos;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5AsyncClient;
-import com.hivemq.client.mqtt.mqtt5.Mqtt5BlockingClient;
-import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5Connect;
-import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
+import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
 import static java.util.stream.Collectors.toList;
 
-/**
- * todo add proper javadoc
- */
-public class HiveMqttSourceTest extends JetTestSupport {
+public class MqttSourceTest extends JetTestSupport {
 
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
 
     private JetInstance jet;
-    private Mqtt5BlockingClient client;
-    private String host;
-    private int port;
+    private IMqttAsyncClient client;
+    private String broker;
     private IList<byte[]> sinkList;
 
     @Before
-    public void setup() {
+    public void setup() throws MqttException {
         jet = createJetMember();
         createJetMember();
 
         sinkList = jet.getList("sinkList");
 
-        host = mosquittoContainer.host();
-        port = mosquittoContainer.port();
+        broker = mosquittoContainer.connectionString();
+        client = new MqttAsyncClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setMaxInflight(300);
+        client.connect(options).waitForCompletion();
 
-        client = MqttClient.builder().useMqttVersion5()
-                           .serverHost(host).serverPort(port)
-                           .buildBlocking();
-
-        client.connect();
-
-        client.publishWith().topic("topic1").payload("retain".getBytes()).qos(MqttQos.EXACTLY_ONCE).retain(true).send();
-        client.publishWith().topic("topic2").payload("retain".getBytes()).qos(MqttQos.EXACTLY_ONCE).retain(true).send();
-        client.publishWith().topic("topic3").payload("retain".getBytes()).qos(MqttQos.EXACTLY_ONCE).retain(true).send();
+        client.publish("/topic1", "retain".getBytes(), 2, true).waitForCompletion();
+        client.publish("/topic2", "retain".getBytes(), 2, true).waitForCompletion();
+        client.publish("/topic3", "retain".getBytes(), 2, true).waitForCompletion();
     }
 
     @After
-    public void teardown() {
-        client.disconnect();
+    public void teardown() throws MqttException {
+        client.disconnect().waitForCompletion();
+        client.close();
     }
 
     @Test
-    public void test() {
+    public void test() throws MqttException {
         int messageCount = 6000;
-        String[] topics = {"topic1", "topic2", "topic3"};
+        String[] topics = {"/topic1", "/topic2", "/topic3"};
         List<Subscription> subscriptions = Arrays.stream(topics).map(t -> Subscription.of(t, 2)).collect(toList());
         Pipeline p = Pipeline.create();
-        p.readFrom(HiveMqttSources.subscribe(host, port, newUnsecureUuidString(), subscriptions,
-                () -> Mqtt5Connect.builder().cleanStart(false).build(), Mqtt5Publish::getPayloadAsBytes))
+        p.readFrom(MqttSources.subscribe(broker, newUnsecureUuidString(), subscriptions,
+                () -> {
+                    MqttConnectOptions options = new MqttConnectOptions();
+                    options.setCleanSession(false);
+                    return options;
+                }, (t, m) -> m.getPayload()))
          .withoutTimestamps()
          .writeTo(Sinks.list(sinkList));
 
@@ -97,12 +93,18 @@ public class HiveMqttSourceTest extends JetTestSupport {
 
         assertEqualsEventually(sinkList::size, topics.length);
 
-
-        Mqtt5AsyncClient asyncClient = client.toAsync();
-        for (int i = 0; i < messageCount; i++) {
+        List<IMqttDeliveryToken> list = new ArrayList<>();
+        for (int i = 0; i < messageCount / 100; i++) {
             for (String topic : topics) {
-                asyncClient.publishWith().topic(topic).payload(("mes" + i).getBytes()).qos(MqttQos.EXACTLY_ONCE).send();
+                for (int j = 0; j < 100; j++) {
+                    IMqttDeliveryToken token = client.publish(topic, ("mes" + i).getBytes(), 2, false);
+                    list.add(token);
+                }
             }
+            for (IMqttDeliveryToken token : list) {
+                token.waitForCompletion();
+            }
+            list.clear();
         }
 
         assertEqualsEventually(sinkList::size, (messageCount + 1) * topics.length);

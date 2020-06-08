@@ -34,15 +34,29 @@ import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
 /**
  * Contains factory methods for Mqtt sinks.
  */
-public final class PahoMqttSinks {
+public final class MqttSinks {
 
-    private PahoMqttSinks() {
+    private MqttSinks() {
     }
 
+    /**
+     * @param broker
+     * @param topic
+     * @return
+     */
     public static Sink<String> publish(String broker, String topic) {
-        return publish(broker, newUnsecureUuidString(), topic, MqttConnectOptions::new, s -> new MqttMessage(s.getBytes()));
+        return publish(broker, newUnsecureUuidString(), topic, MqttConnectOptions::new, MqttSinks::message);
     }
 
+    /**
+     * @param broker
+     * @param clientId
+     * @param topic
+     * @param connectOpsFn
+     * @param messageFn
+     * @param <T>
+     * @return
+     */
     public static <T> Sink<T> publish(
             String broker,
             String clientId,
@@ -51,20 +65,25 @@ public final class PahoMqttSinks {
             FunctionEx<T, MqttMessage> messageFn
     ) {
         return SinkBuilder
-                .sinkBuilder("mqttSink", context -> new MqttSinkContext<>(context, broker, clientId, topic, connectOpsFn, messageFn))
-                .<T>receiveFn(MqttSinkContext::publish)
-                .destroyFn(MqttSinkContext::close)
+                .sinkBuilder("mqttSink", context -> new SinkContext<>(
+                        context, broker, clientId, topic, connectOpsFn, messageFn))
+                .<T>receiveFn(SinkContext::publish)
+                .destroyFn(SinkContext::close)
                 .build();
     }
 
-    static class MqttSinkContext<T> {
+    private static MqttMessage message(String item) {
+        return new MqttMessage(item.getBytes());
+    }
+
+    static class SinkContext<T> {
 
         private final String topic;
         private final SinkCallback callback;
         private final IMqttAsyncClient client;
         private final FunctionEx<T, MqttMessage> messageFn;
 
-        public MqttSinkContext(
+        SinkContext(
                 Processor.Context context,
                 String broker,
                 String clientId,

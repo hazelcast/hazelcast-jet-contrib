@@ -19,26 +19,28 @@ package com.hazelcast.jet.contrib.mqtt;
 import com.hazelcast.function.BiFunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.SourceCallback;
+import com.hazelcast.jet.contrib.mqtt.impl.paho.SourceContext;
+import com.hazelcast.jet.contrib.mqtt.impl.paho.SourceContextImpl;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.impl.util.Util;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
-import org.eclipse.paho.client.mqttv3.IMqttClient;
-import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.util.List;
 
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
+import static com.hazelcast.jet.contrib.mqtt.impl.paho.NoopSourceContextImpl.noopSourceContext;
 import static java.util.Collections.singletonList;
 
 /**
  * Contains factory methods for Mqtt sources.
  */
-public class PahoMqttSources {
+public final class MqttSources {
+
+    private MqttSources() {
+    }
 
     /**
      * Convenience for {@link #subscribe(String, String, List, SupplierEx, BiFunctionEx)}.
@@ -57,25 +59,26 @@ public class PahoMqttSources {
     }
 
     /**
-     * Creates a streaming source which connects to the given server and
+     * Creates a streaming source which connects to the given broker and
      * subscribes to the specified topics. The source converts each message to
      * the desired object output using given {@code mapToItemFn} and emits to
      * downstream.
      * <p>
      * The source creates a <a href="https://www.eclipse.org/paho/clients/java/">Paho</a>
      * client with the specified client id and memory persistence {@link ConcurrentMemoryPersistence}.
-     * Client connects to the given server using the specified connect options
+     * Client connects to the given broker using the specified connect options
      * and subscribes to the given topics. The global processor index is
      * appended to the specified {@code clientId} to make each created client
      * unique.
      * <p>
      * The source is not distributed if a single topic provided, otherwise
-     * topics are distributed among members.
+     * topics are distributed among members. If you use wildcard in your topic
+     * it is still considered by the source as a single topic.
      * <p>
      * The source is not re-playable from a certain offset thus it cannot
      * participate in snapshotting and not fault tolerant. But if you set
      * {@link MqttConnectOptions#setCleanSession(boolean)} to {@code false}
-     * The server will keep the published messages with quality service above
+     * The broker will keep the published messages with quality service above
      * `0` and deliver them to the source after restart.
      *
      * @param broker        the address of the server to connect to, specified
@@ -94,72 +97,28 @@ public class PahoMqttSources {
             SupplierEx<MqttConnectOptions> connectOpsFn,
             BiFunctionEx<String, MqttMessage, T> mapToItemFn
     ) {
-        SourceBuilder<MqttSourceContext<T>>.Stream<T> builder = SourceBuilder.stream("mqttSource",
-                context -> new MqttSourceContext<>(context, broker, clientId, subscriptions, connectOpsFn, mapToItemFn))
-                .<T>fillBufferFn(MqttSourceContext::fillBuffer)
-                .destroyFn(MqttSourceContext::close);
+        SourceBuilder<SourceContext<T>>.Stream<T> builder = SourceBuilder
+                .stream("mqttSource",
+                        context -> {
+                            List<Subscription> localSubscriptions = localSubscriptions(context, subscriptions);
+                            if (localSubscriptions.isEmpty()) {
+                                return noopSourceContext(mapToItemFn);
+                            }
+                            return new SourceContextImpl<>(
+                                    context, broker, clientId, localSubscriptions, connectOpsFn, mapToItemFn);
+                        })
+                .<T>fillBufferFn(SourceContext::fillBuffer)
+                .destroyFn(SourceContext::close);
         if (subscriptions.size() > 1) {
             builder.distributed(1);
         }
         return builder.build();
     }
 
-    static class MqttSourceContext<T> {
-
-        private final IMqttClient client;
-        private final SourceCallback<T> callback;
-
-        public MqttSourceContext(
-                Processor.Context context,
-                String broker,
-                String clientId,
-                List<Subscription> subscriptions,
-                SupplierEx<MqttConnectOptions> connectOpsFn,
-                BiFunctionEx<String, MqttMessage, T> mapToItemFn
-        ) throws MqttException {
-            subscriptions = localSubscriptions(context, subscriptions);
-            if (subscriptions.size() == 0) {
-                context.logger().info("No topics to subscribe");
-                client = null;
-                callback = null;
-                return;
-            }
-            context.logger().info("Subscribing to topics: " + subscriptions);
-            callback = new SourceCallback<>(context.logger(), mapToItemFn);
-            client = client(context, broker, clientId, connectOpsFn.get());
-            String[] topics = subscriptions.stream().map(s -> s.topic).toArray(String[]::new);
-            int[] qos = subscriptions.stream().mapToInt(s -> s.qualityOfService.qos).toArray();
-            client.subscribe(topics, qos);
+    private static List<Subscription> localSubscriptions(Processor.Context context, List<Subscription> subscriptions) {
+        if (subscriptions.size() == 1) {
+            return subscriptions;
         }
-
-        void fillBuffer(SourceBuilder.SourceBuffer<T> buf) {
-            if (callback != null) {
-                callback.consume(buf::add);
-            }
-        }
-
-        void close() throws MqttException {
-            if (client != null) {
-                client.disconnect();
-                client.close();
-            }
-        }
-
-        List<Subscription> localSubscriptions(Processor.Context context, List<Subscription> subscriptions) {
-            if (subscriptions.size() == 1) {
-                return subscriptions;
-            }
-            return Util.distributeObjects(context.totalParallelism(), subscriptions).get(context.globalProcessorIndex());
-        }
-
-        IMqttClient client(Processor.Context context, String broker, String clientId,
-                           MqttConnectOptions connectOptions) throws MqttException {
-            clientId = clientId + "_" + context.globalProcessorIndex();
-            MqttClient client = new MqttClient(broker, clientId, new ConcurrentMemoryPersistence());
-            client.setCallback(callback);
-            client.connect(connectOptions);
-            return client;
-        }
+        return Util.distributeObjects(context.totalParallelism(), subscriptions).get(context.globalProcessorIndex());
     }
-
 }

@@ -23,22 +23,27 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.function.Consumer;
 
 /**
- * todo add proper javadoc
+ * An MQTT client callback which stores the items, after applying the
+ * given mapper, in a {@link BlockingQueue}as the messages arrive. The
+ * items are consumed by draining the queue to a temporary buffer.
  */
 public class SourceCallback<T> extends AbstractCallback {
 
-    private final ArrayBlockingQueue<T> queue;
+    private static final int CAPACITY = 1024;
+
+    private final BlockingQueue<T> queue;
     private final List<T> tempBuffer;
     private final BiFunctionEx<String, MqttMessage, T> mapToItemFn;
 
     public SourceCallback(ILogger logger, BiFunctionEx<String, MqttMessage, T> mapToItemFn) {
         super(logger);
         this.mapToItemFn = mapToItemFn;
-        this.queue = new ArrayBlockingQueue<>(1024);
-        this.tempBuffer = new ArrayList<>(1024);
+        this.queue = new ArrayBlockingQueue<>(CAPACITY);
+        this.tempBuffer = new ArrayList<>(CAPACITY);
     }
 
     @Override

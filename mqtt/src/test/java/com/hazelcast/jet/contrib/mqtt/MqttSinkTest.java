@@ -37,10 +37,7 @@ import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 
-/**
- * todo add proper javadoc
- */
-public class PahoMqttSinkTest extends JetTestSupport {
+public class MqttSinkTest extends JetTestSupport {
 
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
@@ -74,7 +71,7 @@ public class PahoMqttSinkTest extends JetTestSupport {
 
         p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
          .rebalance()
-         .writeTo(PahoMqttSinks.publish(broker, "sinkClient", "/topic", MqttConnectOptions::new, item -> {
+         .writeTo(MqttSinks.publish(broker, "sinkClient", "/topic", MqttConnectOptions::new, item -> {
              MqttMessage message = new MqttMessage(intToByteArray(item));
              message.setQos(2);
              return message;
@@ -92,9 +89,5 @@ public class PahoMqttSinkTest extends JetTestSupport {
                 (byte) (value >>> 16),
                 (byte) (value >>> 8),
                 (byte) value};
-    }
-
-    private static int byteArrayToInt(byte[] data) {
-        return data[0] << 24 | (data[1] & 0xFF) << 16 | (data[2] & 0xFF) << 8 | (data[3] & 0xFF);
     }
 }

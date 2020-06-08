@@ -16,31 +16,28 @@
 
 package com.hazelcast.jet.contrib.mqtt.impl.paho;
 
-import com.hazelcast.logging.ILogger;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import com.hazelcast.function.BiFunctionEx;
+import com.hazelcast.jet.pipeline.SourceBuilder;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-abstract class AbstractCallback implements MqttCallback {
+/**
+ * A noop source context, typically used when the source is distributed
+ * and the subscription size is smaller than total parallelism.
+ */
+public final class NoopSourceContextImpl<T> implements SourceContext<T> {
 
-    private final ILogger logger;
-
-    AbstractCallback(ILogger logger) {
-        this.logger = logger;
+    private NoopSourceContextImpl() {
     }
 
     @Override
-    public void connectionLost(Throwable cause) {
-        logger.warning(cause);
+    public void fillBuffer(SourceBuilder.SourceBuffer<T> buf) {
     }
 
     @Override
-    public void messageArrived(String topic, MqttMessage message) {
-        throw new UnsupportedOperationException();
+    public void close() {
     }
 
-    @Override
-    public void deliveryComplete(IMqttDeliveryToken token) {
-        throw new UnsupportedOperationException();
+    public static <T> NoopSourceContextImpl<T> noopSourceContext(BiFunctionEx<String, MqttMessage, T> ignored) {
+        return new NoopSourceContextImpl<>();
     }
 }

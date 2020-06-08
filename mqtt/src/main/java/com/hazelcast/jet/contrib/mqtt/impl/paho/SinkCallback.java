@@ -23,7 +23,9 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import java.util.concurrent.Semaphore;
 
 /**
- * todo add proper javadoc
+ * An MQTT client callback for async publishing.
+ * A {@link Semaphore} is initialized with permits equal to
+ * {@link MqttConnectOptions#getMaxInflight()}.
  */
 public class SinkCallback extends AbstractCallback {
 
@@ -40,7 +42,7 @@ public class SinkCallback extends AbstractCallback {
     }
 
     public void acquire() throws InterruptedException {
-        semaphore.acquire();;
+        semaphore.acquire();
     }
 
 }

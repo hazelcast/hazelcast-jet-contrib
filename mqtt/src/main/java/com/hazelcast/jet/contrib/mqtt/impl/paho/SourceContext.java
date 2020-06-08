@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-/**
- * Contains sources and sinks for Mqtt.
- */
-package com.hazelcast.jet.contrib.mqtt;
+package com.hazelcast.jet.contrib.mqtt.impl.paho;
+
+import com.hazelcast.jet.pipeline.SourceBuilder;
+import org.eclipse.paho.client.mqttv3.MqttException;
+
+public interface SourceContext<T> {
+
+    void fillBuffer(SourceBuilder.SourceBuffer<T> buf);
+
+    void close() throws MqttException;
+}
