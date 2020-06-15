@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.mqtt.impl.paho;
+package com.hazelcast.jet.contrib.mqtt.impl;
 
 import com.hazelcast.function.BiFunctionEx;
 import com.hazelcast.function.SupplierEx;
@@ -62,7 +62,7 @@ public class SourceContextImpl<T> implements SourceContext<T> {
 
     IMqttClient client(Processor.Context context, String broker, String clientId,
                        MqttConnectOptions connectOptions) throws MqttException {
-        clientId = clientId + "_" + context.globalProcessorIndex();
+        clientId = clientId + "-" + context.globalProcessorIndex();
         MqttClient client = new MqttClient(broker, clientId, new ConcurrentMemoryPersistence());
         client.setCallback(callback);
         client.connect(connectOptions);

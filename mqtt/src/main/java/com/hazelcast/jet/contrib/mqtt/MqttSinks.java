@@ -17,19 +17,12 @@
 package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.function.FunctionEx;
-import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.SinkCallback;
-import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService;
+import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.pipeline.Sink;
-import com.hazelcast.jet.pipeline.SinkBuilder;
-import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
+import javax.annotation.Nonnull;
 
 /**
  * Contains factory methods for Mqtt sinks.
@@ -40,81 +33,100 @@ public final class MqttSinks {
     }
 
     /**
-     * @param broker
-     * @param topic
-     * @return
+     * Returns a builder object which offers a step-by-step fluent API to build
+     * a custom Mqtt {@link Sink sink} for the Pipeline API.
+     * <p>
+     * The sink creates a
+     * <a href="https://www.eclipse.org/paho/clients/java/">Paho</a> client for
+     * each processor with memory persistence {@link ConcurrentMemoryPersistence}.
+     * Sink generates a random client id if not provided and appends the
+     * global processor index to the generated/provided client id to make each
+     * created client unique, eg: `the-client-0`, `the-client-1`...
+     * <p>
+     * The default local parallelism for this sink is 1.
      */
-    public static Sink<String> publish(String broker, String topic) {
-        return publish(broker, newUnsecureUuidString(), topic, MqttConnectOptions::new, MqttSinks::message);
+    @Nonnull
+    public static <T> MqttSinkBuilder<T> builder() {
+        return new MqttSinkBuilder<>();
     }
 
     /**
-     * @param broker
-     * @param clientId
-     * @param topic
-     * @param connectOpsFn
-     * @param messageFn
-     * @param <T>
-     * @return
+     * Creates a sink which connects to the local broker and publishes to the
+     * given topic.The sink converts each item to {@link MqttMessage} using
+     * {@link Object#toString()} and {@link String#getBytes()}. The quality of
+     * service value of the messages are {@link QualityOfService#AT_LEAST_ONCE}.
+     * <p>
+     * Useful for quick prototyping. See other methods
+     * {@link #publish(String, String, FunctionEx)} and {@link #builder()}.
+     * <p>
+     * For example:
+     * <pre>{@code
+     * pipeline.writeTo(MqttSinks.publish("topic"));
+     * }</pre>
+     *
+     * @param topic the topic which the sink publishes.
+     * @param <T>   the type of the pipeline item.
      */
+    @Nonnull
+    public static <T> Sink<T> publish(String topic) {
+        return MqttSinks.<T>builder().topic(topic).build();
+    }
+
+    /**
+     * Creates a sink which connects to the given broker and publishes to the
+     * given topic.The sink converts each item to {@link MqttMessage} using
+     * {@link Object#toString()} and {@link String#getBytes()}. The quality of
+     * service value of the messages are {@link QualityOfService#AT_LEAST_ONCE}.
+     * <p>
+     * For example:
+     * <pre>{@code
+     * pipeline.writeTo(MqttSinks.publish("tcp://localhost:1883", "topic"));
+     * }</pre>
+     *
+     * @param broker the address of the server to connect to, specified as a URI.
+     * @param topic  the topic which the sink publishes.
+     * @param <T>    the type of the pipeline item.
+     */
+    @Nonnull
+    public static <T> Sink<T> publish(@Nonnull String broker, @Nonnull String topic) {
+        return MqttSinks.<T>builder().broker(broker).topic(topic).build();
+    }
+
+    /**
+     * Creates a sink which connects to the given broker and publishes to the
+     * given topic. The sink converts each item to {@link MqttMessage} using
+     * the given {@code messageFn}.
+     * <p>
+     * For example, to publish to the `topic` by converting each item to a
+     * message with EXACTLY_ONCE quality of service using the item's string
+     * representation:
+     * <pre>{@code
+     * pipeline.writeTo(
+     *      MqttSinks.publish(
+     *          "tcp://localhost:1883",
+     *          "topic",
+     *          item -> {
+     *              MqttMessage message = new MqttMessage(item.toString().getBytes());
+     *              message.setQos(2); // '2' means EXACTLY_ONCE quality of service
+     *              return message;
+     *          }
+     *      )
+     * );
+     * }</pre>
+     *
+     * @param broker    the address of the server to connect to, specified as a
+     *                  URI.
+     * @param topic     the topic which the sink publishes.
+     * @param messageFn the function which converts the pipeline items to
+     *                  messages.
+     * @param <T>       the type of the pipeline item.
+     */
+    @Nonnull
     public static <T> Sink<T> publish(
-            String broker,
-            String clientId,
-            String topic,
-            SupplierEx<MqttConnectOptions> connectOpsFn,
-            FunctionEx<T, MqttMessage> messageFn
+            @Nonnull String broker,
+            @Nonnull String topic,
+            @Nonnull FunctionEx<T, MqttMessage> messageFn
     ) {
-        return SinkBuilder
-                .sinkBuilder("mqttSink", context -> new SinkContext<>(
-                        context, broker, clientId, topic, connectOpsFn, messageFn))
-                .<T>receiveFn(SinkContext::publish)
-                .destroyFn(SinkContext::close)
-                .build();
-    }
-
-    private static MqttMessage message(String item) {
-        return new MqttMessage(item.getBytes());
-    }
-
-    static class SinkContext<T> {
-
-        private final String topic;
-        private final SinkCallback callback;
-        private final IMqttAsyncClient client;
-        private final FunctionEx<T, MqttMessage> messageFn;
-
-        SinkContext(
-                Processor.Context context,
-                String broker,
-                String clientId,
-                String topic,
-                SupplierEx<MqttConnectOptions> connectOpsFn,
-                FunctionEx<T, MqttMessage> messageFn
-        ) throws MqttException {
-            this.topic = topic;
-            this.messageFn = messageFn;
-            MqttConnectOptions connectOptions = connectOpsFn.get();
-            this.callback = new SinkCallback(context.logger(), connectOptions);
-            this.client = client(context, broker, clientId, connectOptions);
-        }
-
-        public void publish(T item) throws MqttException, InterruptedException {
-            callback.acquire();
-            client.publish(topic, messageFn.apply(item));
-        }
-
-        public void close() throws MqttException {
-            client.disconnect().waitForCompletion();
-            client.close();
-        }
-
-        IMqttAsyncClient client(Processor.Context context, String broker, String clientId,
-                                MqttConnectOptions connectOptions) throws MqttException {
-            clientId = clientId + "_" + context.globalProcessorIndex();
-            IMqttAsyncClient client = new MqttAsyncClient(broker, clientId, new ConcurrentMemoryPersistence());
-            client.setCallback(callback);
-            client.connect(connectOptions).waitForCompletion();
-            return client;
-        }
+        return builder().broker(broker).topic(topic).messageFn(messageFn).build();
     }
 }

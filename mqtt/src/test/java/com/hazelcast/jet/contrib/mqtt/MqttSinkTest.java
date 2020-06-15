@@ -17,13 +17,13 @@
 package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
+import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.TestSources;
 import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.After;
@@ -65,17 +65,21 @@ public class MqttSinkTest extends JetTestSupport {
     public void test() throws MqttException {
         int itemCount = 2800;
         AtomicInteger counter = new AtomicInteger();
-        client.subscribe("/topic", 2, (topic, message) -> counter.incrementAndGet());
+        client.subscribe("topic", 2, (topic, message) -> counter.incrementAndGet());
 
         Pipeline p = Pipeline.create();
 
+        Sink<Integer> sink =
+                MqttSinks.builder().broker(broker).topic("topic")
+                        .<Integer>messageFn(item -> {
+                            MqttMessage message = new MqttMessage(intToByteArray(item));
+                            message.setQos(2);
+                            return message;
+                        }).build();
+
         p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
          .rebalance()
-         .writeTo(MqttSinks.publish(broker, "sinkClient", "/topic", MqttConnectOptions::new, item -> {
-             MqttMessage message = new MqttMessage(intToByteArray(item));
-             message.setQos(2);
-             return message;
-         }));
+         .writeTo(sink);
 
         jet.newJob(p).join();
 

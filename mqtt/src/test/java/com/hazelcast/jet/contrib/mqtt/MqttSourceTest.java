@@ -19,10 +19,11 @@ package com.hazelcast.jet.contrib.mqtt;
 import com.hazelcast.collection.IList;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
+import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
+import com.hazelcast.jet.pipeline.StreamSource;
 import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
@@ -34,11 +35,10 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
-import static java.util.stream.Collectors.toList;
+import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.EXACTLY_ONCE;
 
 public class MqttSourceTest extends JetTestSupport {
 
@@ -63,9 +63,9 @@ public class MqttSourceTest extends JetTestSupport {
         options.setMaxInflight(300);
         client.connect(options).waitForCompletion();
 
-        client.publish("/topic1", "retain".getBytes(), 2, true).waitForCompletion();
-        client.publish("/topic2", "retain".getBytes(), 2, true).waitForCompletion();
-        client.publish("/topic3", "retain".getBytes(), 2, true).waitForCompletion();
+        client.publish("topic1", "retain".getBytes(), 2, true).waitForCompletion();
+        client.publish("topic2", "retain".getBytes(), 2, true).waitForCompletion();
+        client.publish("topic3", "retain".getBytes(), 2, true).waitForCompletion();
     }
 
     @After
@@ -77,27 +77,31 @@ public class MqttSourceTest extends JetTestSupport {
     @Test
     public void test() throws MqttException {
         int messageCount = 6000;
-        String[] topics = {"/topic1", "/topic2", "/topic3"};
-        List<Subscription> subscriptions = Arrays.stream(topics).map(t -> Subscription.of(t, 2)).collect(toList());
+        Subscription[] subscriptions = new Subscription[]{
+                Subscription.of("topic1", EXACTLY_ONCE),
+                Subscription.of("topic2", EXACTLY_ONCE),
+                Subscription.of("topic3", EXACTLY_ONCE),
+        };
         Pipeline p = Pipeline.create();
-        p.readFrom(MqttSources.subscribe(broker, newUnsecureUuidString(), subscriptions,
-                () -> {
-                    MqttConnectOptions options = new MqttConnectOptions();
-                    options.setCleanSession(false);
-                    return options;
-                }, (t, m) -> m.getPayload()))
+        StreamSource<byte[]> source =
+                MqttSources.builder()
+                           .broker(broker)
+                           .subscriptions(subscriptions)
+                           .build();
+        p.readFrom(source)
          .withoutTimestamps()
          .writeTo(Sinks.list(sinkList));
 
         Job job = jet.newJob(p);
 
-        assertEqualsEventually(sinkList::size, topics.length);
+        assertEqualsEventually(sinkList::size, subscriptions.length);
 
         List<IMqttDeliveryToken> list = new ArrayList<>();
         for (int i = 0; i < messageCount / 100; i++) {
-            for (String topic : topics) {
+            for (Subscription subscription : subscriptions) {
                 for (int j = 0; j < 100; j++) {
-                    IMqttDeliveryToken token = client.publish(topic, ("mes" + i).getBytes(), 2, false);
+                    IMqttDeliveryToken token = client.publish(subscription.getTopic(),
+                            ("message" + i).getBytes(), subscription.getQualityOfService().getQos(), false);
                     list.add(token);
                 }
             }
@@ -107,7 +111,7 @@ public class MqttSourceTest extends JetTestSupport {
             list.clear();
         }
 
-        assertEqualsEventually(sinkList::size, (messageCount + 1) * topics.length);
+        assertEqualsEventually(sinkList::size, (messageCount + 1) * subscriptions.length);
 
         job.cancel();
     }

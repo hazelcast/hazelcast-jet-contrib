@@ -17,25 +17,19 @@
 package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.function.BiFunctionEx;
-import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.SourceContext;
-import com.hazelcast.jet.contrib.mqtt.impl.paho.SourceContextImpl;
-import com.hazelcast.jet.core.Processor;
-import com.hazelcast.jet.impl.util.Util;
-import com.hazelcast.jet.pipeline.SourceBuilder;
+import com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService;
+import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-import java.util.List;
-
-import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
-import static com.hazelcast.jet.contrib.mqtt.impl.paho.NoopSourceContextImpl.noopSourceContext;
-import static java.util.Collections.singletonList;
+import javax.annotation.Nonnull;
 
 /**
  * Contains factory methods for Mqtt sources.
+ * Alternatively you can use {@link MqttSourceBuilder}
+ *
+ * @since 4.2
  */
 public final class MqttSources {
 
@@ -43,33 +37,15 @@ public final class MqttSources {
     }
 
     /**
-     * Convenience for {@link #subscribe(String, String, List, SupplierEx, BiFunctionEx)}.
-     * Uses a random uuid as the client id and default
-     * {@link MqttConnectOptions}. Emits {@link MqttMessage#getPayload()}
-     * to the downstream.
-     *
-     * @param broker the address of the server to connect to, specified
-     *               as a URI, e.g. `tcp://localhost:1883`.
-     * @param topic  the topic that the source subscribes, may include
-     *               wildcards.
-     */
-    public static StreamSource<byte[]> subscribe(String broker, String topic) {
-        return subscribe(broker, newUnsecureUuidString(),
-                singletonList(Subscription.of(topic)), MqttConnectOptions::new, (t, m) -> m.getPayload());
-    }
-
-    /**
-     * Creates a streaming source which connects to the given broker and
-     * subscribes to the specified topics. The source converts each message to
-     * the desired object output using given {@code mapToItemFn} and emits to
-     * downstream.
+     * Returns a builder object which offers a step-by-step fluent API to build
+     * a custom Mqtt {@link StreamSource source} for the Pipeline API.
      * <p>
-     * The source creates a <a href="https://www.eclipse.org/paho/clients/java/">Paho</a>
-     * client with the specified client id and memory persistence {@link ConcurrentMemoryPersistence}.
-     * Client connects to the given broker using the specified connect options
-     * and subscribes to the given topics. The global processor index is
-     * appended to the specified {@code clientId} to make each created client
-     * unique.
+     * The source creates a
+     * <a href="https://www.eclipse.org/paho/clients/java/">Paho</a> client for
+     * each specified topic with memory persistence {@link ConcurrentMemoryPersistence}.
+     * Source generates a random client id if not provided and appends the
+     * global processor index to the generated/provided client id to make each
+     * created client unique, eg: `the-client-0`, `the-client-1`...
      * <p>
      * The source is not distributed if a single topic provided, otherwise
      * topics are distributed among members. If you use wildcard in your topic
@@ -80,45 +56,90 @@ public final class MqttSources {
      * {@link MqttConnectOptions#setCleanSession(boolean)} to {@code false}
      * The broker will keep the published messages with quality service above
      * `0` and deliver them to the source after restart.
-     *
-     * @param broker        the address of the server to connect to, specified
-     *                      as a URI, e.g. `tcp://localhost:1883`. Can be
-     *                      overridden using {@link MqttConnectOptions#setServerURIs(String[])}.
-     * @param clientId      the unique identifier for the Paho client.
-     * @param subscriptions the subscription list.
-     * @param connectOpsFn  connect options supplier function.
-     * @param mapToItemFn   the function that converts the messages to pipeline items.
-     * @param <T>           type of the pipeline items emitted to downstream
+     * <p>
+     * The source emits items of type {@code byte[]}, the payload of the
+     * message, if {@link MqttSourceBuilder#mapToItemFn(BiFunctionEx)} is not
+     * set.
      */
-    public static <T> StreamSource<T> subscribe(
-            String broker,
-            String clientId,
-            List<Subscription> subscriptions,
-            SupplierEx<MqttConnectOptions> connectOpsFn,
-            BiFunctionEx<String, MqttMessage, T> mapToItemFn
-    ) {
-        SourceBuilder<SourceContext<T>>.Stream<T> builder = SourceBuilder
-                .stream("mqttSource",
-                        context -> {
-                            List<Subscription> localSubscriptions = localSubscriptions(context, subscriptions);
-                            if (localSubscriptions.isEmpty()) {
-                                return noopSourceContext(mapToItemFn);
-                            }
-                            return new SourceContextImpl<>(
-                                    context, broker, clientId, localSubscriptions, connectOpsFn, mapToItemFn);
-                        })
-                .<T>fillBufferFn(SourceContext::fillBuffer)
-                .destroyFn(SourceContext::close);
-        if (subscriptions.size() > 1) {
-            builder.distributed(1);
-        }
-        return builder.build();
+    @Nonnull
+    public static MqttSourceBuilder<byte[]> builder() {
+        return new MqttSourceBuilder<>();
     }
 
-    private static List<Subscription> localSubscriptions(Processor.Context context, List<Subscription> subscriptions) {
-        if (subscriptions.size() == 1) {
-            return subscriptions;
-        }
-        return Util.distributeObjects(context.totalParallelism(), subscriptions).get(context.globalProcessorIndex());
+    /**
+     * Creates a streaming source which connects to the local broker and
+     * subscribes to the given topic with {@link QualityOfService#AT_LEAST_ONCE}.
+     * <p>
+     * Useful for quick prototyping. See other methods
+     * {@link #subscribe(String, Subscription, BiFunctionEx)} and
+     * {@link #builder()}
+     * <p>
+     * For example:
+     * <pre>{@code
+     * pipeline.readFrom(MqttSources.subscribe("topic"));
+     * }</pre>
+     *
+     * @param topic the topic which the source subscribes, may include
+     *              wildcards.
+     */
+    @Nonnull
+    public static StreamSource<byte[]> subscribe(@Nonnull String topic) {
+        return builder().topic(topic).build();
+    }
+
+    /**
+     * Creates a streaming source which connects to the given broker and
+     * subscribes to the given topic with {@link QualityOfService#AT_LEAST_ONCE}.
+     * <p>
+     * For example:
+     * <pre>{@code
+     * pipeline.readFrom(MqttSources.subscribe("tcp://localhost:1883", "topic"));
+     * }</pre>
+     *
+     * @param broker the address of the server to connect to, specified as a URI.
+     * @param topic  the topic which the source subscribes, may include wildcards.
+     */
+    @Nonnull
+    public static StreamSource<byte[]> subscribe(@Nonnull String broker, @Nonnull String topic) {
+        return builder().broker(broker).topic(topic).build();
+    }
+
+    /**
+     * Creates a streaming source which connects to the given broker and
+     * subscribes using given {@link Subscription}. The source converts
+     * messages to the desired output object using given {@code mapToItemFn}.
+     * <p>
+     * For example, to subscribe to the `topic` with `EXACTLY_ONCE` quality of
+     * service and convert each message to a string:
+     * <pre>{@code
+     * pipeline.readFrom(
+     *      MqttSources.subscribe(
+     *          "tcp://localhost:1883",
+     *          Subscription.of("topic", EXACTLY_ONCE),
+     *          (t, m) -> new String(m.getPayload())
+     *      )
+     * )
+     * }</pre>
+     *
+     * @param broker       the address of the server to connect to, specified
+     *                     as a URI.
+     * @param subscription the topic which the source subscribes and its
+     *                     quality of service value, the topic may include
+     *                     wildcards.
+     * @param mapToItemFn  the function which converts the messages to pipeline
+     *                     items.
+     * @param <T>          type of the pipeline items emitted to downstream.
+     */
+    public static <T> StreamSource<T> subscribe(
+            @Nonnull String broker,
+            @Nonnull Subscription subscription,
+            @Nonnull BiFunctionEx<String, MqttMessage, T> mapToItemFn
+    ) {
+        return builder()
+                .broker(broker)
+                .topic(subscription.getTopic())
+                .qualityOfService(subscription.getQualityOfService())
+                .mapToItemFn(mapToItemFn)
+                .build();
     }
 }

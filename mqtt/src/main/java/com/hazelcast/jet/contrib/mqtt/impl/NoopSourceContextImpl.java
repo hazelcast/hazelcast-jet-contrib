@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.hazelcast.jet.contrib.mqtt.impl.paho;
+package com.hazelcast.jet.contrib.mqtt.impl;
 
 import com.hazelcast.function.BiFunctionEx;
 import com.hazelcast.jet.pipeline.SourceBuilder;

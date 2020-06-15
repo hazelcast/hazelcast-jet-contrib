@@ -21,7 +21,7 @@ import java.io.Serializable;
 import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.AT_LEAST_ONCE;
 
 /**
- * todo add proper javadoc
+ * Represents a subscription to a topic with quality of service.
  */
 public class Subscription implements Serializable {
 
