@@ -2,9 +2,6 @@ rootProject.name = 'hazelcast-jet-contrib'
 include 'influxdb'
 include 'redis'
 include 'probabilistic'
-include 'elasticsearch-5'
-include 'elasticsearch-6'
-include 'elasticsearch-7'
 include 'kafka-connect'
 include 'mongodb'
 include 'debezium'
@@ -12,7 +9,3 @@ include 'twitter'
 include 'xa-test'
 include 'hazelcast-jet-spring-boot-starter'
 include 'pulsar'
-
-project(':elasticsearch-5').projectDir = file('elasticsearch/elasticsearch-5')
-project(':elasticsearch-6').projectDir = file('elasticsearch/elasticsearch-6')
-project(':elasticsearch-7').projectDir = file('elasticsearch/elasticsearch-7')

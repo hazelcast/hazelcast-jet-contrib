@@ -32,11 +32,6 @@ pipelines to read/write data points from/to InfluxDb.
 
 A collection of probabilistic aggregations such as HyperLogLog.
 
-### [Elasticsearch Connector](elasticsearch) 
-
-A Hazelcast Jet connector for Elasticsearch for querying/indexing objects
-from/to Elasticsearch.
-
 ### [Redis Connectors](redis)
 
 Hazelcast Jet connectors for various Redis data structures.
