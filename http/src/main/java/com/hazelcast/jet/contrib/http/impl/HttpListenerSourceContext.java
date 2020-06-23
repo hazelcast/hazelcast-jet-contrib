@@ -58,7 +58,7 @@ public class HttpListenerSourceContext<T> {
 
     public HttpListenerSourceContext(
             @Nonnull Processor.Context context,
-            int portOffset,
+            int port,
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull FunctionEx<byte[], T> mapToItemFn
     ) {
@@ -66,7 +66,6 @@ public class HttpListenerSourceContext<T> {
         this.mapToItemFn = mapToItemFn;
         Address localAddress = context.jetInstance().getHazelcastInstance().getCluster().getLocalMember().getAddress();
         String host = localAddress.getHost();
-        int port = localAddress.getPort() + portOffset;
         Undertow.Builder builder = Undertow.builder();
         if (sslContextFn != null) {
             builder.addHttpsListener(port, host, sslContextFn.get());

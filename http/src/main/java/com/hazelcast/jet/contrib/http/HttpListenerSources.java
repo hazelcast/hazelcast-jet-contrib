@@ -18,22 +18,18 @@ package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.contrib.http.impl.HttpListenerSourceContext;
-import com.hazelcast.jet.json.JsonUtil;
-import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
+import io.undertow.Undertow;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
-import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 
 /**
- * Contains factory methods for creating HTTP(S) listener sources which
- * listens for HTTP(S) requests. There are multiple variants for
+ * Contains factory methods for creating HTTP(s) listener sources which
+ * listens for HTTP(s) requests. There are multiple variants for
  * handling the payloads. For JSON payloads you can use built-in object
  * mapping. You can get raw string payload or provide a
  * {@code mapToItemFn} function to deserialize the payload.
@@ -44,151 +40,99 @@ public final class HttpListenerSources {
     }
 
     /**
-     * Creates a source that listens for HTTP requests which contains JSON
-     * payload. Source maps the payload to an object of the given class type.
-     *
-     * @param portOffset The offset for HTTP listener port to bind from the
-     *                   member port. For example; if Hazelcast Jet member runs
-     *                   on the port 5701 and {@code portOffset} is set to 100,
-     *                   the HTTP listeners will listen for connections on port
-     *                   5801 on the same host address with the member.
-     * @param type       Class type for the objects to be emitted. Received
-     *                   JSON payloads will be mapped to objects of provided
-     *                   type.
+     * Returns a builder object which offers a step-by-step fluent API to build
+     * a custom HTTP(s) listener {@link StreamSource source} for the Pipeline
+     * API.
+     * <p>
+     * The source creates an {@link Undertow} server at each member which
+     * listens the requests from the specified port. If user provides an ssl
+     * context, source initializes the listeners with secure connection.
+     * <p>
+     * If you start more than one Jet instances on the same host machine, the
+     * source will fail to bind to the same port thus the job will fail.
+     * <p>
+     * Source emits items of type {@link String} if {@link HttpListenerBuilder#type(Class)}
+     * or {@link HttpListenerBuilder#mapToItemFn(FunctionEx)} is not set.
      */
     @Nonnull
-    public static <T> StreamSource<T> httpListener(int portOffset, @Nonnull Class<T> type) {
-        checkNotNull(type, "type cannot be null");
-
-        return listener("http-listener(base port +" + portOffset + ")", portOffset, null,
-                message -> JsonUtil.beanFrom(new String(message), type));
+    public static HttpListenerBuilder<String> builder() {
+        return new HttpListenerBuilder<>();
     }
 
     /**
-     * Creates a source that listens for HTTP requests which contains string
+     * Creates a source that listens for HTTP requests from
+     * {@link HttpListenerBuilder#DEFAULT_PORT} {@code 5801} and converts the
+     * payload to {@code String}.
+     * <p>
+     * See {@link #builder()}
+     */
+    @Nonnull
+    public static StreamSource<String> httpListener() {
+        return builder().build();
+    }
+
+    /**
+     * Creates a source that listens for HTTP requests from given port
+     * and maps the payload to specified type. Source expects a JSON formatted
      * payload.
+     * <p>
+     * See {@link #builder()}
      *
-     * @param portOffset The offset for HTTP listener port to bind from the
-     *                   member port. For example; if Hazelcast Jet member runs
-     *                   on the port 5701 and {@code portOffset} is set to 100,
-     *                   the HTTP listeners will listen for connections on port
-     *                   5801 on the same host address with the member.
+     * @param port The port for HTTP listener to bind. The source will listen
+     *             for connections on given port on the same host address with
+     *             the member.
+     * @param type Class type for the objects to be emitted. Received
+     *             JSON payloads will be mapped to objects of specified
+     *             type.
      */
     @Nonnull
-    public static StreamSource<String> httpListener(int portOffset) {
-        return listener("http-listener(base port +" + portOffset + ")", portOffset, null, String::new);
-    }
-
-    /**
-     * Creates a source that listens for HTTP requests. Source converts the
-     * payload to the pipeline item using given {@code mapToItemFn} function.
-     *
-     * @param portOffset The offset for HTTP listener port to bind from the
-     *                   member port. For example; if Hazelcast Jet member runs
-     *                   on the port 5701 and {@code portOffset} is set to 100,
-     *                   the HTTP listeners will listen for connections on port
-     *                   5801 on the same host address with the member.
-     */
-    @Nonnull
-    public static <T> StreamSource<T> httpListener(int portOffset, @Nonnull FunctionEx<byte[], T> mapToItemFn) {
-        return listener("http-listener(base port +" + portOffset + ")", portOffset,
-                null, mapToItemFn);
-    }
-
-
-    /**
-     * Creates a source that listens for HTTPS requests which contains JSON
-     * payload. Source maps the payload to an object of the given class type.
-     *
-     * @param portOffset         The offset for HTTPS listener port to bind from
-     *                           the member port. For example; if Hazelcast Jet
-     *                           member runs on the port 5701 and
-     *                           {@code portOffset} is set to 100, the HTTPS
-     *                           server will listen for connections on port 5801
-     *                           on the same host address with the member.
-     * @param sslContextSupplier the function to create {@link SSLContext} which
-     *                           used to initialize underlying HTTPS listener
-     *                           for secure connections.
-     * @param type               Class type for the objects to be emitted.
-     *                           Received JSON payloads will be mapped to
-     *                           objects of provided type.
-     */
-    @Nonnull
-    public static <T> StreamSource<T> httpsListener(
-            int portOffset,
-            @Nonnull SupplierEx<SSLContext> sslContextSupplier,
-            @Nonnull Class<T> type
-    ) {
+    public static <T> StreamSource<T> httpListener(int port, @Nonnull Class<T> type) {
         checkNotNull(type, "type cannot be null");
-        checkNotNull(sslContextSupplier, "sslContextSupplier cannot be null");
-
-        return listener("https-listener(base port + " + portOffset + ")", portOffset, sslContextSupplier,
-                message -> JsonUtil.beanFrom(new String(message), type));
+        return builder().port(port).type(type).build();
     }
 
     /**
-     * Creates a source that listens for HTTPS requests which contains string
-     * payload.
+     * Creates a source that listens for HTTP requests from given port
+     * and maps the payload to pipeline item using specified {@code mapToItemFn}.
+     * <p>
+     * See {@link #builder()}
      *
-     * @param portOffset         The offset for HTTPS listener port to bind from
-     *                           the member port. For example; if Hazelcast Jet
-     *                           member runs on the port 5701 and
-     *                           {@code portOffset} is set to 100, the HTTPS
-     *                           server will listen for connections on port 5801
-     *                           on the same host address with the member.
-     * @param sslContextSupplier the function to create {@link SSLContext} which
-     *                           used to initialize underlying HTTPS listener
-     *                           for secure connections.
+     * @param port        The port for HTTP listener to bind. The source will
+     *                    listen for connections on given port on the same host
+     *                    address with the member.
+     * @param mapToItemFn the function which converts the received payload to
+     *                    pipeline item.
      */
     @Nonnull
-    public static StreamSource<String> httpsListener(int portOffset, @Nonnull SupplierEx<SSLContext> sslContextSupplier) {
-        checkNotNull(sslContextSupplier, "sslContextSupplier cannot be null");
-
-        return listener("https-listener(base port + " + portOffset + ")",
-                portOffset, sslContextSupplier, String::new);
-    }
-
-    /**
-     * Creates a source that listens for HTTPS requests. Source converts the
-     * payload to the pipeline item using given {@code mapToItemFn} function.
-     *
-     * @param portOffset         The offset for HTTPS listener port to bind from
-     *                           the member port. For example; if Hazelcast Jet
-     *                           member runs on the port 5701 and
-     *                           {@code portOffset} is set to 100, the HTTPS
-     *                           server will listen for connections on port 5801
-     *                           on the same host address with the member.
-     * @param sslContextSupplier the function to create {@link SSLContext} which
-     *                           used to initialize underlying HTTPS listener
-     *                           for secure connections.
-     */
-    @Nonnull
-    public static <T> StreamSource<T> httpsListener(
-            int portOffset,
-            @Nonnull SupplierEx<SSLContext> sslContextSupplier,
-            @Nonnull FunctionEx<byte[], T> mapToItemFn
-    ) {
-        checkNotNull(sslContextSupplier, "sslContextSupplier cannot be null");
-
-        return listener("https-listener(base port + " + portOffset + ")",
-                portOffset, sslContextSupplier, mapToItemFn);
-    }
-
-    private static <T> StreamSource<T> listener(
-            String name,
-            int portOffset,
-            @Nullable SupplierEx<SSLContext> sslContextSupplier,
-            @Nonnull FunctionEx<byte[], T> mapToItemFn
-    ) {
-        checkPositive(portOffset, "portOffset cannot be zero or negative");
+    public static <T> StreamSource<T> httpListener(int port, @Nonnull FunctionEx<byte[], T> mapToItemFn) {
         checkNotNull(mapToItemFn, "mapToItemFn cannot be null");
+        return builder().port(port).mapToItemFn(mapToItemFn).build();
+    }
 
-        return SourceBuilder.stream(name,
-                ctx -> new HttpListenerSourceContext<>(ctx, portOffset, sslContextSupplier, mapToItemFn))
-                .<T>fillBufferFn(HttpListenerSourceContext::fillBuffer)
-                .destroyFn(HttpListenerSourceContext::close)
-                .distributed(1)
-                .build();
+    /**
+     * Creates a source that listens for HTTPs requests from given port
+     * and maps the payload to pipeline item using specified {@code mapToItemFn}.
+     * <p>
+     * See {@link #builder()}
+     *
+     * @param port         The port for HTTPs listener to bind. The source will
+     *                     listen for connections on given port on the same
+     *                     host address with the member.
+     * @param sslContextFn the function to create {@link SSLContext} which used
+     *                     to initialize underlying HTTPs listener for secure
+     *                     connections.
+     * @param mapToItemFn  the function which converts the received payload to
+     *                     pipeline item.
+     */
+    @Nonnull
+    public static <T> StreamSource<T> httpListener(
+            int port,
+            @Nonnull SupplierEx<SSLContext> sslContextFn,
+            @Nonnull FunctionEx<byte[], T> mapToItemFn
+    ) {
+        checkNotNull(sslContextFn, "sslContextFn cannot be null");
+        checkNotNull(mapToItemFn, "mapToItemFn cannot be null");
+        return builder().port(port).sslContextFn(sslContextFn).mapToItemFn(mapToItemFn).build();
     }
 
 

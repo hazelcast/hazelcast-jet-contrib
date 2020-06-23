@@ -31,9 +31,8 @@ import java.io.IOException;
 
 public class HttpTestBase extends JetTestSupport {
 
-    public static String getHttpEndpointAddress(JetInstance jet, int portOffset, boolean ssl) {
+    public static String getHttpEndpointAddress(JetInstance jet, int port, boolean ssl) {
         Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
-        int port = localAddress.getPort() + portOffset;
         String hostPort = localAddress.getHost() + ":" + port;
         return ssl ? "https://" + hostPort : "http://" + hostPort;
     }
@@ -45,14 +44,14 @@ public class HttpTestBase extends JetTestSupport {
         return "ws://" + hostPort;
     }
 
-    public static void postUsers(CloseableHttpClient httpClient, int count, String uri1, String uri2) throws IOException {
+    public static void postUsers(CloseableHttpClient httpClient, int count, String uri) throws IOException {
         for (int i = 0; i < count; i++) {
             User user = new User(i, "name" + i);
             String jsonString = JsonUtil.toJson(user);
             StringEntity requestEntity = new StringEntity(
                     jsonString,
                     ContentType.APPLICATION_JSON);
-            HttpPost post = i % 2 == 0 ? new HttpPost(uri1) : new HttpPost(uri2);
+            HttpPost post = new HttpPost(uri);
             post.setEntity(requestEntity);
             CloseableHttpResponse response = httpClient.execute(post);
             response.getEntity().getContent().close();

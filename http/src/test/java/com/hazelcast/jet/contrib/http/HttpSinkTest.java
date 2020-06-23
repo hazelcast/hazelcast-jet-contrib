@@ -97,7 +97,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
         int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, messageCount, httpEndpoint1);
 
         String webSocketAddress = HttpSinks.getWebSocketAddress(jet, job);
         ArrayList<String> receivedMessages = new ArrayList<>();
@@ -136,7 +136,7 @@ public class HttpSinkTest extends HttpTestBase {
         // post 10 messages upfront, those should be dropped
         CloseableHttpClient httpClient = HttpClients.createDefault();
         int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, messageCount, httpEndpoint1);
 
         // start websocket client
         String webSocketAddress = HttpSinks.getWebSocketAddress(jet, job);
@@ -152,7 +152,7 @@ public class HttpSinkTest extends HttpTestBase {
         wsChannel.resumeReceives();
 
         // post 10 more messages those should be received by the client
-        postUsers(httpClient, messageCount, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, messageCount, httpEndpoint1);
 
         assertTrueEventually(() -> assertSizeEventually(messageCount, receivedMessages));
         httpClient.close();
@@ -180,7 +180,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
         int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, messageCount, httpEndpoint1);
 
         // start sse client
         CountDownLatch latch = new CountDownLatch(10);
@@ -246,7 +246,7 @@ public class HttpSinkTest extends HttpTestBase {
         // post 10 messages upfront, those should be dropped
         CloseableHttpClient httpClient = HttpClients.createDefault();
         int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, messageCount, httpEndpoint1);
 
 
         // start sse client
@@ -283,7 +283,7 @@ public class HttpSinkTest extends HttpTestBase {
         assertTrueEventually(() -> assertSame(OPEN, eventSource.getState()));
 
         // post 10 more messages those should be received by the client
-        postUsers(httpClient, messageCount, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, messageCount, httpEndpoint1);
         latch.await();
 
         assertEquals(messageCount, messages.size());

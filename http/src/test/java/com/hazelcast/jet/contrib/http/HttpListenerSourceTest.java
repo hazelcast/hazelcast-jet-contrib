@@ -23,6 +23,7 @@ import com.hazelcast.jet.contrib.http.domain.User;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.json.JsonUtil;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import com.hazelcast.nio.ssl.TestKeyStoreUtil;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -53,24 +54,22 @@ public class HttpListenerSourceTest extends HttpTestBase {
     @Test
     public void testHttpIngestion_with_objectMapping() throws Throwable {
         JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
 
-        int portOffset = 100;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, portOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, portOffset, false);
+        int port = 5901;
+        String httpEndpoint = getHttpEndpointAddress(jet, port, false);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(portOffset, User.class))
-                .withoutTimestamps()
-                .filter(user -> user.getId() >= 80)
-                .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
+        p.readFrom(HttpListenerSources.httpListener(port, User.class))
+         .withoutTimestamps()
+         .filter(user -> user.getId() >= 80)
+         .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        postUsers(httpClient, 100, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, 100, httpEndpoint);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
@@ -79,25 +78,23 @@ public class HttpListenerSourceTest extends HttpTestBase {
     @Test
     public void testHttpIngestion_with_rawJsonString() throws Throwable {
         JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
 
-        int portOffset = 100;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, portOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, portOffset, false);
+        int port = HttpListenerBuilder.DEFAULT_PORT;
+        String httpEndpoint1 = getHttpEndpointAddress(jet, port, false);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(portOffset))
-                .withoutTimestamps()
-                .map(json -> JsonUtil.beanFrom(json, User.class))
-                .filter(user -> user.getId() >= 80)
-                .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
+        p.readFrom(HttpListenerSources.httpListener())
+         .withoutTimestamps()
+         .map(json -> JsonUtil.beanFrom(json, User.class))
+         .filter(user -> user.getId() >= 80)
+         .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        postUsers(httpClient, 100, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, 100, httpEndpoint1);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
@@ -106,25 +103,23 @@ public class HttpListenerSourceTest extends HttpTestBase {
     @Test
     public void testHttpIngestion_with_customDeserializer() throws Throwable {
         JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
 
-        int portOffset = 100;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, portOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, portOffset, false);
+        int port = 5901;
+        String httpEndpoint1 = getHttpEndpointAddress(jet, port, false);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(portOffset,
+        p.readFrom(HttpListenerSources.httpListener(port,
                 bytes -> JsonUtil.beanFrom(new String(bytes), User.class)))
-                .withoutTimestamps()
-                .filter(user -> user.getId() >= 80)
-                .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
+         .withoutTimestamps()
+         .filter(user -> user.getId() >= 80)
+         .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        postUsers(httpClient, 100, httpEndpoint1, httpEndpoint2);
+        postUsers(httpClient, 100, httpEndpoint1);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
@@ -153,17 +148,15 @@ public class HttpListenerSourceTest extends HttpTestBase {
         };
 
         JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
 
-        int portOffset = 100;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, portOffset, true);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, portOffset, true);
+        int port = HttpListenerBuilder.DEFAULT_PORT;
+        String httpEndpoint1 = getHttpEndpointAddress(jet, port, true);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier, User.class))
-                .withoutTimestamps()
-                .filter(user -> user.getId() >= 80)
-                .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
+        p.readFrom(HttpListenerSources.builder().sslContextFn(contextSupplier).type(User.class).build())
+         .withoutTimestamps()
+         .filter(user -> user.getId() >= 80)
+         .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
 
@@ -171,11 +164,11 @@ public class HttpListenerSourceTest extends HttpTestBase {
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLContext(contextSupplier.get())
-                .setSSLHostnameVerifier(new NoopHostnameVerifier())
-                .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
-                .build();
-        postUsers(httpClient, 100, httpEndpoint1, httpEndpoint2);
+                                                    .setSSLContext(contextSupplier.get())
+                                                    .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                                                    .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
+                                                    .build();
+        postUsers(httpClient, 100, httpEndpoint1);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
@@ -204,18 +197,16 @@ public class HttpListenerSourceTest extends HttpTestBase {
         };
 
         JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
 
-        int portOffset = 100;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, portOffset, true);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, portOffset, true);
+        int port = HttpListenerBuilder.DEFAULT_PORT;
+        String httpEndpoint1 = getHttpEndpointAddress(jet, port, true);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier))
-                .withoutTimestamps()
-                .map(json -> JsonUtil.beanFrom(json, User.class))
-                .filter(user -> user.getId() >= 80)
-                .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
+        p.readFrom(HttpListenerSources.builder().sslContextFn(contextSupplier).build())
+         .withoutTimestamps()
+         .map(json -> JsonUtil.beanFrom(json, User.class))
+         .filter(user -> user.getId() >= 80)
+         .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
 
@@ -223,11 +214,11 @@ public class HttpListenerSourceTest extends HttpTestBase {
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLContext(contextSupplier.get())
-                .setSSLHostnameVerifier(new NoopHostnameVerifier())
-                .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
-                .build();
-        postUsers(httpClient, 100, httpEndpoint1, httpEndpoint2);
+                                                    .setSSLContext(contextSupplier.get())
+                                                    .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                                                    .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
+                                                    .build();
+        postUsers(httpClient, 100, httpEndpoint1);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
@@ -255,18 +246,21 @@ public class HttpListenerSourceTest extends HttpTestBase {
         };
 
         JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
 
-        int portOffset = 100;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, portOffset, true);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, portOffset, true);
+        int port = HttpListenerBuilder.DEFAULT_PORT;
+        String httpEndpoint1 = getHttpEndpointAddress(jet, port, true);
+
+        StreamSource<User> source = HttpListenerSources
+                .builder()
+                .sslContextFn(contextSupplier)
+                .mapToItemFn(bytes -> JsonUtil.beanFrom(new String(bytes), User.class))
+                .build();
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier,
-                bytes -> JsonUtil.beanFrom(new String(bytes), User.class)))
-                .withoutTimestamps()
-                .filter(user -> user.getId() >= 80)
-                .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
+        p.readFrom(source)
+         .withoutTimestamps()
+         .filter(user -> user.getId() >= 80)
+         .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
 
         Job job = jet.newJob(p);
 
@@ -274,11 +268,11 @@ public class HttpListenerSourceTest extends HttpTestBase {
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.custom()
-                .setSSLContext(contextSupplier.get())
-                .setSSLHostnameVerifier(new NoopHostnameVerifier())
-                .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
-                .build();
-        postUsers(httpClient, 100, httpEndpoint1, httpEndpoint2);
+                                                    .setSSLContext(contextSupplier.get())
+                                                    .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                                                    .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
+                                                    .build();
+        postUsers(httpClient, 100, httpEndpoint1);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
