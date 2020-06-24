@@ -8,9 +8,10 @@ dependencies {
     testCompile group: 'org.testcontainers', name: 'pulsar', version: '1.12.5'
 }
 
+
 jar {
     enabled = false
-    dependsOn(shadowJar { classifier = null })
+    dependsOn(shadowJar{archiveClassifier.set("")})
 }
 
 shadowJar {
