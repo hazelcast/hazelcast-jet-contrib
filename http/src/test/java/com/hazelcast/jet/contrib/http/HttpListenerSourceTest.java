@@ -128,24 +128,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     @Test
     public void testHttpsIngestion_with_objectMapping() throws Throwable {
-        SupplierEx<SSLContext> contextSupplier = () -> {
-            SSLContext context = SSLContext.getInstance("TLS");
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            KeyStore ks = KeyStore.getInstance("JKS");
-            char[] password = "123456".toCharArray();
-            File tempFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.keyStore);
-            ks.load(new FileInputStream(tempFile), password);
-            kmf.init(ks, password);
 
-            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            KeyStore ts = KeyStore.getInstance("JKS");
-            File tsfile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
-            ts.load(new FileInputStream(tsfile), password);
-            tmf.init(ts);
-
-            context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-            return context;
-        };
 
         JetInstance jet = createJetMember();
 
@@ -153,7 +136,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
         String httpEndpoint1 = getHttpEndpointAddress(jet, port, true);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.builder().sslContextFn(contextSupplier).type(User.class).build())
+        p.readFrom(HttpListenerSources.builder().sslContextFn(sslContextFn()).type(User.class).build())
          .withoutTimestamps()
          .filter(user -> user.getId() >= 80)
          .writeTo(assertCollectedEventually(30, list -> assertEquals(20, list.size())));
@@ -164,7 +147,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.custom()
-                                                    .setSSLContext(contextSupplier.get())
+                                                    .setSSLContext(sslContextFn().get())
                                                     .setSSLHostnameVerifier(new NoopHostnameVerifier())
                                                     .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
                                                     .build();
@@ -177,32 +160,13 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     @Test
     public void testHttpsIngestion_with_rawJsonString() throws Throwable {
-        SupplierEx<SSLContext> contextSupplier = () -> {
-            SSLContext context = SSLContext.getInstance("TLS");
-            KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-            KeyStore ks = KeyStore.getInstance("JKS");
-            char[] password = "123456".toCharArray();
-            File tempFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.keyStore);
-            ks.load(new FileInputStream(tempFile), password);
-            kmf.init(ks, password);
-
-            TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            KeyStore ts = KeyStore.getInstance("JKS");
-            File tsfile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
-            ts.load(new FileInputStream(tsfile), password);
-            tmf.init(ts);
-
-            context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-            return context;
-        };
-
         JetInstance jet = createJetMember();
 
         int port = HttpListenerBuilder.DEFAULT_PORT;
         String httpEndpoint1 = getHttpEndpointAddress(jet, port, true);
 
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.builder().sslContextFn(contextSupplier).build())
+        p.readFrom(HttpListenerSources.builder().sslContextFn(sslContextFn()).build())
          .withoutTimestamps()
          .map(json -> JsonUtil.beanFrom(json, User.class))
          .filter(user -> user.getId() >= 80)
@@ -214,7 +178,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
         sleepAtLeastSeconds(3);
 
         CloseableHttpClient httpClient = HttpClients.custom()
-                                                    .setSSLContext(contextSupplier.get())
+                                                    .setSSLContext(sslContextFn().get())
                                                     .setSSLHostnameVerifier(new NoopHostnameVerifier())
                                                     .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
                                                     .build();

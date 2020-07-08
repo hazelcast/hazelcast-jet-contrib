@@ -25,6 +25,7 @@ import com.hazelcast.jet.pipeline.StreamSource;
 
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
+import java.util.Objects;
 
 /**
  * See {@link HttpListenerSources#builder()}.
@@ -51,9 +52,9 @@ public class HttpListenerBuilder<T> {
     /**
      * Set the port which the source binds and listens.
      * <p>
-     * For example to bind to port `5901`:
+     * For example to bind to port `5802`:
      * <pre>{@code
-     * builder.port(5901)
+     * builder.port(5802)
      * }</pre>
      * <p>
      * Default value is {@link #DEFAULT_PORT} {@code 5801}.
@@ -100,7 +101,7 @@ public class HttpListenerBuilder<T> {
      */
     @Nonnull
     public HttpListenerBuilder<T> sslContextFn(@Nonnull SupplierEx<SSLContext> sslContextFn) {
-        this.sslContextFn = sslContextFn;
+        this.sslContextFn = Objects.requireNonNull(sslContextFn);
         return this;
     }
 
@@ -123,7 +124,7 @@ public class HttpListenerBuilder<T> {
     @SuppressWarnings("unchecked")
     public <T_NEW> HttpListenerBuilder<T_NEW> mapToItemFn(@Nonnull FunctionEx<byte[], T_NEW> mapToItemFn) {
         HttpListenerBuilder<T_NEW> newThis = (HttpListenerBuilder<T_NEW>) this;
-        newThis.mapToItemFn = mapToItemFn;
+        newThis.mapToItemFn = Objects.requireNonNull(mapToItemFn);
         return newThis;
     }
 
@@ -147,7 +148,7 @@ public class HttpListenerBuilder<T> {
     @SuppressWarnings("unchecked")
     public <T_NEW> HttpListenerBuilder<T_NEW> type(@Nonnull Class<T_NEW> type) {
         HttpListenerBuilder<T_NEW> newThis = (HttpListenerBuilder<T_NEW>) this;
-        newThis.type = type;
+        newThis.type = Objects.requireNonNull(type);
         return newThis;
     }
 

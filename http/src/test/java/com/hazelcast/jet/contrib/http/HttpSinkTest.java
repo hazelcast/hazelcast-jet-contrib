@@ -18,9 +18,9 @@ package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.contrib.http.domain.User;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
+import com.hazelcast.jet.pipeline.Sink;
 import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
@@ -42,14 +42,13 @@ import org.xnio.Options;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.concurrent.CountDownLatch;
+import java.util.Collection;
+import java.util.concurrent.ArrayBlockingQueue;
 
-import static com.hazelcast.jet.contrib.http.HttpSinks.SinkNoActiveClientPolicy.ACCUMULATE_AND_PUBLISH_WHEN_CONNECTED;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
 public class HttpSinkTest extends HttpTestBase {
@@ -59,236 +58,190 @@ public class HttpSinkTest extends HttpTestBase {
 
     private XnioWorker worker;
     private ByteBufferPool buffer;
+    private JetInstance jet;
 
     @Before
     public void setUp() throws Exception {
         Xnio xnio = Xnio.getInstance(HttpSinkTest.class.getClassLoader());
         worker = xnio.createWorker(OptionMap.builder()
-                .set(Options.WORKER_IO_THREADS, 2)
-                .getMap());
+                                            .set(Options.WORKER_IO_THREADS, 2)
+                                            .getMap());
 
         this.buffer = new DefaultByteBufferPool(true, 256);
+        jet = createJetMember();
     }
 
     @After
-    public void after() throws Exception {
+    public void after() {
         worker.shutdown();
         buffer.close();
     }
 
     @Test
-    public void testWebsocketServer_with_accumulatePolicy() throws Throwable {
-        JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
+    public void testWebsocketServer_with_accumulate() throws Throwable {
+        // Given
+        Sink<Object> sink = HttpSinks.builder()
+                                     .accumulateItems()
+                                     .buildWebsocket();
+        Job job = startJob(sink);
 
-        int sourcePortOffset = 100;
-        int sinkPortOffset = 200;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, sourcePortOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, sourcePortOffset, false);
-
-        Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(sourcePortOffset, User.class))
-                .withoutTimestamps()
-                .writeTo(HttpSinks.websocket("/users", sinkPortOffset, ACCUMULATE_AND_PUBLISH_WHEN_CONNECTED));
-
-        Job job = jet.newJob(p);
-        assertJobStatusEventually(job, JobStatus.RUNNING);
-        sleepAtLeastSeconds(3);
+        // when
+        int messageCount = 10;
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1);
+        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        postUsers(httpClient, messageCount, httpEndpoint);
 
-        String webSocketAddress = HttpSinks.getWebSocketAddress(jet, job);
-        ArrayList<String> receivedMessages = new ArrayList<>();
-        WebSocketChannel wsChannel = WebSocketClient.connectionBuilder(worker, buffer, URI.create(webSocketAddress))
-                .connect().get();
-        wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
-            @Override
-            protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) throws IOException {
-                receivedMessages.add(message.getData());
-            }
-        });
-        wsChannel.resumeReceives();
-        assertTrueEventually(() -> assertSizeEventually(messageCount, receivedMessages));
-        httpClient.close();
+        String webSocketAddress = HttpSinks.webSocketAddress(jet);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
+
+        // cleanup
+        cleanup(job, httpClient, wsChannel);
     }
 
     @Test
-    public void testWebsocketServer_with_dropPolicy() throws Throwable {
-        JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
+    public void testWebsocketServer_without_accumulate() throws Throwable {
+        // Given
+        Sink<Object> sink = HttpSinks.builder()
+                                     .buildWebsocket();
+        Job job = startJob(sink);
 
-        int sourcePortOffset = 100;
-        int sinkPortOffset = 200;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, sourcePortOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, sourcePortOffset, false);
-
-        Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(sourcePortOffset, User.class))
-                .withoutTimestamps()
-                .writeTo(HttpSinks.websocket("/users", sinkPortOffset));
-
-        Job job = jet.newJob(p);
-        assertJobStatusEventually(job, JobStatus.RUNNING);
-        sleepAtLeastSeconds(3);
-
-        // post 10 messages upfront, those should be dropped
-        CloseableHttpClient httpClient = HttpClients.createDefault();
+        // when
         int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1);
 
-        // start websocket client
-        String webSocketAddress = HttpSinks.getWebSocketAddress(jet, job);
-        ArrayList<String> receivedMessages = new ArrayList<>();
-        WebSocketChannel wsChannel = WebSocketClient.connectionBuilder(worker, buffer, URI.create(webSocketAddress))
-                .connect().get();
-        wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
-            @Override
-            protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) throws IOException {
-                receivedMessages.add(message.getData());
-            }
-        });
-        wsChannel.resumeReceives();
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        postUsers(httpClient, messageCount, httpEndpoint);
 
-        // post 10 more messages those should be received by the client
-        postUsers(httpClient, messageCount, httpEndpoint1);
+        String webSocketAddress = HttpSinks.webSocketAddress(jet);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        postUsers(httpClient, messageCount, httpEndpoint);
 
-        assertTrueEventually(() -> assertSizeEventually(messageCount, receivedMessages));
-        httpClient.close();
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+
+        // cleanup
+        cleanup(job, httpClient, wsChannel);
     }
 
-
     @Test
-    public void testSSEServer_with_accumulatePolicy() throws Throwable {
-        JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
+    public void testSSEServer_with_accumulate() throws Throwable {
+        // Given
+        Sink<Object> sink = HttpSinks.builder()
+                                     .accumulateItems()
+                                     .buildServerSent();
+        Job job = startJob(sink);
 
-        int sourcePortOffset = 100;
-        int sinkPortOffset = 200;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, sourcePortOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, sourcePortOffset, false);
-
-        Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(sourcePortOffset, User.class))
-                .withoutTimestamps()
-                .writeTo(HttpSinks.sse("/users", sinkPortOffset, ACCUMULATE_AND_PUBLISH_WHEN_CONNECTED));
-
-        Job job = jet.newJob(p);
-        assertJobStatusEventually(job, JobStatus.RUNNING);
-        sleepAtLeastSeconds(3);
+        // when
+        int messageCount = 10;
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1);
+        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        postUsers(httpClient, messageCount, httpEndpoint);
 
-        // start sse client
-        CountDownLatch latch = new CountDownLatch(10);
-        ArrayList<String> messages = new ArrayList<>();
+        String sseAddress = HttpSinks.sseAddress(jet);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
+
+        // cleanup
+        cleanup(job, httpClient, eventSource);
+    }
+
+    @Test
+    public void testSSEServer_without_accumulate() throws Throwable {
+        // Given
+        Sink<Object> sink = HttpSinks.builder()
+                                     .buildServerSent();
+        Job job = startJob(sink);
+
+        // when
+        int messageCount = 10;
+
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        String sseAddress = HttpSinks.sseAddress(jet);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+
+        // cleanup
+        cleanup(job, httpClient, eventSource);
+    }
+
+    private EventSource receiveFromSse(String sseAddress, Collection<String> queue) {
         EventHandler eventHandler = new EventHandler() {
             @Override
-            public void onOpen() throws Exception {
-
+            public void onOpen() {
             }
 
             @Override
-            public void onClosed() throws Exception {
-
+            public void onClosed() {
             }
 
             @Override
-            public void onMessage(String event, MessageEvent messageEvent) throws Exception {
-                messages.add(messageEvent.getData());
-                latch.countDown();
+            public void onMessage(String event, MessageEvent messageEvent) {
+                queue.add(messageEvent.getData());
             }
 
             @Override
-            public void onComment(String comment) throws Exception {
-
+            public void onComment(String comment) {
             }
 
             @Override
             public void onError(Throwable t) {
-
             }
         };
-        String sseAddress = HttpSinks.getSseAddress(jet, job);
-        EventSource.Builder builder = new EventSource.Builder(eventHandler, URI.create(sseAddress));
-        EventSource eventSource = builder.build();
+        EventSource eventSource = new EventSource.Builder(eventHandler, URI.create(sseAddress)).build();
         eventSource.start();
         assertTrueEventually(() -> assertSame(OPEN, eventSource.getState()));
-
-        latch.await();
-        assertEquals(messageCount, messages.size());
-        eventSource.close();
-        httpClient.close();
+        return eventSource;
     }
 
-    @Test
-    public void testSSEServer_with_dropPolicy() throws Throwable {
-        JetInstance jet = createJetMember();
-        JetInstance jet2 = createJetMember();
+    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) throws IOException {
+        WebSocketChannel wsChannel = WebSocketClient
+                .connectionBuilder(worker, buffer, URI.create(webSocketAddress))
+                .connect().get();
+        wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
+            @Override
+            protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) {
+                queue.add(message.getData());
+            }
+        });
+        wsChannel.resumeReceives();
+        return wsChannel;
+    }
 
-        int sourcePortOffset = 100;
-        int sinkPortOffset = 200;
-        String httpEndpoint1 = getHttpEndpointAddress(jet, sourcePortOffset, false);
-        String httpEndpoint2 = getHttpEndpointAddress(jet2, sourcePortOffset, false);
-
+    private Job startJob(Sink<Object> sink) {
         Pipeline p = Pipeline.create();
-        p.readFrom(HttpListenerSources.httpListener(sourcePortOffset, User.class))
-                .withoutTimestamps()
-                .writeTo(HttpSinks.sse("/users", sinkPortOffset));
+        p.readFrom(HttpListenerSources.httpListener())
+         .withoutTimestamps()
+         .writeTo(sink);
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
         sleepAtLeastSeconds(3);
-
-        // post 10 messages upfront, those should be dropped
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-        int messageCount = 10;
-        postUsers(httpClient, messageCount, httpEndpoint1);
-
-
-        // start sse client
-        CountDownLatch latch = new CountDownLatch(10);
-        ArrayList<String> messages = new ArrayList<>();
-        EventHandler eventHandler = new EventHandler() {
-            @Override
-            public void onOpen() throws Exception {
-            }
-
-            @Override
-            public void onClosed() throws Exception {
-            }
-
-            @Override
-            public void onMessage(String event, MessageEvent messageEvent) throws Exception {
-                messages.add(messageEvent.getData());
-                latch.countDown();
-            }
-
-            @Override
-            public void onComment(String comment) throws Exception {
-            }
-
-            @Override
-            public void onError(Throwable t) {
-
-            }
-        };
-        String sseAddress = HttpSinks.getSseAddress(jet, job);
-        EventSource.Builder builder = new EventSource.Builder(eventHandler, URI.create(sseAddress));
-        EventSource eventSource = builder.build();
-        eventSource.start();
-        assertTrueEventually(() -> assertSame(OPEN, eventSource.getState()));
-
-        // post 10 more messages those should be received by the client
-        postUsers(httpClient, messageCount, httpEndpoint1);
-        latch.await();
-
-        assertEquals(messageCount, messages.size());
-        eventSource.close();
-        httpClient.close();
+        return job;
     }
 
+    private void cleanup(Job job, CloseableHttpClient httpClient, Closeable wsOrSseClient) throws IOException {
+        job.cancel();
+        assertJobStatusEventually(job, JobStatus.FAILED);
+        httpClient.close();
+        wsOrSseClient.close();
+    }
 }

@@ -17,19 +17,50 @@
 package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.contrib.http.domain.User;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.json.JsonUtil;
+import com.hazelcast.nio.ssl.TestKeyStoreUtil;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.KeyStore;
 
 public class HttpTestBase extends JetTestSupport {
+
+    private static final SupplierEx<SSLContext> SSL_CONTEXT_FN = () -> {
+        SSLContext context = SSLContext.getInstance("TLS");
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        KeyStore ks = KeyStore.getInstance("JKS");
+        char[] password = "123456".toCharArray();
+        File tempFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.keyStore);
+        ks.load(new FileInputStream(tempFile), password);
+        kmf.init(ks, password);
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        KeyStore ts = KeyStore.getInstance("JKS");
+        File tsfile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
+        ts.load(new FileInputStream(tsfile), password);
+        tmf.init(ts);
+
+        context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+        return context;
+    };
+
+    public static SupplierEx<SSLContext> sslContextFn() {
+        return SSL_CONTEXT_FN;
+    }
 
     public static String getHttpEndpointAddress(JetInstance jet, int port, boolean ssl) {
         Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
