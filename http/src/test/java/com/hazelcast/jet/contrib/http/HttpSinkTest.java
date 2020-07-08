@@ -89,7 +89,7 @@ public class HttpSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
         String webSocketAddress = HttpSinks.webSocketAddress(jet);
@@ -115,7 +115,7 @@ public class HttpSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
         String webSocketAddress = HttpSinks.webSocketAddress(jet);
@@ -142,7 +142,7 @@ public class HttpSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
         String sseAddress = HttpSinks.sseAddress(jet);
@@ -168,7 +168,7 @@ public class HttpSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        String httpEndpoint = getHttpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
         String sseAddress = HttpSinks.sseAddress(jet);
@@ -212,10 +212,8 @@ public class HttpSinkTest extends HttpTestBase {
         return eventSource;
     }
 
-    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) throws IOException {
-        WebSocketChannel wsChannel = WebSocketClient
-                .connectionBuilder(worker, buffer, URI.create(webSocketAddress))
-                .connect().get();
+    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) {
+        WebSocketChannel wsChannel = connectWithRetry(webSocketAddress);
         wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
             @Override
             protected void onFullTextMessage(WebSocketChannel channel, BufferedTextMessage message) {
@@ -226,6 +224,20 @@ public class HttpSinkTest extends HttpTestBase {
         return wsChannel;
     }
 
+    private WebSocketChannel connectWithRetry(String webSocketAddress) {
+        for (int i = 0; i < 30; i++) {
+            try {
+                return WebSocketClient
+                        .connectionBuilder(worker, buffer, URI.create(webSocketAddress))
+                        .connect().get();
+            } catch (Exception e) {
+                logger.warning(e.getMessage());
+                sleepAtLeastMillis(100);
+            }
+        }
+        throw new AssertionError("Failed to connect to " + webSocketAddress);
+    }
+
     private Job startJob(Sink<Object> sink) {
         Pipeline p = Pipeline.create();
         p.readFrom(HttpListenerSources.httpListener())
@@ -234,7 +246,6 @@ public class HttpSinkTest extends HttpTestBase {
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
-        sleepAtLeastSeconds(3);
         return job;
     }
 

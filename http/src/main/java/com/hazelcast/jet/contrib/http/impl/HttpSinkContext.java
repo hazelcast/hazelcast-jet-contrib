@@ -60,7 +60,7 @@ public class HttpSinkContext<T> {
 
         Undertow.Builder builder = Undertow.builder();
         if (sslContextFn == null) {
-            //builder.addHttpListener(port, host(context));
+            builder.addHttpListener(port, host(context));
         } else {
             builder.addHttpsListener(port, host(context), sslContextFn.get());
         }

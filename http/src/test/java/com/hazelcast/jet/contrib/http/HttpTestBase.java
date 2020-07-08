@@ -62,20 +62,13 @@ public class HttpTestBase extends JetTestSupport {
         return SSL_CONTEXT_FN;
     }
 
-    public static String getHttpEndpointAddress(JetInstance jet, int port, boolean ssl) {
+    public String httpEndpointAddress(JetInstance jet, int port, boolean ssl) {
         Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
         String hostPort = localAddress.getHost() + ":" + port;
         return ssl ? "https://" + hostPort : "http://" + hostPort;
     }
 
-    public static String getWsEndpointAddress(JetInstance jet, int portOffset) {
-        Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
-        int port = localAddress.getPort() + portOffset;
-        String hostPort = localAddress.getHost() + ":" + port;
-        return "ws://" + hostPort;
-    }
-
-    public static void postUsers(CloseableHttpClient httpClient, int count, String uri) throws IOException {
+    public void postUsers(CloseableHttpClient httpClient, int count, String uri) throws IOException {
         for (int i = 0; i < count; i++) {
             User user = new User(i, "name" + i);
             String jsonString = JsonUtil.toJson(user);
@@ -84,8 +77,20 @@ public class HttpTestBase extends JetTestSupport {
                     ContentType.APPLICATION_JSON);
             HttpPost post = new HttpPost(uri);
             post.setEntity(requestEntity);
-            CloseableHttpResponse response = httpClient.execute(post);
+            CloseableHttpResponse response = executeWithRetry(httpClient, post);
             response.getEntity().getContent().close();
         }
+    }
+
+    private CloseableHttpResponse executeWithRetry(CloseableHttpClient httpClient, HttpPost post) {
+        for (int i = 0; i < 30; i++) {
+            try {
+                return httpClient.execute(post);
+            } catch (Exception e) {
+                logger.warning(e.getMessage());
+                sleepAtLeastMillis(100);
+            }
+        }
+        throw new AssertionError("Failed to execute the post");
     }
 }
