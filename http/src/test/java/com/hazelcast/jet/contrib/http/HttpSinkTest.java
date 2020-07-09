@@ -25,11 +25,14 @@ import com.launchdarkly.eventsource.EventHandler;
 import com.launchdarkly.eventsource.EventSource;
 import com.launchdarkly.eventsource.MessageEvent;
 import io.undertow.connector.ByteBufferPool;
+import io.undertow.protocols.ssl.UndertowXnioSsl;
 import io.undertow.server.DefaultByteBufferPool;
 import io.undertow.websockets.client.WebSocketClient;
 import io.undertow.websockets.core.AbstractReceiveListener;
 import io.undertow.websockets.core.BufferedTextMessage;
 import io.undertow.websockets.core.WebSocketChannel;
+import okhttp3.OkHttpClient;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.junit.After;
@@ -48,6 +51,8 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import static com.hazelcast.jet.contrib.http.HttpSinkBuilder.DEFAULT_PATH;
+import static com.hazelcast.jet.contrib.http.HttpSinkBuilder.DEFAULT_PORT;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
 import static org.junit.Assert.assertSame;
 
@@ -58,7 +63,6 @@ public class HttpSinkTest extends HttpTestBase {
 
     private XnioWorker worker;
     private ByteBufferPool buffer;
-    private JetInstance jet;
 
     @Before
     public void setUp() throws Exception {
@@ -68,7 +72,6 @@ public class HttpSinkTest extends HttpTestBase {
                                             .getMap());
 
         this.buffer = new DefaultByteBufferPool(true, 256);
-        jet = createJetMember();
     }
 
     @After
@@ -88,7 +91,6 @@ public class HttpSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
 
-        CloseableHttpClient httpClient = HttpClients.createDefault();
         String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
@@ -101,7 +103,7 @@ public class HttpSinkTest extends HttpTestBase {
         assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
 
         // cleanup
-        cleanup(job, httpClient, wsChannel);
+        cleanup(job, wsChannel);
     }
 
     @Test
@@ -114,7 +116,6 @@ public class HttpSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
 
-        CloseableHttpClient httpClient = HttpClients.createDefault();
         String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
@@ -127,7 +128,33 @@ public class HttpSinkTest extends HttpTestBase {
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
 
         // cleanup
-        cleanup(job, httpClient, wsChannel);
+        cleanup(job, wsChannel);
+    }
+
+    @Test
+    public void testWebsocketServer_with_ssl() throws Throwable {
+        // Given
+        Sink<Object> sink = HttpSinks.builder()
+                                     .sslContextFn(sslContextFn())
+                                     .buildWebsocket();
+        Job job = startJob(sink);
+
+        // when
+        int messageCount = 10;
+
+        String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        String webSocketAddress = HttpSinks.webSocketAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+
+        // cleanup
+        cleanup(job, wsChannel);
     }
 
     @Test
@@ -141,7 +168,6 @@ public class HttpSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
 
-        CloseableHttpClient httpClient = HttpClients.createDefault();
         String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
@@ -154,7 +180,7 @@ public class HttpSinkTest extends HttpTestBase {
         assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
 
         // cleanup
-        cleanup(job, httpClient, eventSource);
+        cleanup(job, eventSource);
     }
 
     @Test
@@ -167,7 +193,6 @@ public class HttpSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
 
-        CloseableHttpClient httpClient = HttpClients.createDefault();
         String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
         postUsers(httpClient, messageCount, httpEndpoint);
 
@@ -180,7 +205,33 @@ public class HttpSinkTest extends HttpTestBase {
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
 
         // cleanup
-        cleanup(job, httpClient, eventSource);
+        cleanup(job, eventSource);
+    }
+
+    @Test
+    public void testSSEServer_with_ssl() throws Throwable {
+        // Given
+        Sink<Object> sink = HttpSinks.builder()
+                                     .sslContextFn(sslContextFn())
+                                     .buildServerSent();
+        Job job = startJob(sink);
+
+        // when
+        int messageCount = 10;
+
+        String httpEndpoint = httpEndpointAddress(jet, HttpListenerBuilder.DEFAULT_PORT, false);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        String sseAddress = HttpSinks.sseAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        postUsers(httpClient, messageCount, httpEndpoint);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+
+        // cleanup
+        cleanup(job, eventSource);
     }
 
     private EventSource receiveFromSse(String sseAddress, Collection<String> queue) {
@@ -206,13 +257,20 @@ public class HttpSinkTest extends HttpTestBase {
             public void onError(Throwable t) {
             }
         };
-        EventSource eventSource = new EventSource.Builder(eventHandler, URI.create(sseAddress)).build();
+        OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
+        if (sseAddress.startsWith("https")) {
+            clientBuilder.sslSocketFactory(sslContextFn().get().getSocketFactory());
+            clientBuilder.hostnameVerifier(new NoopHostnameVerifier());
+        }
+        EventSource.Builder builder = new EventSource.Builder(eventHandler, URI.create(sseAddress));
+        builder.client(clientBuilder.build());
+        EventSource eventSource = builder.build();
         eventSource.start();
         assertTrueEventually(() -> assertSame(OPEN, eventSource.getState()));
         return eventSource;
     }
 
-    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) {
+    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) throws Exception {
         WebSocketChannel wsChannel = connectWithRetry(webSocketAddress);
         wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
             @Override
@@ -224,12 +282,16 @@ public class HttpSinkTest extends HttpTestBase {
         return wsChannel;
     }
 
-    private WebSocketChannel connectWithRetry(String webSocketAddress) {
+    private WebSocketChannel connectWithRetry(String webSocketAddress) throws Exception {
+        Xnio xnio = Xnio.getInstance(HttpSinkTest.class.getClassLoader());
         for (int i = 0; i < 30; i++) {
             try {
-                return WebSocketClient
-                        .connectionBuilder(worker, buffer, URI.create(webSocketAddress))
-                        .connect().get();
+                WebSocketClient.ConnectionBuilder builder = WebSocketClient
+                        .connectionBuilder(worker, buffer, URI.create(webSocketAddress));
+                if (webSocketAddress.startsWith("wss")) {
+                    builder.setSsl(new UndertowXnioSsl(xnio, OptionMap.EMPTY, sslContextFn().get()));
+                }
+                return builder.connect().get();
             } catch (Exception e) {
                 logger.warning(e.getMessage());
                 sleepAtLeastMillis(100);
@@ -249,10 +311,9 @@ public class HttpSinkTest extends HttpTestBase {
         return job;
     }
 
-    private void cleanup(Job job, CloseableHttpClient httpClient, Closeable wsOrSseClient) throws IOException {
+    private void cleanup(Job job, Closeable wsOrSseClient) throws IOException {
         job.cancel();
         assertJobStatusEventually(job, JobStatus.FAILED);
-        httpClient.close();
         wsOrSseClient.close();
     }
 }

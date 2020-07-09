@@ -78,19 +78,19 @@ public final class HttpSinks {
     }
 
     public static String webSocketAddress(JetInstance jet) {
-        return webSocketAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH);
+        return webSocketAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH, false);
     }
 
-    public static String webSocketAddress(JetInstance jet, int port, String path) {
-        return sinkAddress(jet, port, path, "ws");
+    public static String webSocketAddress(JetInstance jet, int port, String path, boolean ssl) {
+        return sinkAddress(jet, port, path, ssl ? "wss" : "ws");
     }
 
     public static String sseAddress(JetInstance jet) {
-        return sseAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH);
+        return sseAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH, false);
     }
 
-    public static String sseAddress(JetInstance jet, int port, String path) {
-        return sinkAddress(jet, port, path, "http");
+    public static String sseAddress(JetInstance jet, int port, String path, boolean ssl) {
+        return sinkAddress(jet, port, path, ssl ? "https" : "http");
     }
 
     private static String sinkAddress(JetInstance jet, int port, String path, String prefix) {

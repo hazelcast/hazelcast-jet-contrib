@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.http;
 
-import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.contrib.http.domain.User;
 import com.hazelcast.jet.core.JobStatus;
@@ -24,17 +23,7 @@ import com.hazelcast.jet.json.JsonUtil;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
-import org.apache.http.impl.client.HttpClients;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
-
-import java.io.IOException;
 
 import static com.hazelcast.jet.core.TestUtil.executeAndPeel;
 import static com.hazelcast.jet.pipeline.test.AssertionSinks.assertCollectedEventually;
@@ -45,31 +34,6 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     private static final int ITEM_COUNT = 100;
     private static final int FILTER_OUT_BELOW = 80;
-
-    @Rule
-    public ExpectedException expectedException = ExpectedException.none();
-
-    private JetInstance jet;
-    private CloseableHttpClient httpClient;
-    private CloseableHttpClient httpsClient;
-
-    @Before
-    public void setup() {
-        jet = createJetMember();
-        httpClient = HttpClients.createDefault();
-        httpsClient = HttpClients
-                .custom()
-                .setSSLContext(sslContextFn().get())
-                .setSSLHostnameVerifier(new NoopHostnameVerifier())
-                .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
-                .build();
-    }
-
-    @After
-    public void cleanup() throws IOException {
-        httpClient.close();
-        httpsClient.close();
-    }
 
     @Test
     public void testHttpIngestion_with_objectMapping() throws Throwable {
@@ -83,7 +47,6 @@ public class HttpListenerSourceTest extends HttpTestBase {
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
     }
-
 
     @Test
     public void testHttpIngestion_with_rawJsonString() throws Throwable {
@@ -173,8 +136,6 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
-//        sleepAtLeastSeconds(3);
-
         return job;
     }
 

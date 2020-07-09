@@ -25,9 +25,16 @@ import com.hazelcast.jet.json.JsonUtil;
 import com.hazelcast.nio.ssl.TestKeyStoreUtil;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
+import org.apache.http.impl.client.HttpClients;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -58,9 +65,35 @@ public class HttpTestBase extends JetTestSupport {
         return context;
     };
 
+    @Rule
+    public ExpectedException expectedException = ExpectedException.none();
+
+    JetInstance jet;
+    CloseableHttpClient httpClient;
+    CloseableHttpClient httpsClient;
+
     public static SupplierEx<SSLContext> sslContextFn() {
         return SSL_CONTEXT_FN;
     }
+
+    @Before
+    public void setup() {
+        jet = createJetMember();
+        httpClient = HttpClients.createDefault();
+        httpsClient = HttpClients
+                .custom()
+                .setSSLContext(sslContextFn().get())
+                .setSSLHostnameVerifier(new NoopHostnameVerifier())
+                .setRetryHandler(new DefaultHttpRequestRetryHandler(10, true))
+                .build();
+    }
+
+    @After
+    public void cleanup() throws IOException {
+        httpClient.close();
+        httpsClient.close();
+    }
+
 
     public String httpEndpointAddress(JetInstance jet, int port, boolean ssl) {
         Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
