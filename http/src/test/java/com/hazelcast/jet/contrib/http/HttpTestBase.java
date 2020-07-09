@@ -38,13 +38,25 @@ import org.junit.rules.ExpectedException;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.security.KeyStore;
 
 public class HttpTestBase extends JetTestSupport {
+
+    private static final SupplierEx<TrustManagerFactory> TRUST_MANAGER_FACTORY_FN = () -> {
+        char[] password = "123456".toCharArray();
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        KeyStore ts = KeyStore.getInstance("JKS");
+        File tsfile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
+        ts.load(new FileInputStream(tsfile), password);
+        tmf.init(ts);
+        return tmf;
+    };
 
     private static final SupplierEx<SSLContext> SSL_CONTEXT_FN = () -> {
         SSLContext context = SSLContext.getInstance("TLS");
@@ -54,14 +66,10 @@ public class HttpTestBase extends JetTestSupport {
         File tempFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.keyStore);
         ks.load(new FileInputStream(tempFile), password);
         kmf.init(ks, password);
+        TrustManagerFactory trustManagerFactory = TRUST_MANAGER_FACTORY_FN.get();
 
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        KeyStore ts = KeyStore.getInstance("JKS");
-        File tsfile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
-        ts.load(new FileInputStream(tsfile), password);
-        tmf.init(ts);
-
-        context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+        TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
+        context.init(kmf.getKeyManagers(), trustManagers, null);
         return context;
     };
 
@@ -74,6 +82,16 @@ public class HttpTestBase extends JetTestSupport {
 
     public static SupplierEx<SSLContext> sslContextFn() {
         return SSL_CONTEXT_FN;
+    }
+
+    public static X509TrustManager x509TrustManager() {
+        TrustManager[] trustManagers = TRUST_MANAGER_FACTORY_FN.get().getTrustManagers();
+        for (TrustManager trustManager : trustManagers) {
+            if (trustManager instanceof X509TrustManager) {
+                return (X509TrustManager) trustManager;
+            }
+        }
+        throw new IllegalStateException("No X509TrustManager found");
     }
 
     @Before

@@ -77,9 +77,9 @@ public class HttpSinkContext<T> {
     public void receive(Object item) {
         if (sinkHttpHandler.hasConnectedClients()) {
             drainBuffer();
-            sinkHttpHandler.send(toStringFn.apply((T)item));
+            sinkHttpHandler.send(toStringFn.apply((T) item));
         } else {
-            putToBuffer((T)item);
+            putToBuffer((T) item);
         }
     }
 
@@ -126,7 +126,7 @@ public class HttpSinkContext<T> {
         private final WebSocketProtocolHandshakeHandler handler;
         private final Set<WebSocketChannel> peerConnections;
 
-        public WebSocketSinkHttpHandler() {
+        WebSocketSinkHttpHandler() {
             handler = Handlers.websocket((exchange, channel) -> {
             });
             peerConnections = handler.getPeerConnections();
@@ -153,7 +153,7 @@ public class HttpSinkContext<T> {
         private final ServerSentEventHandler handler;
         private final Set<ServerSentEventConnection> connections;
 
-        public ServerSentSinkHttpHandler() {
+        ServerSentSinkHttpHandler() {
             handler = Handlers.serverSentEvents();
             connections = handler.getConnections();
         }

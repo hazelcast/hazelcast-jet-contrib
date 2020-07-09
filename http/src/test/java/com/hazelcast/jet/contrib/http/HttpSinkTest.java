@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.http;
 
-import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -33,8 +32,6 @@ import io.undertow.websockets.core.BufferedTextMessage;
 import io.undertow.websockets.core.WebSocketChannel;
 import okhttp3.OkHttpClient;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -259,7 +256,7 @@ public class HttpSinkTest extends HttpTestBase {
         };
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder();
         if (sseAddress.startsWith("https")) {
-            clientBuilder.sslSocketFactory(sslContextFn().get().getSocketFactory());
+            clientBuilder.sslSocketFactory(sslContextFn().get().getSocketFactory(), x509TrustManager());
             clientBuilder.hostnameVerifier(new NoopHostnameVerifier());
         }
         EventSource.Builder builder = new EventSource.Builder(eventHandler, URI.create(sseAddress));

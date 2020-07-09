@@ -35,16 +35,26 @@ public final class HttpSinks {
     private HttpSinks() {
     }
 
+    /**
+     * TODO
+     *
+     * @param <T>
+     */
     public static <T> HttpSinkBuilder<T> builder() {
         return new HttpSinkBuilder<>();
     }
 
+    /**
+     * TODO
+     *
+     * @param <T>
+     */
     public static <T> Sink<T> websocket() {
         return HttpSinks.<T>builder().buildWebsocket();
     }
 
     /**
-     * Creates a websocket server sink with
+     * Creates a websocket server sink with TODO
      *
      * @param path the path which websocket server accepts connections
      * @param port the offset for websocket server port to bind from the member
@@ -58,12 +68,17 @@ public final class HttpSinks {
         return HttpSinks.<T>builder().path(path).port(port).buildWebsocket();
     }
 
+    /**
+     * TODO
+     *
+     * @param <T>
+     */
     public static <T> Sink<T> sse() {
         return HttpSinks.<T>builder().buildServerSent();
     }
 
     /**
-     * Creates a HTTP server sink with Server-Sent Events
+     * Creates a HTTP server sink with Server-Sent Events TODO
      *
      * @param path the path which server accepts connections
      * @param port the offset for server port to bind from the member
@@ -77,18 +92,44 @@ public final class HttpSinks {
         return HttpSinks.<T>builder().path(path).port(port).buildServerSent();
     }
 
+    /**
+     * TODO
+     *
+     * @param jet
+     */
     public static String webSocketAddress(JetInstance jet) {
         return webSocketAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH, false);
     }
 
+    /**
+     * TODO
+     *
+     * @param jet
+     * @param port
+     * @param path
+     * @param ssl
+     */
     public static String webSocketAddress(JetInstance jet, int port, String path, boolean ssl) {
         return sinkAddress(jet, port, path, ssl ? "wss" : "ws");
     }
 
+    /**
+     * TODO
+     *
+     * @param jet
+     */
     public static String sseAddress(JetInstance jet) {
         return sseAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH, false);
     }
 
+    /**
+     * TODO
+     *
+     * @param jet
+     * @param port
+     * @param path
+     * @param ssl
+     */
     public static String sseAddress(JetInstance jet, int port, String path, boolean ssl) {
         return sinkAddress(jet, port, path, ssl ? "https" : "http");
     }

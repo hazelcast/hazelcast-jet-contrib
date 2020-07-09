@@ -35,6 +35,8 @@ import static com.hazelcast.jet.core.ProcessorMetaSupplier.forceTotalParallelism
 import static com.hazelcast.jet.impl.pipeline.SinkImpl.Type.TOTAL_PARALLELISM_ONE;
 
 /**
+ * TODO
+ *
  * @param <T> the type
  */
 public class HttpSinkBuilder<T> {
@@ -115,29 +117,48 @@ public class HttpSinkBuilder<T> {
         return this;
     }
 
+    /**
+     * TODO
+     *
+     * @param path
+     */
     @Nonnull
     public HttpSinkBuilder<T> path(@Nonnull String path) {
         this.path = Objects.requireNonNull(path);
         return this;
     }
 
+    /**
+     * TODO
+     */
     @Nonnull
     public HttpSinkBuilder<T> accumulateItems() {
         this.accumulateItems = true;
         return this;
     }
 
+    /**
+     * TODO
+     *
+     * @param toStringFn
+     */
     @Nonnull
     public HttpSinkBuilder<T> toStringFn(@Nonnull FunctionEx<T, String> toStringFn) {
         this.toStringFn = Objects.requireNonNull(toStringFn);
         return this;
     }
 
+    /**
+     * TODO
+     */
     @Nonnull
     public Sink<T> buildWebsocket() {
         return build(path, port, accumulateItems, true, sslContextFn, toStringFn);
     }
 
+    /**
+     * TODO
+     */
     @Nonnull
     public Sink<T> buildServerSent() {
         return build(path, port, accumulateItems, false, sslContextFn, toStringFn);
