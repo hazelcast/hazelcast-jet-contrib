@@ -40,7 +40,7 @@ public final class HttpListenerSources {
     }
 
     /**
-     * Returns a builder object which offers a step-by-step fluent API to build
+     * Return a builder object which offers a step-by-step fluent API to build
      * a custom HTTP(s) listener {@link StreamSource source} for the Pipeline
      * API.
      * <p>
@@ -60,7 +60,7 @@ public final class HttpListenerSources {
     }
 
     /**
-     * Creates a source that listens for HTTP requests from
+     * Create a source that listens for HTTP requests from
      * {@link HttpListenerBuilder#DEFAULT_PORT} {@code 5801} and converts the
      * payload to {@code String}.
      * <p>
@@ -72,7 +72,7 @@ public final class HttpListenerSources {
     }
 
     /**
-     * Creates a source that listens for HTTP requests from given port
+     * Create a source that listens for HTTP requests from given port
      * and maps the payload to specified type. Source expects a JSON formatted
      * payload.
      * <p>
@@ -92,7 +92,7 @@ public final class HttpListenerSources {
     }
 
     /**
-     * Creates a source that listens for HTTP requests from given port
+     * Create a source that listens for HTTP requests from given port
      * and maps the payload to pipeline item using specified {@code mapToItemFn}.
      * <p>
      * See {@link #builder()}
@@ -110,7 +110,7 @@ public final class HttpListenerSources {
     }
 
     /**
-     * Creates a source that listens for HTTPs requests from given port
+     * Create a source that listens for HTTPs requests from given port
      * and maps the payload to pipeline item using specified {@code mapToItemFn}.
      * <p>
      * See {@link #builder()}

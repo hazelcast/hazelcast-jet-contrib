@@ -20,7 +20,6 @@ import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.http.impl.HttpSinkContext;
 import com.hazelcast.jet.core.Processor;
-import com.hazelcast.jet.core.ProcessorMetaSupplier;
 import com.hazelcast.jet.core.ProcessorSupplier;
 import com.hazelcast.jet.core.processor.SinkProcessors;
 import com.hazelcast.jet.impl.pipeline.SinkImpl;
@@ -35,9 +34,9 @@ import static com.hazelcast.jet.core.ProcessorMetaSupplier.forceTotalParallelism
 import static com.hazelcast.jet.impl.pipeline.SinkImpl.Type.TOTAL_PARALLELISM_ONE;
 
 /**
- * TODO
+ * See {@link HttpSinks#builder()}.
  *
- * @param <T> the type
+ * @param <T> the type of the pipeline item.
  */
 public class HttpSinkBuilder<T> {
 
@@ -118,9 +117,16 @@ public class HttpSinkBuilder<T> {
     }
 
     /**
-     * TODO
+     * Set the path which server accepts connections.
+     * <p>
+     * For example:
+     * <pre>{@code
+     * builder.path("user")
+     * }</pre>
+     * <p>
+     * Default value is {@code /}.
      *
-     * @param path
+     * @param path the path which server accepts connections
      */
     @Nonnull
     public HttpSinkBuilder<T> path(@Nonnull String path) {
@@ -129,7 +135,13 @@ public class HttpSinkBuilder<T> {
     }
 
     /**
-     * TODO
+     * Set that sink should accumulate items if there is no connected
+     * client and send them when a client connects. The items will be
+     * accumulated in an unbounded fashion thus may create memory
+     * issues.
+     * <p>
+     * Default value is {@code false}, sink drops the items if no there
+     * is no connected client.
      */
     @Nonnull
     public HttpSinkBuilder<T> accumulateItems() {
@@ -138,9 +150,9 @@ public class HttpSinkBuilder<T> {
     }
 
     /**
-     * TODO
+     * Set the function which converts each item to a string.
      *
-     * @param toStringFn
+     * @param toStringFn the function which converts each item to a string.
      */
     @Nonnull
     public HttpSinkBuilder<T> toStringFn(@Nonnull FunctionEx<T, String> toStringFn) {
@@ -149,7 +161,7 @@ public class HttpSinkBuilder<T> {
     }
 
     /**
-     * TODO
+     * Build a Websocket {@link Sink} with supplied parameters.
      */
     @Nonnull
     public Sink<T> buildWebsocket() {
@@ -157,7 +169,7 @@ public class HttpSinkBuilder<T> {
     }
 
     /**
-     * TODO
+     * Build a Server Sent Events {@link Sink} with supplied parameters.
      */
     @Nonnull
     public Sink<T> buildServerSent() {
@@ -178,9 +190,8 @@ public class HttpSinkBuilder<T> {
                 HttpSinkContext::flush,
                 HttpSinkContext::close
         );
-        String name = websocket ? websocketName() : serverSentName();
-        ProcessorMetaSupplier metaSupplier = forceTotalParallelismOne(ProcessorSupplier.of(supplier), name);
-        return new SinkImpl<>(name, metaSupplier, TOTAL_PARALLELISM_ONE);
+        return new SinkImpl<>(websocket ? websocketName() : serverSentName(),
+                forceTotalParallelismOne(ProcessorSupplier.of(supplier), String.valueOf(port)), TOTAL_PARALLELISM_ONE);
     }
 
     private String websocketName() {

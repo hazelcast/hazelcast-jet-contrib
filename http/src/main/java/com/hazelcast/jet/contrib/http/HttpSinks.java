@@ -20,15 +20,18 @@ import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.partition.Partition;
 import com.hazelcast.partition.PartitionService;
+import io.undertow.Undertow;
 
 import javax.annotation.Nonnull;
 
 /**
- * Contains factory methods for creating WebSocket and Server-Sent Events server sinks.
- * Clients can connect to the sinks and stream the results of the pipeline.
+ * Contains factory methods for creating WebSocket and Server-Sent
+ * Events sinks. Clients can connect to the sinks and stream the
+ * results of the pipeline.
  * <p>
- * Server addresses can be retrieved from {@link #webSocketAddress(JetInstance)} and
- * {@link #sseAddress(JetInstance)} (JetInstance, Job)} respectively.
+ * Server addresses can be retrieved from
+ * {@link #webSocketAddress(JetInstance, int, String, boolean)} and
+ * {@link #sseAddress(JetInstance, int, String, boolean)}} respectively.
  */
 public final class HttpSinks {
 
@@ -36,102 +39,122 @@ public final class HttpSinks {
     }
 
     /**
-     * TODO
-     *
-     * @param <T>
+     * Return a builder object which offers a step-by-step fluent API to build
+     * a custom HTTP(s) {@link Sink sink} for the Pipeline API.
+     * <p>
+     * The sink is not distributed, it creates an {@link Undertow} server at
+     * one of the members and send items to the connected clients at specified
+     * port. If user provides an ssl context, clients should connect with a
+     * secure connection.
      */
+    @Nonnull
     public static <T> HttpSinkBuilder<T> builder() {
         return new HttpSinkBuilder<>();
     }
 
     /**
-     * TODO
-     *
-     * @param <T>
+     * Create a Websocket sink which sends items to the connected clients at
+     * {@link HttpSinkBuilder#DEFAULT_PORT} and {@link HttpSinkBuilder#DEFAULT_PATH}
+     * by converting each item to string using {@link Object#toString()}. Sink
+     * does not use secure connections and does not accumulate items if there
+     * is no connected client.
+     * <p>
+     * See {@link #builder()}
      */
+    @Nonnull
     public static <T> Sink<T> websocket() {
         return HttpSinks.<T>builder().buildWebsocket();
     }
 
     /**
-     * Creates a websocket server sink with TODO
+     * Create a Websocket sink which sends items to the connected clients at
+     * specified {@code port} and {@code path} by converting each item to
+     * string using {@link Object#toString()}. Sink does not use secure
+     * connections and does not accumulate items if there is no connected
+     * client.
+     * <p>
+     * See {@link #builder()}
      *
      * @param path the path which websocket server accepts connections
-     * @param port the offset for websocket server port to bind from the member
-     *             port. For example; if Hazelcast Jet member runs on the port
-     *             5701 and {@code portOffset} is set to 100, the websocket server
-     *             will listen for connections on port 5801 on the same host
-     *             address with the member.
-     * @param <T>  type of items in the stream
+     * @param port the port which websocket server to bind.
      */
+    @Nonnull
     public static <T> Sink<T> websocket(@Nonnull String path, int port) {
         return HttpSinks.<T>builder().path(path).port(port).buildWebsocket();
     }
 
     /**
-     * TODO
-     *
-     * @param <T>
+     * Create a Server-sent Event sink which sends items to the connected
+     * clients at {@link HttpSinkBuilder#DEFAULT_PORT} and
+     * {@link HttpSinkBuilder#DEFAULT_PATH} by converting each item to string
+     * using {@link Object#toString()}. Sink does not use secure connections
+     * and does not accumulate items if there is no connected client.
+     * <p>
+     * See {@link #builder()}
      */
+    @Nonnull
     public static <T> Sink<T> sse() {
         return HttpSinks.<T>builder().buildServerSent();
     }
 
     /**
-     * Creates a HTTP server sink with Server-Sent Events TODO
+     * Create a Server-sent Event sink which sends items to the connected
+     * clients at specified {@code port} and {@code path} by converting each
+     * item to string using {@link Object#toString()}. Sink does not use secure
+     * connections and does not accumulate items if there is no connected
+     * client.
+     * <p>
+     * See {@link #builder()}
      *
-     * @param path the path which server accepts connections
-     * @param port the offset for server port to bind from the member
-     *             port. For example; if Hazelcast Jet member runs on the port
-     *             5701 and {@code portOffset} is set to 100, the server
-     *             will listen for connections on port 5801 on the same host
-     *             address with the member.
-     * @param <T>  type of items in the stream
+     * @param path the path which Server-sent Event server accepts connections
+     * @param port the port which Server-sent Event server to bind.
      */
+    @Nonnull
     public static <T> Sink<T> sse(@Nonnull String path, int port) {
         return HttpSinks.<T>builder().path(path).port(port).buildServerSent();
     }
 
     /**
-     * TODO
-     *
-     * @param jet
+     * Convenience for {@link #webSocketAddress(JetInstance, int, String, boolean)}.
+     * Uses {@link HttpSinkBuilder#DEFAULT_PORT},
+     * {@link HttpSinkBuilder#DEFAULT_PATH} and non secure connection.
      */
     public static String webSocketAddress(JetInstance jet) {
         return webSocketAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH, false);
     }
 
     /**
-     * TODO
+     * Return the websocket connection string for the given parameters.
      *
-     * @param jet
-     * @param port
-     * @param path
-     * @param ssl
+     * @param jet    the Jet instance
+     * @param port   the port specified for the sink
+     * @param path   the path specified for the sink
+     * @param secure true if an ssl context specified for the sink.
      */
-    public static String webSocketAddress(JetInstance jet, int port, String path, boolean ssl) {
-        return sinkAddress(jet, port, path, ssl ? "wss" : "ws");
+    public static String webSocketAddress(JetInstance jet, int port, String path, boolean secure) {
+        return sinkAddress(jet, port, path, secure ? "wss" : "ws");
     }
 
     /**
-     * TODO
-     *
-     * @param jet
+     * Convenience for {@link #sseAddress(JetInstance, int, String, boolean)}.
+     * Uses {@link HttpSinkBuilder#DEFAULT_PORT},
+     * {@link HttpSinkBuilder#DEFAULT_PATH} and non secure connection.
      */
     public static String sseAddress(JetInstance jet) {
         return sseAddress(jet, HttpSinkBuilder.DEFAULT_PORT, HttpSinkBuilder.DEFAULT_PATH, false);
     }
 
     /**
-     * TODO
+     * Return the server-sent event server connection string for the given
+     * parameters.
      *
-     * @param jet
-     * @param port
-     * @param path
-     * @param ssl
+     * @param jet    the Jet instance
+     * @param port   the port specified for the sink
+     * @param path   the path specified for the sink
+     * @param secure true if an ssl context specified for the sink.
      */
-    public static String sseAddress(JetInstance jet, int port, String path, boolean ssl) {
-        return sinkAddress(jet, port, path, ssl ? "https" : "http");
+    public static String sseAddress(JetInstance jet, int port, String path, boolean secure) {
+        return sinkAddress(jet, port, path, secure ? "https" : "http");
     }
 
     private static String sinkAddress(JetInstance jet, int port, String path, String prefix) {
