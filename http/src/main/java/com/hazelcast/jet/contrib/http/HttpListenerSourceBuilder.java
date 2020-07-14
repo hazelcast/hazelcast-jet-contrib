@@ -184,7 +184,8 @@ public class HttpListenerSourceBuilder<T> {
             return mapToItemFn;
         }
         if (type != null) {
-            return data -> JsonUtil.beanFrom(new String(data), type);
+            Class<T> theType = type;
+            return data -> JsonUtil.beanFrom(new String(data), theType);
         }
         return data -> (T) new String(data, StandardCharsets.UTF_8);
     }
