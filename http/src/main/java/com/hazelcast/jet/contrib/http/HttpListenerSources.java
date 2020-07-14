@@ -51,17 +51,17 @@ public final class HttpListenerSources {
      * If you start more than one Jet instances on the same host machine, the
      * source will fail to bind to the same port thus the job will fail.
      * <p>
-     * Source emits items of type {@link String} if {@link HttpListenerBuilder#type(Class)}
-     * or {@link HttpListenerBuilder#mapToItemFn(FunctionEx)} is not set.
+     * Source emits items of type {@link String} if {@link HttpListenerSourceBuilder#type(Class)}
+     * or {@link HttpListenerSourceBuilder#mapToItemFn(FunctionEx)} is not set.
      */
     @Nonnull
-    public static HttpListenerBuilder<String> builder() {
-        return new HttpListenerBuilder<>();
+    public static HttpListenerSourceBuilder<String> builder() {
+        return new HttpListenerSourceBuilder<>();
     }
 
     /**
      * Create a source that listens for HTTP requests from
-     * {@link HttpListenerBuilder#DEFAULT_PORT} {@code 5801} and converts the
+     * {@link HttpListenerSourceBuilder#DEFAULT_PORT} {@code 5801} and converts the
      * payload to {@code String}.
      * <p>
      * See {@link #builder()}

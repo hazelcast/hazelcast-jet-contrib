@@ -54,12 +54,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import static com.hazelcast.jet.contrib.http.HttpSinkBuilder.DEFAULT_PATH;
-import static com.hazelcast.jet.contrib.http.HttpSinkBuilder.DEFAULT_PORT;
+import static com.hazelcast.jet.contrib.http.HttpListenerSinkBuilder.DEFAULT_PATH;
+import static com.hazelcast.jet.contrib.http.HttpListenerSinkBuilder.DEFAULT_PORT;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
 import static org.junit.Assert.assertSame;
 
-public class HttpSinkTest extends HttpTestBase {
+public class HttpListenerSinkTest extends HttpTestBase {
 
     @Rule
     public ExpectedException expectedException = ExpectedException.none();
@@ -69,7 +69,7 @@ public class HttpSinkTest extends HttpTestBase {
 
     @Before
     public void setUp() throws Exception {
-        Xnio xnio = Xnio.getInstance(HttpSinkTest.class.getClassLoader());
+        Xnio xnio = Xnio.getInstance(HttpListenerSinkTest.class.getClassLoader());
         worker = xnio.createWorker(OptionMap.builder()
                 .set(Options.WORKER_IO_THREADS, 2)
                 .getMap());
@@ -87,7 +87,7 @@ public class HttpSinkTest extends HttpTestBase {
     public void testWebsocketServer_with_accumulate() throws Throwable {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
-        Sink<Object> sink = HttpSinks.builder()
+        Sink<Object> sink = HttpListenerSinks.builder()
                 .accumulateItems()
                 .buildWebsocket();
         Job job = startJob(sourceQueue, sink);
@@ -96,7 +96,7 @@ public class HttpSinkTest extends HttpTestBase {
         int messageCount = 10;
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpSinks.webSocketAddress(jet);
+        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -112,7 +112,7 @@ public class HttpSinkTest extends HttpTestBase {
     public void testWebsocketServer_without_accumulate() throws Throwable {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
-        Sink<Object> sink = HttpSinks.builder()
+        Sink<Object> sink = HttpListenerSinks.builder()
                 .buildWebsocket();
         Job job = startJob(sourceQueue, sink);
 
@@ -121,7 +121,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpSinks.webSocketAddress(jet);
+        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -137,7 +137,7 @@ public class HttpSinkTest extends HttpTestBase {
     public void testWebsocketServer_with_ssl() throws Throwable {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
-        Sink<Object> sink = HttpSinks.builder()
+        Sink<Object> sink = HttpListenerSinks.builder()
                 .sslContextFn(sslContextFn())
                 .buildWebsocket();
         Job job = startJob(sourceQueue, sink);
@@ -147,7 +147,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpSinks.webSocketAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -163,7 +163,7 @@ public class HttpSinkTest extends HttpTestBase {
     public void testSSEServer_with_accumulate() throws Throwable {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
-        Sink<Object> sink = HttpSinks.builder()
+        Sink<Object> sink = HttpListenerSinks.builder()
                 .accumulateItems()
                 .buildServerSent();
         Job job = startJob(sourceQueue, sink);
@@ -173,7 +173,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpSinks.sseAddress(jet);
+        String sseAddress = HttpListenerSinks.sseAddress(jet);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -189,7 +189,7 @@ public class HttpSinkTest extends HttpTestBase {
     public void testSSEServer_without_accumulate() throws Throwable {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
-        Sink<Object> sink = HttpSinks.builder()
+        Sink<Object> sink = HttpListenerSinks.builder()
                 .buildServerSent();
         Job job = startJob(sourceQueue, sink);
 
@@ -198,7 +198,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpSinks.sseAddress(jet);
+        String sseAddress = HttpListenerSinks.sseAddress(jet);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -214,7 +214,7 @@ public class HttpSinkTest extends HttpTestBase {
     public void testSSEServer_with_ssl() throws Throwable {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
-        Sink<Object> sink = HttpSinks.builder()
+        Sink<Object> sink = HttpListenerSinks.builder()
                 .sslContextFn(sslContextFn())
                 .buildServerSent();
         Job job = startJob(sourceQueue, sink);
@@ -224,7 +224,7 @@ public class HttpSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpSinks.sseAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        String sseAddress = HttpListenerSinks.sseAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -272,7 +272,7 @@ public class HttpSinkTest extends HttpTestBase {
         return eventSource;
     }
 
-    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) throws Exception {
+    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) {
         WebSocketChannel wsChannel = connectWithRetry(webSocketAddress);
         wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
             @Override
@@ -284,8 +284,8 @@ public class HttpSinkTest extends HttpTestBase {
         return wsChannel;
     }
 
-    private WebSocketChannel connectWithRetry(String webSocketAddress) throws Exception {
-        Xnio xnio = Xnio.getInstance(HttpSinkTest.class.getClassLoader());
+    private WebSocketChannel connectWithRetry(String webSocketAddress) {
+        Xnio xnio = Xnio.getInstance(HttpListenerSinkTest.class.getClassLoader());
         for (int i = 0; i < 30; i++) {
             try {
                 WebSocketClient.ConnectionBuilder builder = WebSocketClient
@@ -340,7 +340,7 @@ public class HttpSinkTest extends HttpTestBase {
         List<String> tempCollection = new ArrayList<>();
         IQueue<String> queue;
 
-        public QueueSourceContext(Processor.Context c, String name) {
+        QueueSourceContext(Processor.Context c, String name) {
             queue = c.jetInstance().getHazelcastInstance().getQueue(name);
         }
 

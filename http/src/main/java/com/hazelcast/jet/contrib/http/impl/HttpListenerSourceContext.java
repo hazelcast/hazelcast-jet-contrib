@@ -26,7 +26,7 @@ import com.hazelcast.jet.pipeline.SourceBuilder.SourceBuffer;
 import com.hazelcast.logging.ILogger;
 import io.undertow.Undertow;
 import io.undertow.server.HttpServerExchange;
-import io.undertow.server.handlers.DisallowedMethodsHandler;
+import io.undertow.server.handlers.AllowedMethodsHandler;
 import io.undertow.server.handlers.ExceptionHandler;
 import io.undertow.util.StatusCodes;
 
@@ -41,12 +41,8 @@ import java.util.concurrent.BlockingQueue;
 
 import static io.undertow.Handlers.exceptionHandler;
 import static io.undertow.Handlers.path;
-import static io.undertow.util.Methods.CONNECT;
-import static io.undertow.util.Methods.DELETE;
-import static io.undertow.util.Methods.HEAD;
-import static io.undertow.util.Methods.OPTIONS;
-import static io.undertow.util.Methods.PATCH;
-import static io.undertow.util.Methods.TRACE;
+import static io.undertow.util.Methods.POST;
+import static io.undertow.util.Methods.PUT;
 
 public class HttpListenerSourceContext<T> {
 
@@ -88,10 +84,9 @@ public class HttpListenerSourceContext<T> {
         undertow.stop();
     }
 
-    private DisallowedMethodsHandler handler() {
-        return new DisallowedMethodsHandler(path().addExactPath("/", exceptionHandler(this::handleMainPath)
-                .addExceptionHandler(JsonProcessingException.class, this::handleJsonException)),
-                PATCH, HEAD, DELETE, CONNECT, OPTIONS, TRACE);
+    private AllowedMethodsHandler handler() {
+        return new AllowedMethodsHandler(path().addExactPath("/", exceptionHandler(this::handleMainPath)
+                .addExceptionHandler(JsonProcessingException.class, this::handleJsonException)), POST, PUT);
     }
 
     private void handleMainPath(HttpServerExchange exchange) {
@@ -105,8 +100,13 @@ public class HttpListenerSourceContext<T> {
     }
 
     private void consumeMessage(HttpServerExchange exchange, byte[] message) {
-        queue.offer(mapToItemFn.apply(message));
-        exchange.endExchange();
+        try {
+            queue.put(mapToItemFn.apply(message));
+        } catch (InterruptedException e) {
+            throw ExceptionUtil.rethrow(e);
+        } finally {
+            exchange.endExchange();
+        }
     }
 
     private void consumeException(HttpServerExchange ignored, IOException exception) {

@@ -25,6 +25,7 @@ import com.hazelcast.jet.pipeline.StreamSource;
 
 import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
@@ -32,21 +33,21 @@ import java.util.Objects;
  *
  * @param <T> the type of the pipeline item.
  */
-public class HttpListenerBuilder<T> {
+public class HttpListenerSourceBuilder<T> {
 
     /**
      * Default port for HTTP(s) listener
      */
-    public static final int DEFAULT_PORT = 5801;
+    public static final int DEFAULT_PORT = 8080;
 
-    private static final int PORT_MAX = 0xFFFF;
+    private static final int PORT_MAX = 65535;
 
     private int port = DEFAULT_PORT;
     private SupplierEx<SSLContext> sslContextFn;
     private FunctionEx<byte[], T> mapToItemFn;
     private Class<T> type;
 
-    HttpListenerBuilder() {
+    HttpListenerSourceBuilder() {
     }
 
     /**
@@ -62,7 +63,7 @@ public class HttpListenerBuilder<T> {
      * @param port the port which the source binds and listens.
      */
     @Nonnull
-    public HttpListenerBuilder<T> port(int port) {
+    public HttpListenerSourceBuilder<T> port(int port) {
         if (port < 0 || port > PORT_MAX) {
             throw new IllegalArgumentException("Port out of range: " + port + ". Allowed range [0,65535]");
         }
@@ -100,7 +101,7 @@ public class HttpListenerBuilder<T> {
      *                     connections.
      */
     @Nonnull
-    public HttpListenerBuilder<T> sslContextFn(@Nonnull SupplierEx<SSLContext> sslContextFn) {
+    public HttpListenerSourceBuilder<T> sslContextFn(@Nonnull SupplierEx<SSLContext> sslContextFn) {
         this.sslContextFn = Objects.requireNonNull(sslContextFn);
         return this;
     }
@@ -122,8 +123,8 @@ public class HttpListenerBuilder<T> {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T_NEW> HttpListenerBuilder<T_NEW> mapToItemFn(@Nonnull FunctionEx<byte[], T_NEW> mapToItemFn) {
-        HttpListenerBuilder<T_NEW> newThis = (HttpListenerBuilder<T_NEW>) this;
+    public <T_NEW> HttpListenerSourceBuilder<T_NEW> mapToItemFn(@Nonnull FunctionEx<byte[], T_NEW> mapToItemFn) {
+        HttpListenerSourceBuilder<T_NEW> newThis = (HttpListenerSourceBuilder<T_NEW>) this;
         newThis.mapToItemFn = Objects.requireNonNull(mapToItemFn);
         return newThis;
     }
@@ -146,8 +147,8 @@ public class HttpListenerBuilder<T> {
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T_NEW> HttpListenerBuilder<T_NEW> type(@Nonnull Class<T_NEW> type) {
-        HttpListenerBuilder<T_NEW> newThis = (HttpListenerBuilder<T_NEW>) this;
+    public <T_NEW> HttpListenerSourceBuilder<T_NEW> type(@Nonnull Class<T_NEW> type) {
+        HttpListenerSourceBuilder<T_NEW> newThis = (HttpListenerSourceBuilder<T_NEW>) this;
         newThis.type = Objects.requireNonNull(type);
         return newThis;
     }
@@ -179,14 +180,12 @@ public class HttpListenerBuilder<T> {
 
     @SuppressWarnings("unchecked")
     private FunctionEx<byte[], T> mapFn() {
-        if (mapToItemFn == null) {
-            if (type != null) {
-                Class<T> theType = type;
-                return data -> JsonUtil.beanFrom(new String(data), theType);
-            } else {
-                return data -> (T) new String(data);
-            }
+        if (mapToItemFn != null) {
+            return mapToItemFn;
         }
-        return mapToItemFn;
+        if (type != null) {
+            return data -> JsonUtil.beanFrom(new String(data), type);
+        }
+        return data -> (T) new String(data, StandardCharsets.UTF_8);
     }
 }

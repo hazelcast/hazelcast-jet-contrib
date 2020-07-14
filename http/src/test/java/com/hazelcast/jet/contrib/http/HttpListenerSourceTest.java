@@ -50,7 +50,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     @Test
     public void testHttpIngestion_with_rawJsonString() throws Throwable {
-        int port = HttpListenerBuilder.DEFAULT_PORT;
+        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
         StreamSource<String> source = HttpListenerSources.httpListener();
         Job job = startJob(source);
 
@@ -78,7 +78,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     @Test
     public void testHttpsIngestion_with_objectMapping() throws Throwable {
-        int port = HttpListenerBuilder.DEFAULT_PORT;
+        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
         StreamSource<User> source = HttpListenerSources.builder().sslContextFn(sslContextFn()).type(User.class).build();
         Job job = startJob(source);
 
@@ -92,7 +92,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     @Test
     public void testHttpsIngestion_with_rawJsonString() throws Throwable {
-        int port = HttpListenerBuilder.DEFAULT_PORT;
+        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
         StreamSource<String> source = HttpListenerSources.builder().sslContextFn(sslContextFn()).build();
         Job job = startJob(source);
 
@@ -105,7 +105,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
     @Test
     public void testHttpsIngestion_with_customDeserializer() throws Throwable {
-        int port = HttpListenerBuilder.DEFAULT_PORT;
+        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
         StreamSource<User> source = HttpListenerSources
                 .builder()
                 .sslContextFn(sslContextFn())

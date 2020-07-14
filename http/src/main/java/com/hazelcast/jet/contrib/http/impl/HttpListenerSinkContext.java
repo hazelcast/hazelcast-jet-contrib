@@ -38,14 +38,14 @@ import java.util.Set;
 import static io.undertow.Handlers.path;
 import static io.undertow.UndertowOptions.ENABLE_HTTP2;
 
-public class HttpSinkContext<T> {
+public class HttpListenerSinkContext<T> {
 
     private final SinkHttpHandler sinkHttpHandler;
     private final Undertow undertow;
     private final ArrayList<String> messageBuffer;
     private final FunctionEx<T, String> toStringFn;
 
-    public HttpSinkContext(
+    public HttpListenerSinkContext(
             @Nonnull Processor.Context context,
             @Nonnull String path,
             int port,

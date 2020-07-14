@@ -18,7 +18,7 @@ package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.contrib.http.impl.HttpSinkContext;
+import com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorSupplier;
 import com.hazelcast.jet.core.processor.SinkProcessors;
@@ -34,19 +34,19 @@ import static com.hazelcast.jet.core.ProcessorMetaSupplier.forceTotalParallelism
 import static com.hazelcast.jet.impl.pipeline.SinkImpl.Type.TOTAL_PARALLELISM_ONE;
 
 /**
- * See {@link HttpSinks#builder()}.
+ * See {@link HttpListenerSinks#builder()}.
  *
  * @param <T> the type of the pipeline item.
  */
-public class HttpSinkBuilder<T> {
+public class HttpListenerSinkBuilder<T> {
 
     /**
-     * Default port for HTTP sink
+     * Default port for HTTP Listener sink
      */
-    public static final int DEFAULT_PORT = 5901;
+    public static final int DEFAULT_PORT = 8081;
 
     /**
-     * Default path for HTTP sink
+     * Default path for HTTP Listener sink
      */
     public static final String DEFAULT_PATH = "/";
 
@@ -58,7 +58,7 @@ public class HttpSinkBuilder<T> {
     private SupplierEx<SSLContext> sslContextFn;
     private FunctionEx<T, String> toStringFn = Object::toString;
 
-    HttpSinkBuilder() {
+    HttpListenerSinkBuilder() {
     }
 
     /**
@@ -74,7 +74,7 @@ public class HttpSinkBuilder<T> {
      * @param port the port which the source binds and listens.
      */
     @Nonnull
-    public HttpSinkBuilder<T> port(int port) {
+    public HttpListenerSinkBuilder<T> port(int port) {
         if (port < 0 || port > PORT_MAX) {
             throw new IllegalArgumentException("Port out of range: " + port + ". Allowed range [0,65535]");
         }
@@ -111,7 +111,7 @@ public class HttpSinkBuilder<T> {
      *                     connections.
      */
     @Nonnull
-    public HttpSinkBuilder<T> sslContextFn(@Nonnull SupplierEx<SSLContext> sslContextFn) {
+    public HttpListenerSinkBuilder<T> sslContextFn(@Nonnull SupplierEx<SSLContext> sslContextFn) {
         this.sslContextFn = Objects.requireNonNull(sslContextFn);
         return this;
     }
@@ -129,7 +129,7 @@ public class HttpSinkBuilder<T> {
      * @param path the path which server accepts connections
      */
     @Nonnull
-    public HttpSinkBuilder<T> path(@Nonnull String path) {
+    public HttpListenerSinkBuilder<T> path(@Nonnull String path) {
         this.path = Objects.requireNonNull(path);
         return this;
     }
@@ -144,7 +144,7 @@ public class HttpSinkBuilder<T> {
      * is no connected client.
      */
     @Nonnull
-    public HttpSinkBuilder<T> accumulateItems() {
+    public HttpListenerSinkBuilder<T> accumulateItems() {
         this.accumulateItems = true;
         return this;
     }
@@ -155,7 +155,7 @@ public class HttpSinkBuilder<T> {
      * @param toStringFn the function which converts each item to a string.
      */
     @Nonnull
-    public HttpSinkBuilder<T> toStringFn(@Nonnull FunctionEx<T, String> toStringFn) {
+    public HttpListenerSinkBuilder<T> toStringFn(@Nonnull FunctionEx<T, String> toStringFn) {
         this.toStringFn = Objects.requireNonNull(toStringFn);
         return this;
     }
@@ -184,12 +184,13 @@ public class HttpSinkBuilder<T> {
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
-        SupplierEx<Processor> supplier = SinkProcessors.writeBufferedP(
-                ctx -> new HttpSinkContext<>(ctx, path, port, accumulateItems, websocket, sslContextFn, toStringFn),
-                HttpSinkContext::receive,
-                HttpSinkContext::flush,
-                HttpSinkContext::close
-        );
+        SupplierEx<Processor> supplier =
+                SinkProcessors.writeBufferedP(ctx -> new HttpListenerSinkContext<>(ctx, path, port,
+                                accumulateItems, websocket, sslContextFn, toStringFn),
+                        HttpListenerSinkContext::receive,
+                        HttpListenerSinkContext::flush,
+                        HttpListenerSinkContext::close
+                );
         return new SinkImpl<>(websocket ? websocketName() : serverSentName(),
                 forceTotalParallelismOne(ProcessorSupplier.of(supplier), String.valueOf(port)), TOTAL_PARALLELISM_ONE);
     }
