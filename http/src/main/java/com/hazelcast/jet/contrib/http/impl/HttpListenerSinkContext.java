@@ -28,6 +28,7 @@ import io.undertow.server.handlers.sse.ServerSentEventHandler;
 import io.undertow.websockets.WebSocketProtocolHandshakeHandler;
 import io.undertow.websockets.core.WebSocketChannel;
 import io.undertow.websockets.core.WebSockets;
+import org.xnio.SslClientAuthMode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,6 +38,7 @@ import java.util.Set;
 
 import static io.undertow.Handlers.path;
 import static io.undertow.UndertowOptions.ENABLE_HTTP2;
+import static org.xnio.Options.SSL_CLIENT_AUTH_MODE;
 
 public class HttpListenerSinkContext<T> {
 
@@ -50,6 +52,7 @@ public class HttpListenerSinkContext<T> {
             @Nonnull String path,
             int port,
             boolean accumulateItems,
+            boolean mutualAuthentication,
             boolean websocket,
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull FunctionEx<T, String> toStringFn
@@ -59,10 +62,13 @@ public class HttpListenerSinkContext<T> {
         this.toStringFn = toStringFn;
 
         Undertow.Builder builder = Undertow.builder();
-        if (sslContextFn == null) {
-            builder.addHttpListener(port, host(context));
-        } else {
+        if (sslContextFn != null) {
+            if (mutualAuthentication) {
+                builder.setServerOption(SSL_CLIENT_AUTH_MODE, SslClientAuthMode.REQUIRED);
+            }
             builder.addHttpsListener(port, host(context), sslContextFn.get());
+        } else {
+            builder.addHttpListener(port, host(context));
         }
 
         undertow = builder

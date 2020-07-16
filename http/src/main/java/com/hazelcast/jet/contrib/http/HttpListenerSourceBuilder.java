@@ -40,14 +40,54 @@ public class HttpListenerSourceBuilder<T> {
      */
     public static final int DEFAULT_PORT = 8080;
 
+    /**
+     * Default host for HTTP(s) listener
+     */
+    public static final String DEFAULT_HOST = "0.0.0.0";
+
     private static final int PORT_MAX = 65535;
 
     private int port = DEFAULT_PORT;
+    private boolean mutualAuthentication;
+    private Class<T> type;
+    private SupplierEx<String> hostFn;
     private SupplierEx<SSLContext> sslContextFn;
     private FunctionEx<byte[], T> mapToItemFn;
-    private Class<T> type;
 
     HttpListenerSourceBuilder() {
+    }
+
+    /**
+     * Set the function which provides the host name. The function will be
+     * called for each member and it should return a matching interface.
+     * <p>
+     * For example to pick the first available non-loopback interface :
+     * <pre>{@code
+     * builder.hostFn(() -> {
+     *     Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+     *     if (networkInterfaces.hasMoreElements()) {
+     *         NetworkInterface networkInterface = networkInterfaces.nextElement();
+     *         Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+     *         while (inetAddresses.hasMoreElements()) {
+     *             InetAddress inetAddress = inetAddresses.nextElement();
+     *             if (inetAddress.isLoopbackAddress()) {
+     *                 continue;
+     *             }
+     *             return inetAddress.getHostName();
+     *         }
+     *     }
+     *     throw new IllegalStateException("No available network interface");
+     * })
+     * }</pre>
+     * <p>
+     * Default value is to bind to all interfaces {@link #DEFAULT_HOST}.
+     *
+     * @param hostFn the function which provides the host name.
+     */
+    @Nonnull
+    public HttpListenerSourceBuilder<T> hostFn(@Nonnull SupplierEx<String> hostFn) {
+        this.hostFn = hostFn;
+        return this;
     }
 
     /**
@@ -58,7 +98,7 @@ public class HttpListenerSourceBuilder<T> {
      * builder.port(5802)
      * }</pre>
      * <p>
-     * Default value is {@link #DEFAULT_PORT} {@code 5801}.
+     * Default value is {@link #DEFAULT_PORT} {@code 8080}.
      *
      * @param port the port which the source binds and listens.
      */
@@ -103,6 +143,19 @@ public class HttpListenerSourceBuilder<T> {
     @Nonnull
     public HttpListenerSourceBuilder<T> sslContextFn(@Nonnull SupplierEx<SSLContext> sslContextFn) {
         this.sslContextFn = Objects.requireNonNull(sslContextFn);
+        return this;
+    }
+
+    /**
+     * Set that source should authenticate the connected clients. This
+     * parameter is ignored if {@link #sslContextFn(SupplierEx)} is not set.
+     * <p>
+     * Default values is {@code false}, source does not authenticate connected
+     * clients.
+     */
+    @Nonnull
+    public HttpListenerSourceBuilder<T> enableMutualAuthentication() {
+        this.mutualAuthentication = true;
         return this;
     }
 
@@ -159,12 +212,14 @@ public class HttpListenerSourceBuilder<T> {
      */
     @Nonnull
     public StreamSource<T> build() {
-        int localPort = port;
+        int thePort = port;
         FunctionEx<byte[], T> mapFn = mapFn();
         SupplierEx<SSLContext> sslFn = sslContextFn;
+        SupplierEx<String> theHostFn = hostFn();
+        boolean theMutualAuthentication = mutualAuthentication;
 
         return SourceBuilder.stream(name(),
-                ctx -> new HttpListenerSourceContext<>(ctx, localPort, sslFn, mapFn))
+                ctx -> new HttpListenerSourceContext<>(ctx, thePort, theMutualAuthentication, theHostFn, sslFn, mapFn))
                 .<T>fillBufferFn(HttpListenerSourceContext::fillBuffer)
                 .destroyFn(HttpListenerSourceContext::close)
                 .distributed(1)
@@ -188,5 +243,12 @@ public class HttpListenerSourceBuilder<T> {
             return data -> JsonUtil.beanFrom(new String(data), theType);
         }
         return data -> (T) new String(data, StandardCharsets.UTF_8);
+    }
+
+    private SupplierEx<String> hostFn() {
+        if (hostFn != null) {
+            return hostFn;
+        }
+        return () -> DEFAULT_HOST;
     }
 }

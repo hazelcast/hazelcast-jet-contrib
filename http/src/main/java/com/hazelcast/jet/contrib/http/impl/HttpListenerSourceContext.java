@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.http.impl;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.com.fasterxml.jackson.core.JsonProcessingException;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
@@ -29,6 +28,7 @@ import io.undertow.server.HttpServerExchange;
 import io.undertow.server.handlers.AllowedMethodsHandler;
 import io.undertow.server.handlers.ExceptionHandler;
 import io.undertow.util.StatusCodes;
+import org.xnio.SslClientAuthMode;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -41,8 +41,10 @@ import java.util.concurrent.BlockingQueue;
 
 import static io.undertow.Handlers.exceptionHandler;
 import static io.undertow.Handlers.path;
+import static io.undertow.UndertowOptions.ENABLE_HTTP2;
 import static io.undertow.util.Methods.POST;
 import static io.undertow.util.Methods.PUT;
+import static org.xnio.Options.SSL_CLIENT_AUTH_MODE;
 
 public class HttpListenerSourceContext<T> {
 
@@ -55,22 +57,27 @@ public class HttpListenerSourceContext<T> {
     public HttpListenerSourceContext(
             @Nonnull Processor.Context context,
             int port,
+            boolean mutualAuthentication,
+            @Nonnull SupplierEx<String> hostFn,
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull FunctionEx<byte[], T> mapToItemFn
     ) {
         this.logger = context.logger();
         this.mapToItemFn = mapToItemFn;
-        Address localAddress = context.jetInstance().getHazelcastInstance().getCluster().getLocalMember().getAddress();
-        String host = localAddress.getHost();
+        String host = hostFn.get();
         Undertow.Builder builder = Undertow.builder();
         if (sslContextFn != null) {
+            if (mutualAuthentication) {
+                builder.setServerOption(SSL_CLIENT_AUTH_MODE, SslClientAuthMode.REQUIRED);
+            }
             builder.addHttpsListener(port, host, sslContextFn.get());
             logger.info("Starting to listen HTTPS messages on https://" + host + ":" + port);
         } else {
             builder.addHttpListener(port, host);
             logger.info("Starting to listen HTTP messages on http://" + host + ":" + port);
         }
-        undertow = builder.setHandler(handler()).build();
+
+        undertow = builder.setServerOption(ENABLE_HTTP2, true).setHandler(handler()).build();
         undertow.start();
     }
 

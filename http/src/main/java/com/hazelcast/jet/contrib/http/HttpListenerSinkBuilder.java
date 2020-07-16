@@ -55,6 +55,7 @@ public class HttpListenerSinkBuilder<T> {
     private int port = DEFAULT_PORT;
     private String path = DEFAULT_PATH;
     private boolean accumulateItems;
+    private boolean mutualAuthentication;
     private SupplierEx<SSLContext> sslContextFn;
     private FunctionEx<T, String> toStringFn = Object::toString;
 
@@ -69,7 +70,7 @@ public class HttpListenerSinkBuilder<T> {
      * builder.port(5902)
      * }</pre>
      * <p>
-     * Default value is {@link #DEFAULT_PORT} {@code 5901}.
+     * Default value is {@link #DEFAULT_PORT} {@code 8081}.
      *
      * @param port the port which the source binds and listens.
      */
@@ -91,12 +92,12 @@ public class HttpListenerSinkBuilder<T> {
      * builder.sslContextFn(() -> {
      *     SSLContext context = SSLContext.getInstance("TLS");
      *     KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-     *     KeyStore ks = KeyStore.getInstance("JKS");
+     *     KeyStore ks = KeyStore.getInstance("PKCS12");
      *     char[] password = "123456".toCharArray();
      *     ks.load(new FileInputStream("the.keystore"), password);
      *     kmf.init(ks, password);
      *     TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-     *     KeyStore ts = KeyStore.getInstance("JKS");
+     *     KeyStore ts = KeyStore.getInstance("PKCS12");
      *     ts.load(new FileInputStream("the.truststore"), password);
      *     tmf.init(ts);
      *     context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
@@ -117,11 +118,24 @@ public class HttpListenerSinkBuilder<T> {
     }
 
     /**
+     * Set that sink should authenticate the connected clients. This
+     * parameter is ignored if {@link #sslContextFn(SupplierEx)} is not set.
+     * <p>
+     * Default values is {@code false}, sink does not authenticate connected
+     * clients.
+     */
+    @Nonnull
+    public HttpListenerSinkBuilder<T> enableMutualAuthentication() {
+        this.mutualAuthentication = true;
+        return this;
+    }
+
+    /**
      * Set the path which server accepts connections.
      * <p>
      * For example:
      * <pre>{@code
-     * builder.path("user")
+     * builder.path("/user")
      * }</pre>
      * <p>
      * Default value is {@code /}.
@@ -151,6 +165,9 @@ public class HttpListenerSinkBuilder<T> {
 
     /**
      * Set the function which converts each item to a string.
+     * <p>
+     * By default source converts each item to string using
+     * {@link Object#toString()}.
      *
      * @param toStringFn the function which converts each item to a string.
      */
@@ -165,7 +182,7 @@ public class HttpListenerSinkBuilder<T> {
      */
     @Nonnull
     public Sink<T> buildWebsocket() {
-        return build(path, port, accumulateItems, true, sslContextFn, toStringFn);
+        return build(path, port, accumulateItems, mutualAuthentication, true, sslContextFn, toStringFn);
     }
 
     /**
@@ -173,20 +190,21 @@ public class HttpListenerSinkBuilder<T> {
      */
     @Nonnull
     public Sink<T> buildServerSent() {
-        return build(path, port, accumulateItems, false, sslContextFn, toStringFn);
+        return build(path, port, accumulateItems, mutualAuthentication, false, sslContextFn, toStringFn);
     }
 
     private Sink<T> build(
             @Nonnull String path,
             int port,
             boolean accumulateItems,
+            boolean mutualAuthentication,
             boolean websocket,
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
         SupplierEx<Processor> supplier =
                 SinkProcessors.writeBufferedP(ctx -> new HttpListenerSinkContext<>(ctx, path, port,
-                                accumulateItems, websocket, sslContextFn, toStringFn),
+                                accumulateItems, mutualAuthentication, websocket, sslContextFn, toStringFn),
                         HttpListenerSinkContext::receive,
                         HttpListenerSinkContext::flush,
                         HttpListenerSinkContext::close
