@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.http;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.contrib.http.domain.User;
@@ -112,21 +111,19 @@ public class HttpTestBase extends JetTestSupport {
         httpsClient.close();
     }
 
-
-    public String httpEndpointAddress(JetInstance jet, int port, boolean ssl) {
-        Address localAddress = jet.getHazelcastInstance().getCluster().getLocalMember().getAddress();
-        String hostPort = localAddress.getHost() + ":" + port;
-        return ssl ? "https://" + hostPort : "http://" + hostPort;
+    public String httpEndpointAddress(int port, boolean ssl) {
+        return ssl ? "https://localhost:" + port : "http://localhost:" + port;
     }
 
-    public void postUsers(CloseableHttpClient httpClient, int count, String uri) throws IOException {
+    public void postUsers(CloseableHttpClient httpClient, int count, int port, boolean ssl) throws IOException {
+        String address = httpEndpointAddress(port, ssl);
         for (int i = 0; i < count; i++) {
             User user = new User(i, "name" + i);
             String jsonString = JsonUtil.toJson(user);
             StringEntity requestEntity = new StringEntity(
                     jsonString,
                     ContentType.APPLICATION_JSON);
-            HttpPost post = new HttpPost(uri);
+            HttpPost post = new HttpPost(address);
             post.setEntity(requestEntity);
             CloseableHttpResponse response = executeWithRetry(httpClient, post);
             response.getEntity().getContent().close();

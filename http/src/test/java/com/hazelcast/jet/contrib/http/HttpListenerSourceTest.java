@@ -25,6 +25,7 @@ import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.jet.pipeline.test.AssertionCompletedException;
 import org.junit.Test;
 
+import static com.hazelcast.jet.contrib.http.HttpListenerSourceBuilder.DEFAULT_PORT;
 import static com.hazelcast.jet.core.TestUtil.executeAndPeel;
 import static com.hazelcast.jet.pipeline.test.AssertionSinks.assertCollectedEventually;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -36,85 +37,82 @@ public class HttpListenerSourceTest extends HttpTestBase {
     private static final int FILTER_OUT_BELOW = 80;
 
     @Test
-    public void testHttpIngestion_with_objectMapping() throws Throwable {
-        int port = 5901;
-        StreamSource<User> source = HttpListenerSources.httpListener(port, User.class);
+    public void testHttpIngestion_when_objectMapping() throws Throwable {
+        StreamSource<User> source = HttpListenerSources.builder().type(User.class).build();
         Job job = startJob(source);
 
-        String httpEndpoint = httpEndpointAddress(jet, port, false);
-        postUsers(httpClient, ITEM_COUNT, httpEndpoint);
+        postUsers(httpClient, ITEM_COUNT, DEFAULT_PORT, false);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
     }
 
     @Test
-    public void testHttpIngestion_with_rawJsonString() throws Throwable {
-        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
-        StreamSource<String> source = HttpListenerSources.httpListener();
+    public void testHttpIngestion_when_rawJsonString() throws Throwable {
+        StreamSource<String> source = HttpListenerSources.builder().build();
         Job job = startJob(source);
 
-        String httpEndpoint = httpEndpointAddress(jet, port, false);
-        postUsers(httpClient, ITEM_COUNT, httpEndpoint);
+        postUsers(httpClient, ITEM_COUNT, DEFAULT_PORT, false);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
     }
 
     @Test
-    public void testHttpIngestion_with_customDeserializer() throws Throwable {
-        int port = 5901;
-        StreamSource<User> source = HttpListenerSources.httpListener(port,
-                bytes -> JsonUtil.beanFrom(new String(bytes), User.class));
-        Job job = startJob(source);
-
-        String httpEndpoint = httpEndpointAddress(jet, port, false);
-        postUsers(httpClient, ITEM_COUNT, httpEndpoint);
-
-        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
-        executeAndPeel(job);
-    }
-
-
-    @Test
-    public void testHttpsIngestion_with_objectMapping() throws Throwable {
-        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
-        StreamSource<User> source = HttpListenerSources.builder().sslContextFn(sslContextFn()).type(User.class).build();
-        Job job = startJob(source);
-
-        String httpEndpoint = httpEndpointAddress(jet, port, true);
-        postUsers(httpsClient, ITEM_COUNT, httpEndpoint);
-
-        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
-        executeAndPeel(job);
-    }
-
-
-    @Test
-    public void testHttpsIngestion_with_rawJsonString() throws Throwable {
-        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
-        StreamSource<String> source = HttpListenerSources.builder().sslContextFn(sslContextFn()).build();
-        Job job = startJob(source);
-
-        String httpEndpoint = httpEndpointAddress(jet, port, true);
-        postUsers(httpsClient, ITEM_COUNT, httpEndpoint);
-
-        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
-        executeAndPeel(job);
-    }
-
-    @Test
-    public void testHttpsIngestion_with_customDeserializer() throws Throwable {
-        int port = HttpListenerSourceBuilder.DEFAULT_PORT;
-        StreamSource<User> source = HttpListenerSources
-                .builder()
-                .sslContextFn(sslContextFn())
+    public void testHttpIngestion_when_customDeserializer() throws Throwable {
+        StreamSource<User> source = HttpListenerSources.builder()
                 .mapToItemFn(bytes -> JsonUtil.beanFrom(new String(bytes), User.class))
                 .build();
         Job job = startJob(source);
 
-        String httpEndpoint = httpEndpointAddress(jet, port, true);
-        postUsers(httpsClient, ITEM_COUNT, httpEndpoint);
+        postUsers(httpClient, ITEM_COUNT, DEFAULT_PORT, false);
+
+        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
+        executeAndPeel(job);
+    }
+
+    @Test
+    public void testHttpsIngestion_when_sslEnabled() throws Throwable {
+        StreamSource<String> source = HttpListenerSources.builder().sslContextFn(sslContextFn()).build();
+        Job job = startJob(source);
+
+        postUsers(httpsClient, ITEM_COUNT, DEFAULT_PORT, true);
+
+        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
+        executeAndPeel(job);
+    }
+
+    @Test
+    public void testHttpsIngestion_when_mutualAuthEnabled() throws Throwable {
+        StreamSource<String> source = HttpListenerSources.builder()
+                .sslContextFn(sslContextFn())
+                .enableMutualAuthentication()
+                .build();
+        Job job = startJob(source);
+
+        postUsers(httpsClient, ITEM_COUNT, DEFAULT_PORT, true);
+
+        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
+        executeAndPeel(job);
+    }
+
+    @Test
+    public void testHttpIngestion_when_portConfigured() throws Throwable {
+        StreamSource<String> source = HttpListenerSources.builder().port(8090).build();
+        Job job = startJob(source);
+
+        postUsers(httpClient, ITEM_COUNT, 8090, false);
+
+        expectedException.expectCause(instanceOf(AssertionCompletedException.class));
+        executeAndPeel(job);
+    }
+
+    @Test
+    public void testHttpIngestion_when_hostConfigured() throws Throwable {
+        StreamSource<String> source = HttpListenerSources.builder().hostFn(() -> "localhost").build();
+        Job job = startJob(source);
+
+        postUsers(httpClient, ITEM_COUNT, DEFAULT_PORT, false);
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
@@ -123,16 +121,16 @@ public class HttpListenerSourceTest extends HttpTestBase {
     private <T> Job startJob(StreamSource<T> source) {
         Pipeline p = Pipeline.create();
         p.readFrom(source)
-         .withoutTimestamps()
-         .map(item -> {
-             if (item instanceof User) {
-                 return (User) item;
-             }
-             return JsonUtil.beanFrom(item.toString(), User.class);
-         })
-         .filter(user -> user.getId() >= FILTER_OUT_BELOW)
-         .writeTo(assertCollectedEventually(30,
-                 list -> assertEquals(ITEM_COUNT - FILTER_OUT_BELOW, list.size())));
+                .withoutTimestamps()
+                .map(item -> {
+                    if (item instanceof User) {
+                        return (User) item;
+                    }
+                    return JsonUtil.beanFrom(item.toString(), User.class);
+                })
+                .filter(user -> user.getId() >= FILTER_OUT_BELOW)
+                .writeTo(assertCollectedEventually(30,
+                        list -> assertEquals(ITEM_COUNT - FILTER_OUT_BELOW, list.size())));
 
         Job job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
