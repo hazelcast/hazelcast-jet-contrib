@@ -54,8 +54,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import static com.hazelcast.jet.contrib.http.HttpListenerSinkBuilder.DEFAULT_PATH;
-import static com.hazelcast.jet.contrib.http.HttpListenerSinkBuilder.DEFAULT_PORT;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
 import static org.junit.Assert.assertSame;
 
@@ -88,7 +86,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
-                .accumulateItems()
+                .accumulateItems(100)
                 .buildWebsocket();
         Job job = startJob(sourceQueue, sink);
 
@@ -96,7 +94,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         int messageCount = 10;
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -121,7 +119,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -147,7 +145,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -174,7 +172,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -200,7 +198,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet, 8091, DEFAULT_PATH, false);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -226,7 +224,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet, DEFAULT_PORT, "/user", false);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -252,7 +250,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String webSocketAddress = HttpListenerSinks.webSocketAddress(jet);
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -269,7 +267,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
-                .accumulateItems()
+                .accumulateItems(100)
                 .buildServerSent();
         Job job = startJob(sourceQueue, sink);
 
@@ -278,7 +276,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -303,7 +301,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -329,7 +327,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -356,7 +354,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet, DEFAULT_PORT, DEFAULT_PATH, true);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -382,7 +380,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet, 8091, DEFAULT_PATH, false);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -408,7 +406,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet, DEFAULT_PORT, "/user", false);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -434,7 +432,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         postMessages(sourceQueue, messageCount);
 
-        String sseAddress = HttpListenerSinks.sseAddress(jet);
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         EventSource eventSource = receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);

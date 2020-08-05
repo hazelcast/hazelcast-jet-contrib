@@ -19,7 +19,9 @@ package com.hazelcast.jet.contrib.http.impl;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
+import com.hazelcast.jet.Util;
 import com.hazelcast.jet.core.Processor;
+import com.hazelcast.ringbuffer.Ringbuffer;
 import io.undertow.Handlers;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
@@ -42,33 +44,40 @@ import static org.xnio.Options.SSL_CLIENT_AUTH_MODE;
 
 public class HttpListenerSinkContext<T> {
 
+    private static final String ADDRESS_PATTERN = "%s://%s:%d%s";
+
     private final SinkHttpHandler sinkHttpHandler;
     private final Undertow undertow;
     private final ArrayList<String> messageBuffer;
     private final FunctionEx<T, String> toStringFn;
+    private final Ringbuffer<String> ringBuffer;
+    private final int accumulateLimit;
 
     public HttpListenerSinkContext(
             @Nonnull Processor.Context context,
             @Nonnull String path,
             int port,
-            boolean accumulateItems,
+            int accumulateLimit,
             boolean mutualAuthentication,
             boolean websocket,
             @Nullable SupplierEx<SSLContext> sslContextFn,
+            @Nonnull SupplierEx<String> hostFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
-        this.messageBuffer = accumulateItems ? new ArrayList<>() : null;
+        this.accumulateLimit = accumulateLimit;
+        this.messageBuffer = accumulateLimit >  0 ? new ArrayList<>(accumulateLimit) : null;
         this.sinkHttpHandler = websocket ? new WebSocketSinkHttpHandler() : new ServerSentSinkHttpHandler();
         this.toStringFn = toStringFn;
+        String host = hostFn.get();
 
         Undertow.Builder builder = Undertow.builder();
         if (sslContextFn != null) {
             if (mutualAuthentication) {
                 builder.setServerOption(SSL_CLIENT_AUTH_MODE, SslClientAuthMode.REQUIRED);
             }
-            builder.addHttpsListener(port, host(context), sslContextFn.get());
+            builder.addHttpsListener(port, host, sslContextFn.get());
         } else {
-            builder.addHttpListener(port, host(context));
+            builder.addHttpListener(port, host);
         }
 
         undertow = builder
@@ -77,6 +86,9 @@ public class HttpListenerSinkContext<T> {
                 .build();
 
         undertow.start();
+        String observableName = getObservableNameByJobId(context.jobId());
+        ringBuffer = context.jetInstance().getHazelcastInstance().getRingbuffer(observableName);
+        ringBuffer.add(sinkAddress(host, port, path, websocket, sslContextFn != null));
     }
 
     @SuppressWarnings("unchecked")
@@ -97,10 +109,7 @@ public class HttpListenerSinkContext<T> {
 
     public void close() {
         undertow.stop();
-    }
-
-    private String host(Processor.Context context) {
-        return context.jetInstance().getHazelcastInstance().getCluster().getLocalMember().getAddress().getHost();
+        ringBuffer.destroy();
     }
 
     private void drainBuffer() {
@@ -112,7 +121,7 @@ public class HttpListenerSinkContext<T> {
     }
 
     private void putToBuffer(T item) {
-        if (messageBuffer == null) {
+        if (messageBuffer == null || messageBuffer.size() == accumulateLimit) {
             return;
         }
         messageBuffer.add(toStringFn.apply(item));
@@ -178,5 +187,17 @@ public class HttpListenerSinkContext<T> {
         public boolean hasConnectedClients() {
             return !connections.isEmpty();
         }
+    }
+
+
+    public static String getObservableNameByJobId(long id) {
+        return Util.idToString(id) + "-http-listener-sink";
+    }
+
+    private String sinkAddress(String host, int port, String path, boolean websocket, boolean secure) {
+        if (websocket) {
+            return String.format(ADDRESS_PATTERN, secure ? "wss" : "ws", host, port, path);
+        }
+        return String.format(ADDRESS_PATTERN, secure ? "https" : "http", host, port, path);
     }
 }

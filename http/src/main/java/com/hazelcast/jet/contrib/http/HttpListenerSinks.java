@@ -17,12 +17,18 @@
 package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.Job;
+import com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext;
+import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.Sink;
-import com.hazelcast.partition.Partition;
-import com.hazelcast.partition.PartitionService;
+import com.hazelcast.ringbuffer.ReadResultSet;
+import com.hazelcast.ringbuffer.Ringbuffer;
 import io.undertow.Undertow;
 
 import javax.annotation.Nonnull;
+import java.util.concurrent.CompletionStage;
+
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Contains factory methods for creating WebSocket and Server-Sent
@@ -30,10 +36,11 @@ import javax.annotation.Nonnull;
  * results of the pipeline.
  * <p>
  * Server addresses can be retrieved from
- * {@link #webSocketAddress(JetInstance, int, String, boolean)} and
- * {@link #sseAddress(JetInstance, int, String, boolean)}} respectively.
+ * {@link #sinkAddress(JetInstance, Job)}.
  */
 public final class HttpListenerSinks {
+
+    private static final int ADDRESS_RETRIEVE_TIMEOUT_MS = 10_000;
 
     private HttpListenerSinks() {
     }
@@ -115,53 +122,23 @@ public final class HttpListenerSinks {
     }
 
     /**
-     * Convenience for {@link #webSocketAddress(JetInstance, int, String, boolean)}.
-     * Uses {@link HttpListenerSinkBuilder#DEFAULT_PORT},
-     * {@link HttpListenerSinkBuilder#DEFAULT_PATH} and non secure connection.
-     */
-    public static String webSocketAddress(JetInstance jet) {
-        return webSocketAddress(jet, HttpListenerSinkBuilder.DEFAULT_PORT, HttpListenerSinkBuilder.DEFAULT_PATH, false);
-    }
-
-    /**
-     * Return the websocket connection string for the given parameters.
+     * When sink processor initialized on one of the members it saves the
+     * address in a ring-buffer. Retrieves and returns the address of the
+     * Http Listener Sink for the given job.
      *
-     * @param jet    the Jet instance
-     * @param port   the port specified for the sink
-     * @param path   the path specified for the sink
-     * @param secure true if an ssl context specified for the sink.
+     * @param jet the Jet instance, either client or member
+     * @param job the job which has the Http Listener Sink
      */
-    public static String webSocketAddress(JetInstance jet, int port, String path, boolean secure) {
-        return sinkAddress(jet, port, path, secure ? "wss" : "ws");
+    public static String sinkAddress(JetInstance jet, Job job) {
+        String observableName = HttpListenerSinkContext.getObservableNameByJobId(job.getId());
+        Ringbuffer<String> ringBuffer = jet.getHazelcastInstance().getRingbuffer(observableName);
+        CompletionStage<ReadResultSet<String>> stage = ringBuffer.readManyAsync(0, 1, 1, null);
+        try {
+            ReadResultSet<String> resultSet = stage.toCompletableFuture()
+                    .get(ADDRESS_RETRIEVE_TIMEOUT_MS, MILLISECONDS);
+            return resultSet.get(0);
+        } catch (Exception e) {
+            throw ExceptionUtil.rethrow(e);
+        }
     }
-
-    /**
-     * Convenience for {@link #sseAddress(JetInstance, int, String, boolean)}.
-     * Uses {@link HttpListenerSinkBuilder#DEFAULT_PORT},
-     * {@link HttpListenerSinkBuilder#DEFAULT_PATH} and non secure connection.
-     */
-    public static String sseAddress(JetInstance jet) {
-        return sseAddress(jet, HttpListenerSinkBuilder.DEFAULT_PORT, HttpListenerSinkBuilder.DEFAULT_PATH, false);
-    }
-
-    /**
-     * Return the server-sent event server connection string for the given
-     * parameters.
-     *
-     * @param jet    the Jet instance
-     * @param port   the port specified for the sink
-     * @param path   the path specified for the sink
-     * @param secure true if an ssl context specified for the sink.
-     */
-    public static String sseAddress(JetInstance jet, int port, String path, boolean secure) {
-        return sinkAddress(jet, port, path, secure ? "https" : "http");
-    }
-
-    private static String sinkAddress(JetInstance jet, int port, String path, String prefix) {
-        PartitionService partitionService = jet.getHazelcastInstance().getPartitionService();
-        Partition partition = partitionService.getPartition(String.valueOf(port));
-        String host = partition.getOwner().getAddress().getHost();
-        return prefix + "://" + host + ":" + port + path;
-    }
-
 }

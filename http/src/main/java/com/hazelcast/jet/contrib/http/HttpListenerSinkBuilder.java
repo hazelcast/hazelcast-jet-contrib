@@ -18,6 +18,7 @@ package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
+import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorSupplier;
@@ -41,6 +42,11 @@ import static com.hazelcast.jet.impl.pipeline.SinkImpl.Type.TOTAL_PARALLELISM_ON
 public class HttpListenerSinkBuilder<T> {
 
     /**
+     * Default host for HTTP(s) listener
+     */
+    public static final String DEFAULT_HOST = "0.0.0.0";
+
+    /**
      * Default port for HTTP Listener sink
      */
     public static final int DEFAULT_PORT = 8081;
@@ -54,12 +60,46 @@ public class HttpListenerSinkBuilder<T> {
 
     private int port = DEFAULT_PORT;
     private String path = DEFAULT_PATH;
-    private boolean accumulateItems;
     private boolean mutualAuthentication;
+    private int accumulateLimit;
+    private SupplierEx<String> hostFn;
     private SupplierEx<SSLContext> sslContextFn;
     private FunctionEx<T, String> toStringFn = Object::toString;
 
     HttpListenerSinkBuilder() {
+    }
+
+    /**
+     * Set the function which provides the host name. The function will be
+     * called for each member and it should return a matching interface.
+     * <p>
+     * For example to pick the first available non-loopback interface :
+     * <pre>{@code
+     * builder.hostFn(() -> {
+     *     Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+     *     if (networkInterfaces.hasMoreElements()) {
+     *         NetworkInterface networkInterface = networkInterfaces.nextElement();
+     *         Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
+     *         while (inetAddresses.hasMoreElements()) {
+     *             InetAddress inetAddress = inetAddresses.nextElement();
+     *             if (inetAddress.isLoopbackAddress()) {
+     *                 continue;
+     *             }
+     *             return inetAddress.getHostName();
+     *         }
+     *     }
+     *     throw new IllegalStateException("No available network interface");
+     * })
+     * }</pre>
+     * <p>
+     * Default value is to bind to all interfaces {@link #DEFAULT_HOST}.
+     *
+     * @param hostFn the function which provides the host name.
+     */
+    @Nonnull
+    public HttpListenerSinkBuilder<T> hostFn(@Nonnull SupplierEx<String> hostFn) {
+        this.hostFn = hostFn;
+        return this;
     }
 
     /**
@@ -149,17 +189,20 @@ public class HttpListenerSinkBuilder<T> {
     }
 
     /**
-     * Set that sink should accumulate items if there is no connected
-     * client and send them when a client connects. The items will be
-     * accumulated in an unbounded fashion thus may create memory
-     * issues.
+     * Set that sink should accumulate items up to the  given limit if there is
+     * no connected client and send them when a client connects. After reaching
+     * the limit sink drops the items.
      * <p>
-     * Default value is {@code false}, sink drops the items if no there
-     * is no connected client.
+     * Default value is {@code 0} meaning sink drops the items if there is no
+     * connected client.
+     *
+     * @param accumulateLimit the size of the buffer for the accumulated
+     *                        messages.
      */
     @Nonnull
-    public HttpListenerSinkBuilder<T> accumulateItems() {
-        this.accumulateItems = true;
+    public HttpListenerSinkBuilder<T> accumulateItems(int accumulateLimit) {
+        Preconditions.checkPositive(accumulateLimit, "accumulateLimit should be a positive value");
+        this.accumulateLimit = accumulateLimit;
         return this;
     }
 
@@ -182,7 +225,7 @@ public class HttpListenerSinkBuilder<T> {
      */
     @Nonnull
     public Sink<T> buildWebsocket() {
-        return build(path, port, accumulateItems, mutualAuthentication, true, sslContextFn, toStringFn);
+        return build(path, port, accumulateLimit, mutualAuthentication, true, sslContextFn, hostFn(), toStringFn);
     }
 
     /**
@@ -190,27 +233,28 @@ public class HttpListenerSinkBuilder<T> {
      */
     @Nonnull
     public Sink<T> buildServerSent() {
-        return build(path, port, accumulateItems, mutualAuthentication, false, sslContextFn, toStringFn);
+        return build(path, port, accumulateLimit, mutualAuthentication, false, sslContextFn, hostFn(), toStringFn);
     }
 
     private Sink<T> build(
             @Nonnull String path,
             int port,
-            boolean accumulateItems,
+            int accumulateLimit,
             boolean mutualAuthentication,
             boolean websocket,
             @Nullable SupplierEx<SSLContext> sslContextFn,
+            @Nonnull SupplierEx<String> hostFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
         SupplierEx<Processor> supplier =
                 SinkProcessors.writeBufferedP(ctx -> new HttpListenerSinkContext<>(ctx, path, port,
-                                accumulateItems, mutualAuthentication, websocket, sslContextFn, toStringFn),
+                                accumulateLimit, mutualAuthentication, websocket, sslContextFn, hostFn, toStringFn),
                         HttpListenerSinkContext::receive,
                         HttpListenerSinkContext::flush,
                         HttpListenerSinkContext::close
                 );
         return new SinkImpl<>(websocket ? websocketName() : serverSentName(),
-                forceTotalParallelismOne(ProcessorSupplier.of(supplier), String.valueOf(port)), TOTAL_PARALLELISM_ONE);
+                forceTotalParallelismOne(ProcessorSupplier.of(supplier)), TOTAL_PARALLELISM_ONE);
     }
 
     private String websocketName() {
@@ -219,6 +263,13 @@ public class HttpListenerSinkBuilder<T> {
 
     private String serverSentName() {
         return "serverSent@" + port;
+    }
+
+    private SupplierEx<String> hostFn() {
+        if (hostFn != null) {
+            return hostFn;
+        }
+        return () -> DEFAULT_HOST;
     }
 
 }
