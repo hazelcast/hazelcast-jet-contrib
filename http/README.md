@@ -1,11 +1,25 @@
 # HTTP(S) Listener Source
 
-A Hazelcast Jet source for listening HTTP(S) requests which contains JSON payload.
+A Hazelcast Jet source for listening HTTP(S) requests, and a sink which
+clients can connect and listen the items using either websocket or
+server-sent events.
+
+The source creates an [Undertow](https://github.com/undertow-io/undertow)
+server for each processor and start listening the incoming requests.
+User can configure the host and port for the server. User can also
+define a ssl context to secure the connections. The payload can be
+converted to the desired output before emitting to the downstream.
+
+The sink is not distributed. Sink creates a single [Undertow](https://github.com/undertow-io/undertow)
+server on one of the servers randomly chosen, and starts listening for
+the clients to connect. Clients can connect using either websocket or
+server-sent events. The sink can accumulate items if there is no
+connected client.
 
 ## Connector Attributes
 
 ### Source Attributes
-|  Atrribute  | Value |
+|  Attribute  | Value |
 |:-----------:|-------|
 | Has Source  |  Yes  |
 | Batch       |  No   |
@@ -13,10 +27,10 @@ A Hazelcast Jet source for listening HTTP(S) requests which contains JSON payloa
 | Distributed |  Yes  |
 
 ### Sink Attributes
-|  Atrribute  | Value |
+|  Attribute  | Value |
 |:-----------:|-------|
 | Has Sink    |  Yes  |
-| Distributed |  Yes  |
+| Distributed |  No   |
 
 ## Getting Started
 
@@ -43,70 +57,35 @@ compile group: 'com.hazelcast.jet.contrib', name: 'http', version: ${version}
 
 #### HTTP Source
 
-HTTP Listener Source (`HttpListenerSource.httpListener()`) creates HTTP listener on 
-the same host with the Hazelcast Jet instance on user configured port offset. 
+HTTP Listener Source creates HTTP listener on each Hazelcast Jet member
+on user configured host and port.
 
-Imagine if we have a running Hazelcast Jet member running on `localhost:5701`,
-if we submit following pipeline which listens for HTTP messages with port offset `100`,
-the actual port of the HTTP listener will be `5801` (base port(`5701`) + port offset(`100`)).
-The source will map payload JSON messages to POJOs of provided class, filters them based 
-on its age property and logs them to standard output.
+Below is an example pipeline which the source maps payload JSON
+messages to POJOs of provided class, filters them based on its age
+property and logs them to standard output.
 
 ```java
 Pipeline p = Pipeline.create();
-p.readFrom(HttpListenerSources.httpListener(100, Employee.class))
+p.readFrom(HttpListenerSources.httpListener(8080, Employee.class))
  .withoutTimestamps()
  .filter(employee -> employee.getAge() < 25)
  .writeTo(Sinks.logger());
 ```
 
-#### HTTPS Source
 
-HTTPS Listener Source (`HttpListenerSource.httpsListener()`) creates HTTP listener on 
-the same host with the Hazelcast Jet instance on user configured port offset. 
+#### Http Listener Sink for Websocket
 
-Imagine if we have a running Hazelcast Jet member running on `localhost:5701`,
-if we submit following pipeline which listens for HTTP messages with port offset `100`,
-the actual port of the HTTP listener will be `5801` (base port(`5701`) + port offset(`100`)).
-The source will map payload JSON messages to POJOs of provided class, filters them based 
-on its age property and logs them to standard output.
+Http Listener Sink for Websocket creates a listener for websocket
+connections on one of the Hazelcast Jet members. The sink converts each
+item to string using the provided `toStringFn` and sends to connected
+websocket clients. 
 
-```java
-SupplierEx<SSLContext> contextSupplier = () -> {
-    // Initialize the SSLContext from key store and trust stores
-    // This uses mock key and trust stores, replace them with your key
-    // and trust store files along with their passwords.
-    SSLContext context = SSLContext.getInstance("TLS");
-    KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-    KeyStore ks = KeyStore.getInstance("JKS");
-    char[] password = "123456".toCharArray();
-    File ksFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.keyStore);
-    ks.load(new FileInputStream(ksFile), password);
-    kmf.init(ks, password);
 
-    TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-    KeyStore ts = KeyStore.getInstance("JKS");
-    File tsFile = TestKeyStoreUtil.createTempFile(TestKeyStoreUtil.trustStore);
-    ts.load(new FileInputStream(tsFile), password);
-    tmf.init(ts);
-
-    context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-    return context;
-};
-
-Pipeline p = Pipeline.create();
-p.readFrom(HttpListenerSources.httpsListener(portOffset, contextSupplier, Employee.class))
- .withoutTimestamps()
- .filter(employee -> employee.getAge() < 25)
- .writeTo(Sinks.logger());
-```
-
-#### Websocket Server Sink
-
-Below is an example pipeline which generates 5 items per second and publishes those items
-with the websocket server. After the job has been submitted, you can use `HttpSinks.getWebSocketAddress()`
-static method to retrieve the websocket server address. You can use that address with any websocket client
-to start streaming the results.
+Below is an example pipeline which generates 5 items per second and
+publishes those items with the websocket server. After the job has been
+submitted, you can use `HttpListenerSinks.sinkAddress(JetInstance, Job)`
+static method to retrieve the server address. You can use that address
+with any websocket client to start streaming the results.
 
 ```java
 JetInstance jet = Jet.newJetInstance();
@@ -114,20 +93,29 @@ JetInstance jet = Jet.newJetInstance();
 Pipeline p = Pipeline.create();
 p.readFrom(TestSources.itemStream(5))
         .withoutTimestamps()
-        .writeTo(HttpSinks.websocket("/items", 100));
+        .writeTo(HttpListenerSinks.websocket("/items", 8080));
 
 Job job = jet.newJob(p);
-String webSocketAddress = HttpSinks.getWebSocketAddress(jet, job);
+String sinkAddress = HttpListenerSinks.sinkAddress(jet, job);
+//sinkAddress: "ws://the-host:8080/items
 ```
 
-Check out the `HttpSinkTest` for an example implementation with Undertow WebSocket Client.
+Check out the [HttpListenerSinkTest](./src/test/java/com/hazelcast/jet/contrib/http/HttpListenerSinkTest.java)
+for an example implementation with Undertow WebSocket Client.
 
-#### Server-Sent Events Server Sink
+#### Http Listener Sink for Server-Sent-Events
 
-Below is an example pipeline which generates 5 items per second and publishes those items
-with the http server using SSE. After the job has been submitted, you can use `HttpSinks.getSseAddress()`
-static method to retrieve the server address. You can use that address with any http client which has
-sse support to start streaming the results.
+Http Listener Sink for Server-Sent Events creates a listener for
+http connections on one of the Hazelcast Jet members. The sink converts
+each item to string using the provided `toStringFn` and sends to
+connected http clients. 
+
+Below is an example pipeline which generates 5 items per second and
+publishes those items with the http server using SSE. After the job has
+been submitted, you can use `HttpListenerSinks.sinkAddress(JetInstance, Job)`
+static method to retrieve the server address. You can use that address
+with any http client which has SSE support to start streaming the
+results.
 
 ```java
 JetInstance jet = Jet.newJetInstance();
@@ -135,10 +123,11 @@ JetInstance jet = Jet.newJetInstance();
 Pipeline p = Pipeline.create();
 p.readFrom(TestSources.itemStream(5))
         .withoutTimestamps()
-        .writeTo(HttpSinks.sse("/items", 100));
+        .writeTo(HttpListenerSinks.sse("/items", 8080));
 
 Job job = jet.newJob(p);
-String sseAddress = HttpSinks.getSseAddress(jet, job);
+String sinkAddress = HttpListenerSinks.sinkAddress(jet, job);
+//sinkAddress: "http://the-host:8080/items
 ```
 
 While the pipeline above runs, if you make a GET request to the HTTP endpoint 
@@ -176,3 +165,4 @@ To run the tests run the command below:
 ## Authors
 
 * **[Emin Demirci](https://github.com/eminn)**
+* **[Ali Gurbuz](https://github.com/gurbuzali)**
