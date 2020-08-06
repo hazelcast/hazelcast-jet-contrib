@@ -240,7 +240,7 @@ public class HttpListenerSourceBuilder<T> {
         }
         if (type != null) {
             Class<T> theType = type;
-            return data -> JsonUtil.beanFrom(new String(data), theType);
+            return data -> JsonUtil.beanFrom(new String(data, StandardCharsets.UTF_8), theType);
         }
         return data -> (T) new String(data, StandardCharsets.UTF_8);
     }

@@ -5,7 +5,7 @@ clients can connect and listen the items using either websocket or
 server-sent events.
 
 The source creates an [Undertow](https://github.com/undertow-io/undertow)
-server for each processor and start listening the incoming requests.
+server for each processor and starts listening the incoming requests.
 User can configure the host and port for the server. User can also
 define a ssl context to secure the connections. The payload can be
 converted to the desired output before emitting to the downstream.

@@ -20,6 +20,7 @@ import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext;
+import com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext.SinkType;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorSupplier;
 import com.hazelcast.jet.core.processor.SinkProcessors;
@@ -31,6 +32,8 @@ import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import java.util.Objects;
 
+import static com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext.SinkType.SSE;
+import static com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext.SinkType.WEBSOCKET;
 import static com.hazelcast.jet.core.ProcessorMetaSupplier.forceTotalParallelismOne;
 import static com.hazelcast.jet.impl.pipeline.SinkImpl.Type.TOTAL_PARALLELISM_ONE;
 
@@ -225,7 +228,7 @@ public class HttpListenerSinkBuilder<T> {
      */
     @Nonnull
     public Sink<T> buildWebsocket() {
-        return build(path, port, accumulateLimit, mutualAuthentication, true, sslContextFn, hostFn(), toStringFn);
+        return build(path, port, accumulateLimit, mutualAuthentication, WEBSOCKET, sslContextFn, hostFn(), toStringFn);
     }
 
     /**
@@ -233,7 +236,7 @@ public class HttpListenerSinkBuilder<T> {
      */
     @Nonnull
     public Sink<T> buildServerSent() {
-        return build(path, port, accumulateLimit, mutualAuthentication, false, sslContextFn, hostFn(), toStringFn);
+        return build(path, port, accumulateLimit, mutualAuthentication, SSE, sslContextFn, hostFn(), toStringFn);
     }
 
     private Sink<T> build(
@@ -241,19 +244,19 @@ public class HttpListenerSinkBuilder<T> {
             int port,
             int accumulateLimit,
             boolean mutualAuthentication,
-            boolean websocket,
+            @Nonnull SinkType sinkType,
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull SupplierEx<String> hostFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
         SupplierEx<Processor> supplier =
                 SinkProcessors.writeBufferedP(ctx -> new HttpListenerSinkContext<>(ctx, path, port,
-                                accumulateLimit, mutualAuthentication, websocket, sslContextFn, hostFn, toStringFn),
+                                accumulateLimit, mutualAuthentication, sinkType, sslContextFn, hostFn, toStringFn),
                         HttpListenerSinkContext::receive,
                         HttpListenerSinkContext::flush,
                         HttpListenerSinkContext::close
                 );
-        return new SinkImpl<>(websocket ? websocketName() : serverSentName(),
+        return new SinkImpl<>(sinkType == WEBSOCKET ? websocketName() : serverSentName(),
                 forceTotalParallelismOne(ProcessorSupplier.of(supplier)), TOTAL_PARALLELISM_ONE);
     }
 

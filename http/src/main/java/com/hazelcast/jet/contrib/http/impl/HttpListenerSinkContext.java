@@ -38,6 +38,7 @@ import javax.net.ssl.SSLContext;
 import java.util.ArrayList;
 import java.util.Set;
 
+import static com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext.SinkType.WEBSOCKET;
 import static io.undertow.Handlers.path;
 import static io.undertow.UndertowOptions.ENABLE_HTTP2;
 import static org.xnio.Options.SSL_CLIENT_AUTH_MODE;
@@ -59,14 +60,14 @@ public class HttpListenerSinkContext<T> {
             int port,
             int accumulateLimit,
             boolean mutualAuthentication,
-            boolean websocket,
+            SinkType sinkType,
             @Nullable SupplierEx<SSLContext> sslContextFn,
             @Nonnull SupplierEx<String> hostFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
         this.accumulateLimit = accumulateLimit;
-        this.messageBuffer = accumulateLimit >  0 ? new ArrayList<>(accumulateLimit) : null;
-        this.sinkHttpHandler = websocket ? new WebSocketSinkHttpHandler() : new ServerSentSinkHttpHandler();
+        this.messageBuffer = accumulateLimit > 0 ? new ArrayList<>(accumulateLimit) : null;
+        this.sinkHttpHandler = sinkType == WEBSOCKET ? new WebSocketSinkHttpHandler() : new ServerSentSinkHttpHandler();
         this.toStringFn = toStringFn;
         String host = hostFn.get();
 
@@ -88,7 +89,7 @@ public class HttpListenerSinkContext<T> {
         undertow.start();
         String observableName = getObservableNameByJobId(context.jobId());
         ringBuffer = context.jetInstance().getHazelcastInstance().getRingbuffer(observableName);
-        ringBuffer.add(sinkAddress(host, port, path, websocket, sslContextFn != null));
+        ringBuffer.add(sinkAddress(host, port, path, sinkType, sslContextFn != null));
     }
 
     @SuppressWarnings("unchecked")
@@ -194,10 +195,14 @@ public class HttpListenerSinkContext<T> {
         return Util.idToString(id) + "-http-listener-sink";
     }
 
-    private String sinkAddress(String host, int port, String path, boolean websocket, boolean secure) {
-        if (websocket) {
+    private String sinkAddress(String host, int port, String path, SinkType sinkType, boolean secure) {
+        if (sinkType == WEBSOCKET) {
             return String.format(ADDRESS_PATTERN, secure ? "wss" : "ws", host, port, path);
         }
         return String.format(ADDRESS_PATTERN, secure ? "https" : "http", host, port, path);
+    }
+
+    public enum SinkType {
+        WEBSOCKET, SSE
     }
 }
