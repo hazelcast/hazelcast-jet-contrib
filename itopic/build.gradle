@@ -1,0 +1,14 @@
+plugins {
+    id 'java'
+}
+
+version 'unspecified'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'com.hazelcast:hazelcast' + hazelcastVersion
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
