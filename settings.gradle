@@ -9,3 +9,5 @@ include 'twitter'
 include 'xa-test'
 include 'hazelcast-jet-spring-boot-starter'
 include 'pulsar'
+include 'reliabletopic'
+

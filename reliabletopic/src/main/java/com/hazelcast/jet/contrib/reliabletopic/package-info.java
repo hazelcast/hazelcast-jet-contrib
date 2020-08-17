@@ -17,4 +17,4 @@
 /**
  * Connector for Hazelcast Jet to connect to IMDG topics.
  */
-package com.hazelcast.jet.contrib.itopic;
+package com.hazelcast.jet.contrib.reliabletopic;
