@@ -48,8 +48,8 @@ subprojects {
 
     group = 'com.hazelcast.jet.contrib'
 
-    sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'
+    sourceCompatibility = '1.11'
+    targetCompatibility = '1.11'
 
     ext {
         jetVersion = '4.2'

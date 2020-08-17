@@ -1,0 +1,3 @@
+hazelcast-jet:
+  properties:
+    jet.idle.cooperative.min.microseconds: 50
