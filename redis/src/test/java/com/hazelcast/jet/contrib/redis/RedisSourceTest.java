@@ -124,7 +124,7 @@ public class RedisSourceTest extends JetTestSupport {
         IList<ScoredValue<String>> list = instance.getList("list");
         assertTrueEventually(() -> assertEquals(rangeEnd - rangeStart + 1, list.size()));
         assertEquals(rangeStart, (int) list.get(0).getScore());
-        assertEquals(rangeStart+1000, (int) list.get(1000).getScore());
+        assertEquals(rangeStart + 1000, (int) list.get(1000).getScore());
         assertEquals(rangeEnd, (int) list.get(list.size() - 1).getScore());
     }
 
