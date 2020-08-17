@@ -117,15 +117,15 @@ public class RedisSourceTest extends JetTestSupport {
 
         Pipeline p = Pipeline.create();
         p.readFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
-                .map(sv -> (int) sv.getScore() + ":" + sv.getValue())
                 .writeTo(Sinks.list("list"));
 
         instance.newJob(p).join();
 
-        IList<String> list = instance.getList("list");
+        IList<ScoredValue<String>> list = instance.getList("list");
         assertTrueEventually(() -> assertEquals(rangeEnd - rangeStart + 1, list.size()));
-        assertEquals(rangeStart + ":foobar-" + rangeStart , list.get(0));
-        assertEquals(rangeEnd + ":foobar-" + rangeEnd , list.get(list.size() - 1));
+        assertEquals(rangeStart, (int) list.get(0).getScore());
+        assertEquals(rangeStart + 1000, (int) list.get(1000).getScore());
+        assertEquals(rangeEnd, (int) list.get(list.size() - 1).getScore());
     }
 
     private void fillSortedSet(String sortedSet, int elementCount) {
