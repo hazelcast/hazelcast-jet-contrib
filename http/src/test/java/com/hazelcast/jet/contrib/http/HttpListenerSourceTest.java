@@ -30,6 +30,7 @@ import static com.hazelcast.jet.core.TestUtil.executeAndPeel;
 import static com.hazelcast.jet.pipeline.test.AssertionSinks.assertCollectedEventually;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public class HttpListenerSourceTest extends HttpTestBase {
 
@@ -80,6 +81,21 @@ public class HttpListenerSourceTest extends HttpTestBase {
 
         expectedException.expectCause(instanceOf(AssertionCompletedException.class));
         executeAndPeel(job);
+    }
+
+    @Test
+    public void testHttpsIngestion_when_sslEnabled_and_clientWithoutSsl() throws Throwable {
+        StreamSource<String> source = HttpListenerSources.builder().sslContextFn(sslContextFn()).build();
+        Job job = startJob(source);
+
+        try {
+            postUsers(httpClient, ITEM_COUNT, DEFAULT_PORT, true);
+            fail();
+        } catch (AssertionError e) {
+            assertEquals("Failed to execute the post", e.getMessage());
+        } finally {
+            job.cancel();
+        }
     }
 
     @Test

@@ -61,7 +61,7 @@ public final class HttpListenerSources {
 
     /**
      * Create a source that listens for HTTP requests from
-     * {@link HttpListenerSourceBuilder#DEFAULT_PORT} {@code 5801} and converts the
+     * {@link HttpListenerSourceBuilder#DEFAULT_PORT} {@code 8080} and converts the
      * payload to {@code String}.
      * <p>
      * See {@link #builder()}

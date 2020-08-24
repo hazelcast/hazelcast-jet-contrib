@@ -134,7 +134,7 @@ While the pipeline above runs, if you make a GET request to the HTTP endpoint
 you should see a similar output like below:
 
 ```bash
-$ curl -X GET http://192.168.1.25:5801/items  
+$ curl -X GET http://192.168.1.25:8080/items  
 data:SimpleEvent(timestamp=21:20:21.000, sequence=41)
 
 data:SimpleEvent(timestamp=21:20:21.200, sequence=42)

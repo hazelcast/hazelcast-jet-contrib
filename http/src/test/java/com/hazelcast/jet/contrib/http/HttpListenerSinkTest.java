@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
 public class HttpListenerSinkTest extends HttpTestBase {
@@ -64,6 +65,8 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
     private XnioWorker worker;
     private ByteBufferPool buffer;
+    private Job job;
+    private Closeable wsOrSseClient;
 
     @Before
     public void setUp() throws Exception {
@@ -72,13 +75,22 @@ public class HttpListenerSinkTest extends HttpTestBase {
                 .set(Options.WORKER_IO_THREADS, 2)
                 .getMap());
 
-        this.buffer = new DefaultByteBufferPool(true, 256);
+        buffer = new DefaultByteBufferPool(true, 256);
     }
 
     @After
-    public void after() {
+    public void after() throws IOException {
         worker.shutdown();
         buffer.close();
+
+        // cleanup
+        if (job != null) {
+            job.cancel();
+            assertJobStatusEventually(job, JobStatus.FAILED);
+        }
+        if (wsOrSseClient != null) {
+            wsOrSseClient.close();
+        }
     }
 
     @Test
@@ -88,7 +100,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .accumulateItems(100)
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -96,14 +108,36 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
 
-        // cleanup
-        cleanup(job, wsChannel);
+    }
+
+    @Test
+    public void testWebsocket_when_accumulateEnabledWithSmallNumber() throws Throwable {
+        // Given
+        int queueLimit = 5;
+        IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
+        Sink<Object> sink = HttpListenerSinks.builder()
+                .accumulateItems(queueLimit)
+                .buildWebsocket();
+        startJob(sourceQueue, sink);
+
+        // when
+        int messageCount = 10;
+        postMessages(sourceQueue, messageCount);
+
+
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        receiveFromWebSocket(webSocketAddress, queue);
+        postMessages(sourceQueue, messageCount);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount + queueLimit, queue));
     }
 
     @Test
@@ -112,7 +146,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -121,14 +155,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, wsChannel);
     }
 
     @Test
@@ -138,7 +169,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .sslContextFn(sslContextFn())
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -147,14 +178,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, wsChannel);
     }
 
     @Test
@@ -165,7 +193,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
                 .sslContextFn(sslContextFn())
                 .enableMutualAuthentication()
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -174,14 +202,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, wsChannel);
     }
 
     @Test
@@ -191,7 +216,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .port(8091)
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -200,14 +225,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, wsChannel);
     }
 
     @Test
@@ -217,7 +239,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .path("/user")
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -226,14 +248,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, wsChannel);
     }
 
     @Test
@@ -243,7 +262,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .toStringFn(item -> item.toString().toUpperCase())
                 .buildWebsocket();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -252,14 +271,12 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        WebSocketChannel wsChannel = receiveFromWebSocket(webSocketAddress, queue);
+        receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, wsChannel);
+        assertEquals(messageCount, queue.stream().filter(s -> s.startsWith("MESSAGE-")).count());
     }
 
     @Test
@@ -269,7 +286,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .accumulateItems(100)
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -278,14 +295,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
     }
 
     @Test
@@ -294,7 +308,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -303,14 +317,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
     }
 
     @Test
@@ -320,7 +331,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .sslContextFn(sslContextFn())
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -329,14 +340,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
     }
 
     @Test
@@ -347,7 +355,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
                 .sslContextFn(sslContextFn())
                 .enableMutualAuthentication()
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -356,14 +364,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
     }
 
     @Test
@@ -373,7 +378,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .port(8091)
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -382,14 +387,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
     }
 
     @Test
@@ -399,7 +401,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .path("/user")
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -408,14 +410,11 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
     }
 
     @Test
@@ -425,7 +424,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         Sink<Object> sink = HttpListenerSinks.builder()
                 .toStringFn(item -> item.toString().toUpperCase())
                 .buildServerSent();
-        Job job = startJob(sourceQueue, sink);
+        startJob(sourceQueue, sink);
 
         // when
         int messageCount = 10;
@@ -434,17 +433,15 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
-        EventSource eventSource = receiveFromSse(sseAddress, queue);
+        receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
         assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
-
-        // cleanup
-        cleanup(job, eventSource);
+        assertEquals(messageCount, queue.stream().filter(s -> s.startsWith("MESSAGE-")).count());
     }
 
-    private EventSource receiveFromSse(String sseAddress, Collection<String> queue) {
+    private void receiveFromSse(String sseAddress, Collection<String> queue) {
         EventHandler eventHandler = new EventHandler() {
             @Override
             public void onOpen() {
@@ -477,10 +474,10 @@ public class HttpListenerSinkTest extends HttpTestBase {
         EventSource eventSource = builder.build();
         eventSource.start();
         assertTrueEventually(() -> assertSame(OPEN, eventSource.getState()));
-        return eventSource;
+        wsOrSseClient = eventSource;
     }
 
-    private WebSocketChannel receiveFromWebSocket(String webSocketAddress, Collection<String> queue) {
+    private void receiveFromWebSocket(String webSocketAddress, Collection<String> queue) {
         WebSocketChannel wsChannel = connectWithRetry(webSocketAddress);
         wsChannel.getReceiveSetter().set(new AbstractReceiveListener() {
             @Override
@@ -489,7 +486,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
             }
         });
         wsChannel.resumeReceives();
-        return wsChannel;
+        wsOrSseClient = wsChannel;
     }
 
     private WebSocketChannel connectWithRetry(String webSocketAddress) {
@@ -510,15 +507,14 @@ public class HttpListenerSinkTest extends HttpTestBase {
         throw new AssertionError("Failed to connect to " + webSocketAddress);
     }
 
-    private Job startJob(IQueue<String> sourceQueue, Sink<Object> sink) {
+    private void startJob(IQueue<String> sourceQueue, Sink<Object> sink) {
         Pipeline p = Pipeline.create();
         p.readFrom(queueSource(sourceQueue))
                 .withoutTimestamps()
                 .writeTo(sink);
 
-        Job job = jet.newJob(p);
+        job = jet.newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
-        return job;
     }
 
     StreamSource<String> queueSource(IQueue<String> sourceQueue) {
@@ -526,12 +522,6 @@ public class HttpListenerSinkTest extends HttpTestBase {
         return SourceBuilder.stream(name, c -> new QueueSourceContext(c, name))
                 .fillBufferFn(QueueSourceContext::fillBuffer)
                 .build();
-    }
-
-    private void cleanup(Job job, Closeable wsOrSseClient) throws IOException {
-        job.cancel();
-        assertJobStatusEventually(job, JobStatus.FAILED);
-        wsOrSseClient.close();
     }
 
     void postMessages(IQueue<String> sourceQueue, int messageCount) {
