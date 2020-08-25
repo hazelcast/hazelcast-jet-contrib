@@ -57,6 +57,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 public class HttpListenerSinkTest extends HttpTestBase {
 
@@ -224,6 +225,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
+        assertTrue(webSocketAddress.endsWith("8091/"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -247,6 +249,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
+        assertTrue(webSocketAddress.endsWith("/user"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -386,6 +389,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
+        assertTrue(sseAddress.endsWith("8091/"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
@@ -409,6 +413,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
+        assertTrue(sseAddress.endsWith("/user"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
