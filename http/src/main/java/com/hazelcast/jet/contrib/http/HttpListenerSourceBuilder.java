@@ -65,7 +65,7 @@ public class HttpListenerSourceBuilder<T> {
      * <pre>{@code
      * builder.hostFn(() -> {
      *     Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
-     *     if (networkInterfaces.hasMoreElements()) {
+     *     while (networkInterfaces.hasMoreElements()) {
      *         NetworkInterface networkInterface = networkInterfaces.nextElement();
      *         Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
      *         while (inetAddresses.hasMoreElements()) {
