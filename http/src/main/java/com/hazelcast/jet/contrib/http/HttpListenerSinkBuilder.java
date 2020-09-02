@@ -256,16 +256,17 @@ public class HttpListenerSinkBuilder<T> {
                         HttpListenerSinkContext::flush,
                         HttpListenerSinkContext::close
                 );
-        return new SinkImpl<>(sinkType == WEBSOCKET ? websocketName() : serverSentName(),
-                forceTotalParallelismOne(ProcessorSupplier.of(supplier)), TOTAL_PARALLELISM_ONE);
+        String sinkName = sinkType == WEBSOCKET ? websocketName() : serverSentName();
+        return new SinkImpl<>(sinkName,
+                forceTotalParallelismOne(ProcessorSupplier.of(supplier), sinkName), TOTAL_PARALLELISM_ONE);
     }
 
     private String websocketName() {
-        return "websocket@" + port;
+        return "websocket:" + port;
     }
 
     private String serverSentName() {
-        return "serverSent@" + port;
+        return "serverSent:" + port;
     }
 
     private SupplierEx<String> hostFn() {

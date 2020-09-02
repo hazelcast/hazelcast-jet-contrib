@@ -96,6 +96,7 @@ public class HttpTestBase extends JetTestSupport {
     @Before
     public void setup() {
         jet = createJetMember();
+        createJetMember();
         httpClient = HttpClients.createDefault();
         httpsClient = HttpClients
                 .custom()
