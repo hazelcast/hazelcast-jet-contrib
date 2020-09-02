@@ -32,6 +32,10 @@ subprojects {
                 snapshotsOnly()
             }
         }
+        maven {
+            url "https://repository.hazelcast.com/release"
+        }
+
     }
 
     idea {
@@ -61,9 +65,10 @@ subprojects {
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
         testCompile "com.hazelcast.jet:hazelcast-jet-core:" + jetVersion + ":tests"
         testCompile "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
+        testCompile "com.hazelcast:hazelcast-enterprise:" + hazelcastVersion + ":tests"
         testCompile "javax.cache:cache-api:1.1.0"
         testCompile 'log4j:log4j:1.2.17'
-        testCompile 'junit:junit:4.11'
+        testCompile 'junit:junit:4.12'
         testCompile 'org.awaitility:awaitility:3.1.6'
     }
 
