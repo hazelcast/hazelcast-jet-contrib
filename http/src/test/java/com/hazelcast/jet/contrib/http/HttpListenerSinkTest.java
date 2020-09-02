@@ -96,7 +96,28 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_accumulateEnabled() throws Throwable {
+    public void testWebsocket_when_clientConnectsAfterAccumulation() {
+        // Given
+        IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
+        Sink<Object> sink = HttpListenerSinks.builder()
+                .accumulateItems(100)
+                .buildWebsocket();
+        startJob(sourceQueue, sink);
+
+        // when
+        int messageCount = 10;
+        postMessages(sourceQueue, messageCount);
+
+        String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        receiveFromWebSocket(webSocketAddress, queue);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+    }
+
+    @Test
+    public void testWebsocket_when_accumulateEnabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -119,7 +140,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_accumulateEnabledWithSmallNumber() throws Throwable {
+    public void testWebsocket_when_accumulateEnabledWithSmallNumber() {
         // Given
         int queueLimit = 5;
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
@@ -143,7 +164,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_accumulateDisabled() throws Throwable {
+    public void testWebsocket_when_accumulateDisabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -165,7 +186,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_sslEnabled() throws Throwable {
+    public void testWebsocket_when_sslEnabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -188,7 +209,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_mutualAuthEnabled() throws Throwable {
+    public void testWebsocket_when_mutualAuthEnabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -212,7 +233,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_portConfigured() throws Throwable {
+    public void testWebsocket_when_portConfigured() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -236,7 +257,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_pathConfigured() throws Throwable {
+    public void testWebsocket_when_pathConfigured() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -260,7 +281,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testWebsocket_when_toStringFnConfigured() throws Throwable {
+    public void testWebsocket_when_toStringFnConfigured() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -284,7 +305,29 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_accumulateEnabled() throws Throwable {
+    public void testSSE_when_clientConnectsAfterAccumulation() {
+        // Given
+        IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
+        Sink<Object> sink = HttpListenerSinks.builder()
+                .accumulateItems(100)
+                .buildServerSent();
+        startJob(sourceQueue, sink);
+
+        // when
+        int messageCount = 10;
+
+        postMessages(sourceQueue, messageCount);
+
+        String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
+        Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
+        receiveFromSse(sseAddress, queue);
+
+        // test
+        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+    }
+
+    @Test
+    public void testSSE_when_accumulateEnabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -307,7 +350,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_accumulateDisabled() throws Throwable {
+    public void testSSE_when_accumulateDisabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -329,7 +372,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_sslEnabled() throws Throwable {
+    public void testSSE_when_sslEnabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -352,7 +395,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_mutualAuthEnabled() throws Throwable {
+    public void testSSE_when_mutualAuthEnabled() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -376,7 +419,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_portConfigured() throws Throwable {
+    public void testSSE_when_portConfigured() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -400,7 +443,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_pathConfigured() throws Throwable {
+    public void testSSE_when_pathConfigured() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()
@@ -424,7 +467,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     @Test
-    public void testSSE_when_toStringFnConfigured() throws Throwable {
+    public void testSSE_when_toStringFnConfigured() {
         // Given
         IQueue<String> sourceQueue = jet.getHazelcastInstance().getQueue(randomName());
         Sink<Object> sink = HttpListenerSinks.builder()

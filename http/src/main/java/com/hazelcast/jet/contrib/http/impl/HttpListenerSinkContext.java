@@ -35,8 +35,8 @@ import org.xnio.SslClientAuthMode;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
-import java.util.ArrayList;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext.SinkType.WEBSOCKET;
 import static io.undertow.Handlers.path;
@@ -49,10 +49,10 @@ public class HttpListenerSinkContext<T> {
 
     private final SinkHttpHandler sinkHttpHandler;
     private final Undertow undertow;
-    private final ArrayList<String> messageBuffer;
     private final FunctionEx<T, String> toStringFn;
     private final Ringbuffer<String> ringBuffer;
     private final int accumulateLimit;
+    private final ConcurrentLinkedQueue<String> messageBuffer;
 
     public HttpListenerSinkContext(
             @Nonnull Processor.Context context,
@@ -66,8 +66,9 @@ public class HttpListenerSinkContext<T> {
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
         this.accumulateLimit = accumulateLimit;
-        this.messageBuffer = accumulateLimit > 0 ? new ArrayList<>(accumulateLimit) : null;
-        this.sinkHttpHandler = sinkType == WEBSOCKET ? new WebSocketSinkHttpHandler() : new ServerSentSinkHttpHandler();
+        this.messageBuffer = accumulateLimit > 0 ? new ConcurrentLinkedQueue<>() : null;
+        this.sinkHttpHandler = sinkType == WEBSOCKET ? new WebSocketSinkHttpHandler(messageBuffer)
+                : new ServerSentSinkHttpHandler(messageBuffer);
         this.toStringFn = toStringFn;
         String host = hostFn.get();
 
@@ -117,8 +118,11 @@ public class HttpListenerSinkContext<T> {
         if (messageBuffer == null) {
             return;
         }
-        messageBuffer.forEach(sinkHttpHandler::send);
-        messageBuffer.clear();
+        String message = messageBuffer.poll();
+        while (message != null) {
+            sinkHttpHandler.send(message);
+            message = messageBuffer.poll();
+        }
     }
 
     private void putToBuffer(T item) {
@@ -142,8 +146,13 @@ public class HttpListenerSinkContext<T> {
         private final WebSocketProtocolHandshakeHandler handler;
         private final Set<WebSocketChannel> peerConnections;
 
-        WebSocketSinkHttpHandler() {
+        WebSocketSinkHttpHandler(ConcurrentLinkedQueue<String> messageBuffer) {
             handler = Handlers.websocket((exchange, channel) -> {
+                String message = messageBuffer.poll();
+                while (message != null) {
+                    send(message);
+                    message = messageBuffer.poll();
+                }
             });
             peerConnections = handler.getPeerConnections();
         }
@@ -169,8 +178,14 @@ public class HttpListenerSinkContext<T> {
         private final ServerSentEventHandler handler;
         private final Set<ServerSentEventConnection> connections;
 
-        ServerSentSinkHttpHandler() {
-            handler = Handlers.serverSentEvents();
+        ServerSentSinkHttpHandler(ConcurrentLinkedQueue<String> messageBuffer) {
+            handler = Handlers.serverSentEvents((connection, lastEventId) -> {
+                String message = messageBuffer.poll();
+                while (message != null) {
+                    send(message);
+                    message = messageBuffer.poll();
+                }
+            });
             connections = handler.getConnections();
         }
 
@@ -189,7 +204,6 @@ public class HttpListenerSinkContext<T> {
             return !connections.isEmpty();
         }
     }
-
 
     public static String getObservableNameByJobId(long id) {
         return Util.idToString(id) + "-http-listener-sink";
