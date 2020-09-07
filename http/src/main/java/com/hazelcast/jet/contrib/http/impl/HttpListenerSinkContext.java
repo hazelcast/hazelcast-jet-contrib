@@ -17,6 +17,7 @@
 package com.hazelcast.jet.contrib.http.impl;
 
 
+import com.hazelcast.function.ConsumerEx;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.Util;
@@ -35,8 +36,8 @@ import org.xnio.SslClientAuthMode;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
-import java.util.ArrayList;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext.SinkType.WEBSOCKET;
 import static io.undertow.Handlers.path;
@@ -49,10 +50,9 @@ public class HttpListenerSinkContext<T> {
 
     private final SinkHttpHandler sinkHttpHandler;
     private final Undertow undertow;
-    private final ArrayList<String> messageBuffer;
     private final FunctionEx<T, String> toStringFn;
     private final Ringbuffer<String> ringBuffer;
-    private final int accumulateLimit;
+    private final MessageBuffer messageBuffer;
 
     public HttpListenerSinkContext(
             @Nonnull Processor.Context context,
@@ -65,9 +65,10 @@ public class HttpListenerSinkContext<T> {
             @Nonnull SupplierEx<String> hostFn,
             @Nonnull FunctionEx<T, String> toStringFn
     ) {
-        this.accumulateLimit = accumulateLimit;
-        this.messageBuffer = accumulateLimit > 0 ? new ArrayList<>(accumulateLimit) : null;
-        this.sinkHttpHandler = sinkType == WEBSOCKET ? new WebSocketSinkHttpHandler() : new ServerSentSinkHttpHandler();
+        this.messageBuffer = accumulateLimit > 0
+                ? new ConcurrentMessageBuffer(accumulateLimit) : new NoopMessageBuffer();
+        this.sinkHttpHandler = sinkType == WEBSOCKET ? new WebSocketSinkHttpHandler(messageBuffer)
+                : new ServerSentSinkHttpHandler(messageBuffer);
         this.toStringFn = toStringFn;
         String host = hostFn.get();
 
@@ -94,38 +95,18 @@ public class HttpListenerSinkContext<T> {
 
     @SuppressWarnings("unchecked")
     public void receive(Object item) {
+        String itemString = toStringFn.apply((T) item);
         if (sinkHttpHandler.hasConnectedClients()) {
-            drainBuffer();
-            sinkHttpHandler.send(toStringFn.apply((T) item));
+            messageBuffer.drain(sinkHttpHandler::send);
+            sinkHttpHandler.send(itemString);
         } else {
-            putToBuffer((T) item);
-        }
-    }
-
-    public void flush() {
-        if (sinkHttpHandler.hasConnectedClients()) {
-            drainBuffer();
+            messageBuffer.add(itemString);
         }
     }
 
     public void close() {
         undertow.stop();
         ringBuffer.destroy();
-    }
-
-    private void drainBuffer() {
-        if (messageBuffer == null) {
-            return;
-        }
-        messageBuffer.forEach(sinkHttpHandler::send);
-        messageBuffer.clear();
-    }
-
-    private void putToBuffer(T item) {
-        if (messageBuffer == null || messageBuffer.size() == accumulateLimit) {
-            return;
-        }
-        messageBuffer.add(toStringFn.apply(item));
     }
 
     interface SinkHttpHandler {
@@ -137,14 +118,56 @@ public class HttpListenerSinkContext<T> {
         boolean hasConnectedClients();
     }
 
+    interface MessageBuffer {
+
+        void drain(ConsumerEx<String> consumer);
+
+        void add(String item);
+    }
+
+    static class ConcurrentMessageBuffer implements MessageBuffer {
+
+        private final ConcurrentLinkedQueue<String> queue;
+        private final int accumulateLimit;
+
+        ConcurrentMessageBuffer(int accumulateLimit) {
+            this.queue = new ConcurrentLinkedQueue<>();
+            this.accumulateLimit = accumulateLimit;
+        }
+
+        @Override
+        public void drain(ConsumerEx<String> consumer) {
+            for (String message; (message = queue.poll()) != null; ) {
+                consumer.accept(message);
+            }
+        }
+
+        @Override
+        public void add(String item) {
+            if (queue.size() == accumulateLimit) {
+                queue.poll();
+            }
+            queue.add(item);
+        }
+    }
+
+    static class NoopMessageBuffer implements MessageBuffer {
+        @Override
+        public void drain(ConsumerEx<String> consumer) {
+        }
+
+        @Override
+        public void add(String item) {
+        }
+    }
+
     static class WebSocketSinkHttpHandler implements SinkHttpHandler {
 
         private final WebSocketProtocolHandshakeHandler handler;
         private final Set<WebSocketChannel> peerConnections;
 
-        WebSocketSinkHttpHandler() {
-            handler = Handlers.websocket((exchange, channel) -> {
-            });
+        WebSocketSinkHttpHandler(MessageBuffer messageBuffer) {
+            handler = Handlers.websocket((exchange, channel) -> messageBuffer.drain(this::send));
             peerConnections = handler.getPeerConnections();
         }
 
@@ -169,8 +192,8 @@ public class HttpListenerSinkContext<T> {
         private final ServerSentEventHandler handler;
         private final Set<ServerSentEventConnection> connections;
 
-        ServerSentSinkHttpHandler() {
-            handler = Handlers.serverSentEvents();
+        ServerSentSinkHttpHandler(MessageBuffer messageBuffer) {
+            handler = Handlers.serverSentEvents((connection, lastEventId) -> messageBuffer.drain(this::send));
             connections = handler.getConnections();
         }
 
@@ -189,7 +212,6 @@ public class HttpListenerSinkContext<T> {
             return !connections.isEmpty();
         }
     }
-
 
     public static String getObservableNameByJobId(long id) {
         return Util.idToString(id) + "-http-listener-sink";

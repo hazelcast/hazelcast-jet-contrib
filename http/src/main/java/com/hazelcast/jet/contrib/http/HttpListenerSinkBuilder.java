@@ -16,6 +16,7 @@
 
 package com.hazelcast.jet.contrib.http;
 
+import com.hazelcast.function.ConsumerEx;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.internal.util.Preconditions;
@@ -253,7 +254,7 @@ public class HttpListenerSinkBuilder<T> {
                 SinkProcessors.writeBufferedP(ctx -> new HttpListenerSinkContext<>(ctx, path, port,
                                 accumulateLimit, mutualAuthentication, sinkType, sslContextFn, hostFn, toStringFn),
                         HttpListenerSinkContext::receive,
-                        HttpListenerSinkContext::flush,
+                        ConsumerEx.noop(),
                         HttpListenerSinkContext::close
                 );
         String sinkName = sinkType == WEBSOCKET ? websocketName() : serverSentName();
