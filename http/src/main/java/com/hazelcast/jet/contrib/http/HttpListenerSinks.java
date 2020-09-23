@@ -122,9 +122,11 @@ public final class HttpListenerSinks {
     }
 
     /**
-     * When sink processor initialized on one of the members it saves the
-     * address in a ring-buffer. Retrieves and returns the address of the
-     * Http Listener Sink for the given job.
+     * Http Listener Sink is not distributed, it creates a listener server on
+     * one of the members. The address of this server is stored using the job
+     * identifier.
+     * <p>
+     * Returns the address of the Http Listener Sink server for the given job.
      *
      * @param jet the Jet instance, either client or member
      * @param job the job which has the Http Listener Sink

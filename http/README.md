@@ -1,4 +1,4 @@
-# HTTP(S) Listener Source
+# HTTP(S) Listener Connector
 
 A Hazelcast Jet source for listening HTTP(S) requests, and a sink which
 clients can connect and listen the items using either websocket or
@@ -55,7 +55,7 @@ compile group: 'com.hazelcast.jet.contrib', name: 'http', version: ${version}
 
 ### Usage
 
-#### HTTP Source
+#### HTTP Listener Source
 
 HTTP Listener Source creates HTTP listener on each Hazelcast Jet member
 on user configured host and port.

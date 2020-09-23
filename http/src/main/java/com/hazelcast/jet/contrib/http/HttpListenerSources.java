@@ -17,12 +17,10 @@
 package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.function.FunctionEx;
-import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.pipeline.StreamSource;
 import io.undertow.Undertow;
 
 import javax.annotation.Nonnull;
-import javax.net.ssl.SSLContext;
 
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 
@@ -108,32 +106,5 @@ public final class HttpListenerSources {
         checkNotNull(mapToItemFn, "mapToItemFn cannot be null");
         return builder().port(port).mapToItemFn(mapToItemFn).build();
     }
-
-    /**
-     * Create a source that listens for HTTPs requests from given port
-     * and maps the payload to pipeline item using specified {@code mapToItemFn}.
-     * <p>
-     * See {@link #builder()}
-     *
-     * @param port         The port for HTTPs listener to bind. The source will
-     *                     listen for connections on given port on the same
-     *                     host address with the member.
-     * @param sslContextFn the function to create {@link SSLContext} which used
-     *                     to initialize underlying HTTPs listener for secure
-     *                     connections.
-     * @param mapToItemFn  the function which converts the received payload to
-     *                     pipeline item.
-     */
-    @Nonnull
-    public static <T> StreamSource<T> httpListener(
-            int port,
-            @Nonnull SupplierEx<SSLContext> sslContextFn,
-            @Nonnull FunctionEx<byte[], T> mapToItemFn
-    ) {
-        checkNotNull(sslContextFn, "sslContextFn cannot be null");
-        checkNotNull(mapToItemFn, "mapToItemFn cannot be null");
-        return builder().port(port).sslContextFn(sslContextFn).mapToItemFn(mapToItemFn).build();
-    }
-
 
 }
