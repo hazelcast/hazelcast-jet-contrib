@@ -21,6 +21,12 @@ To build the project, use the following command
 ./gradlew build
 ```
 
+To publish project modules to the Maven Local repository, use the command
+
+```
+./gradlew publishToMavenLocal
+```
+
 ## List of modules
 
 ### [InfluxDb Connector](influxdb) 
