@@ -16,5 +16,7 @@
 
 /**
  * Contains sources and sinks for Mqtt.
+ *
+ * @since 4.3
  */
 package com.hazelcast.jet.contrib.mqtt;

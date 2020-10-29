@@ -17,13 +17,15 @@
 package com.hazelcast.jet.contrib.mqtt.impl;
 
 import com.hazelcast.logging.ILogger;
+import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-abstract class AbstractCallback implements MqttCallback {
+abstract class AbstractCallback implements MqttCallbackExtended {
 
-    private final ILogger logger;
+    final ILogger logger;
+    IMqttClient client;
 
     AbstractCallback(ILogger logger) {
         this.logger = logger;
@@ -42,5 +44,9 @@ abstract class AbstractCallback implements MqttCallback {
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {
         throw new UnsupportedOperationException();
+    }
+
+    public void setClient(IMqttClient client) {
+        this.client = client;
     }
 }

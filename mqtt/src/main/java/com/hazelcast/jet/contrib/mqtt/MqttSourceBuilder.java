@@ -41,6 +41,8 @@ import static com.hazelcast.jet.contrib.mqtt.impl.NoopSourceContextImpl.noopSour
  * See {@link MqttSources#builder()} and {@link MqttBaseBuilder}.
  *
  * @param <T> the type of the pipeline item.
+ *
+ * @since 4.3
  */
 public final class MqttSourceBuilder<T> extends MqttBaseBuilder<T> {
 

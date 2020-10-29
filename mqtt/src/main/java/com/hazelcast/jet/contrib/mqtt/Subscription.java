@@ -22,6 +22,8 @@ import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.AT_LE
 
 /**
  * Represents a subscription to a topic with quality of service.
+ *
+ * @since 4.3
  */
 public class Subscription implements Serializable {
 

@@ -37,6 +37,8 @@ import static java.util.Objects.requireNonNull;
  * See {@link MqttSinks#builder()} and {@link MqttBaseBuilder}.
  *
  * @param <T> the type of the pipeline item.
+ *
+ * @since 4.3
  */
 public final class MqttSinkBuilder<T> extends MqttBaseBuilder<T> {
 

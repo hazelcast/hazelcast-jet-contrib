@@ -45,4 +45,8 @@ public class SinkCallback extends AbstractCallback {
         semaphore.acquire();
     }
 
+    @Override
+    public void connectComplete(boolean reconnect, String serverURI) {
+        logger.info("Connection(reconnect=" + reconnect + ") to " + serverURI + " complete.");
+    }
 }

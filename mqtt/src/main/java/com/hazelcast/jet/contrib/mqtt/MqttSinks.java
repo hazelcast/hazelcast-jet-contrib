@@ -26,6 +26,8 @@ import javax.annotation.Nonnull;
 
 /**
  * Contains factory methods for Mqtt sinks.
+ *
+ * @since 4.3
  */
 public final class MqttSinks {
 

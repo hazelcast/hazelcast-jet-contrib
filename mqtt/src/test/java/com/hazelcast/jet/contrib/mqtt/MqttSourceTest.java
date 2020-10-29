@@ -39,6 +39,9 @@ import java.util.List;
 
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
 import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.EXACTLY_ONCE;
+import static com.hazelcast.jet.core.JobStatus.RUNNING;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class MqttSourceTest extends JetTestSupport {
 
@@ -58,10 +61,7 @@ public class MqttSourceTest extends JetTestSupport {
         sinkList = jet.getList("sinkList");
 
         broker = mosquittoContainer.connectionString();
-        client = new MqttAsyncClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
-        MqttConnectOptions options = new MqttConnectOptions();
-        options.setMaxInflight(300);
-        client.connect(options).waitForCompletion();
+        client = createClient();
 
         client.publish("topic1", "retain".getBytes(), 2, true).waitForCompletion();
         client.publish("topic2", "retain".getBytes(), 2, true).waitForCompletion();
@@ -75,6 +75,45 @@ public class MqttSourceTest extends JetTestSupport {
     }
 
     @Test
+    public void test_autoReconnect() throws MqttException {
+        String topic = "topic1";
+
+        Pipeline p = Pipeline.create();
+
+        StreamSource<byte[]> source =
+                MqttSources.builder()
+                        .broker(broker)
+                        .topic(topic)
+                        .qualityOfService(EXACTLY_ONCE)
+                        .autoReconnect()
+                        .build();
+
+        p.readFrom(source)
+                .withoutTimestamps()
+                .writeTo(Sinks.list(sinkList));
+
+        Job job = jet.newJob(p);
+
+        assertEqualsEventually(sinkList::size, 1);
+        client.publish(topic, "message1".getBytes(), 2, false).waitForCompletion();
+        assertEqualsEventually(sinkList::size, 2);
+
+        mosquittoContainer.fixMappedPort();
+        mosquittoContainer.stop();
+        assertEquals(RUNNING, job.getStatus());
+        mosquittoContainer.start();
+
+        assertTrueEventually(() -> {
+            if (client.isConnected()) {
+                client.publish(topic, "message2".getBytes(), 2, false).waitForCompletion();
+            }
+            assertTrue(sinkList.size() > 2);
+        });
+
+        job.cancel();
+    }
+
+    @Test
     public void test() throws MqttException {
         int messageCount = 6000;
         Subscription[] subscriptions = new Subscription[]{
@@ -85,12 +124,12 @@ public class MqttSourceTest extends JetTestSupport {
         Pipeline p = Pipeline.create();
         StreamSource<byte[]> source =
                 MqttSources.builder()
-                           .broker(broker)
-                           .subscriptions(subscriptions)
-                           .build();
+                        .broker(broker)
+                        .subscriptions(subscriptions)
+                        .build();
         p.readFrom(source)
-         .withoutTimestamps()
-         .writeTo(Sinks.list(sinkList));
+                .withoutTimestamps()
+                .writeTo(Sinks.list(sinkList));
 
         Job job = jet.newJob(p);
 
@@ -114,5 +153,15 @@ public class MqttSourceTest extends JetTestSupport {
         assertEqualsEventually(sinkList::size, (messageCount + 1) * subscriptions.length);
 
         job.cancel();
+    }
+
+    private MqttAsyncClient createClient() throws MqttException {
+        MqttAsyncClient client = new MqttAsyncClient(broker, newUnsecureUuidString(),
+                new ConcurrentMemoryPersistence());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setMaxInflight(300);
+        options.setAutomaticReconnect(true);
+        client.connect(options).waitForCompletion();
+        return client;
     }
 }

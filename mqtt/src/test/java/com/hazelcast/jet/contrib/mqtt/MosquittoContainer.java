@@ -56,6 +56,14 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
         return "tcp://" + getContainerIpAddress() + ":" + getMappedPort(PORT);
     }
 
+    /**
+     * Sets the current mapped port as the bind port. This is useful if you
+     * want to fix the port through a restart (stop/start).
+     */
+    public void fixMappedPort() {
+        setPortBindings(Collections.singletonList(getMappedPort(PORT) + ":" + PORT));
+    }
+
     public String host() {
         return getContainerIpAddress();
     }

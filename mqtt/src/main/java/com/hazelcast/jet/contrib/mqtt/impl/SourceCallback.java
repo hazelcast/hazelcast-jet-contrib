@@ -17,7 +17,10 @@
 package com.hazelcast.jet.contrib.mqtt.impl;
 
 import com.hazelcast.function.BiFunctionEx;
+import com.hazelcast.jet.contrib.mqtt.Subscription;
+import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.logging.ILogger;
+import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.util.ArrayList;
@@ -35,12 +38,15 @@ public class SourceCallback<T> extends AbstractCallback {
 
     private static final int CAPACITY = 1024;
 
+    private final List<Subscription> subscriptions;
     private final BlockingQueue<T> queue;
     private final List<T> tempBuffer;
     private final BiFunctionEx<String, MqttMessage, T> mapToItemFn;
 
-    public SourceCallback(ILogger logger, BiFunctionEx<String, MqttMessage, T> mapToItemFn) {
+    public SourceCallback(ILogger logger, List<Subscription> subscriptions,
+                          BiFunctionEx<String, MqttMessage, T> mapToItemFn) {
         super(logger);
+        this.subscriptions = subscriptions;
         this.mapToItemFn = mapToItemFn;
         this.queue = new ArrayBlockingQueue<>(CAPACITY);
         this.tempBuffer = new ArrayList<>(CAPACITY);
@@ -49,6 +55,20 @@ public class SourceCallback<T> extends AbstractCallback {
     @Override
     public void messageArrived(String topic, MqttMessage message) {
         queue.offer(mapToItemFn.apply(topic, message));
+    }
+
+    @Override
+    public void connectComplete(boolean reconnect, String serverURI) {
+        logger.info("Connection(reconnect=" + reconnect + ") to " + serverURI +
+                " complete. Subscribing to topics: " + subscriptions);
+        String[] topics = subscriptions.stream().map(Subscription::getTopic).toArray(String[]::new);
+        int[] qos = subscriptions.stream().mapToInt(s -> s.getQualityOfService().getQos()).toArray();
+        try {
+            client.subscribe(topics, qos);
+        } catch (MqttException e) {
+            logger.severe("Exception during subscribing, topics: " + subscriptions, e);
+            throw ExceptionUtil.rethrow(e);
+        }
     }
 
     public void consume(Consumer<T> consumer) {

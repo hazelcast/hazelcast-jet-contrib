@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
  * Contains factory methods for Mqtt sources.
  * Alternatively you can use {@link MqttSourceBuilder}
  *
- * @since 4.2
+ * @since 4.3
  */
 public final class MqttSources {
 

@@ -43,11 +43,8 @@ public class SourceContextImpl<T> implements SourceContext<T> {
             BiFunctionEx<String, MqttMessage, T> mapToItemFn
     ) throws MqttException {
         context.logger().info("Subscribing to topics: " + subscriptions);
-        callback = new SourceCallback<>(context.logger(), mapToItemFn);
+        callback = new SourceCallback<>(context.logger(), subscriptions, mapToItemFn);
         client = client(context, broker, clientId, connectOpsFn.get());
-        String[] topics = subscriptions.stream().map(Subscription::getTopic).toArray(String[]::new);
-        int[] qos = subscriptions.stream().mapToInt(s -> s.getQualityOfService().getQos()).toArray();
-        client.subscribe(topics, qos);
     }
 
     @Override
@@ -65,6 +62,7 @@ public class SourceContextImpl<T> implements SourceContext<T> {
         clientId = clientId + "-" + context.globalProcessorIndex();
         MqttClient client = new MqttClient(broker, clientId, new ConcurrentMemoryPersistence());
         client.setCallback(callback);
+        callback.setClient(client);
         client.connect(connectOptions);
         return client;
     }

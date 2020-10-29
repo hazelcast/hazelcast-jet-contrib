@@ -25,6 +25,8 @@ import javax.annotation.Nonnull;
 /**
  * Base class for Mqtt source and sink builder.
  * See {@link MqttSourceBuilder} and {@link MqttSinkBuilder}.
+ *
+ * @since 4.3
  */
 abstract class MqttBaseBuilder<T> {
 
