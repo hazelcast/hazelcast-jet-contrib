@@ -57,6 +57,14 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
     }
 
     /**
+     * Sets the default port {@link #PORT} as the bind port.
+     */
+    public MosquittoContainer withDefaultPort() {
+        setPortBindings(Collections.singletonList(PORT + ":" + PORT));
+        return this;
+    }
+
+    /**
      * Sets the current mapped port as the bind port. This is useful if you
      * want to fix the port through a restart (stop/start).
      */
