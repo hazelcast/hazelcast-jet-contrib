@@ -161,6 +161,7 @@ public class MqttSourceTest extends JetTestSupport {
         MqttConnectOptions options = new MqttConnectOptions();
         options.setMaxInflight(300);
         options.setAutomaticReconnect(true);
+        options.setCleanSession(false);
         client.connect(options).waitForCompletion();
         return client;
     }

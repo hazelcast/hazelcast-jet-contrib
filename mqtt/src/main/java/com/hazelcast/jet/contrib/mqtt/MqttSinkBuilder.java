@@ -18,15 +18,10 @@ package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
-import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.contrib.mqtt.impl.SinkCallback;
-import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.contrib.mqtt.impl.SinkContext;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
-import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import javax.annotation.Nonnull;
@@ -37,7 +32,6 @@ import static java.util.Objects.requireNonNull;
  * See {@link MqttSinks#builder()} and {@link MqttBaseBuilder}.
  *
  * @param <T> the type of the pipeline item.
- *
  * @since 4.3
  */
 public final class MqttSinkBuilder<T> extends MqttBaseBuilder<T> {
@@ -176,45 +170,4 @@ public final class MqttSinkBuilder<T> extends MqttBaseBuilder<T> {
         return item -> new MqttMessage(item.toString().getBytes());
     }
 
-    static class SinkContext<T> {
-
-        private final String topic;
-        private final SinkCallback callback;
-        private final IMqttAsyncClient client;
-        private final FunctionEx<T, MqttMessage> messageFn;
-
-        SinkContext(
-                Processor.Context context,
-                String broker,
-                String clientId,
-                String topic,
-                SupplierEx<MqttConnectOptions> connectOpsFn,
-                FunctionEx<T, MqttMessage> messageFn
-        ) throws MqttException {
-            this.topic = topic;
-            this.messageFn = messageFn;
-            MqttConnectOptions connectOptions = connectOpsFn.get();
-            this.callback = new SinkCallback(context.logger(), connectOptions);
-            this.client = client(context, broker, clientId, connectOptions);
-        }
-
-        public void publish(T item) throws MqttException, InterruptedException {
-            callback.acquire();
-            client.publish(topic, messageFn.apply(item));
-        }
-
-        public void close() throws MqttException {
-            client.disconnect().waitForCompletion();
-            client.close();
-        }
-
-        IMqttAsyncClient client(Processor.Context context, String broker, String clientId,
-                                MqttConnectOptions connectOptions) throws MqttException {
-            clientId = clientId + "-" + context.globalProcessorIndex();
-            IMqttAsyncClient client = new MqttAsyncClient(broker, clientId, new ConcurrentMemoryPersistence());
-            client.setCallback(callback);
-            client.connect(connectOptions).waitForCompletion();
-            return client;
-        }
-    }
 }

@@ -16,12 +16,105 @@
 
 package com.hazelcast.jet.contrib.mqtt.impl;
 
+import com.hazelcast.function.BiFunctionEx;
+import com.hazelcast.function.SupplierEx;
+import com.hazelcast.jet.contrib.mqtt.Subscription;
+import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.impl.util.ExceptionUtil;
 import com.hazelcast.jet.pipeline.SourceBuilder;
+import com.hazelcast.logging.ILogger;
+import org.eclipse.paho.client.mqttv3.IMqttClient;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-public interface SourceContext<T> {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.function.Consumer;
 
-    void fillBuffer(SourceBuilder.SourceBuffer<T> buf);
+public class SourceContext<T> {
 
-    void close() throws MqttException;
+    private static final int CAPACITY = 1024;
+
+    private final ILogger logger;
+    private final IMqttClient client;
+    private final List<Subscription> subscriptions;
+    private final SourceCallback<T> callback;
+
+    public SourceContext(
+            Processor.Context context,
+            String broker,
+            String clientId,
+            List<Subscription> subscriptions,
+            SupplierEx<MqttConnectOptions> connectOpsFn,
+            BiFunctionEx<String, MqttMessage, T> mapToItemFn
+    ) throws MqttException {
+        logger = context.logger();
+        this.subscriptions = subscriptions;
+        callback = new SourceCallback<>(mapToItemFn);
+        client = new MqttClient(broker, clientId, new ConcurrentMemoryPersistence());
+        client.setCallback(callback);
+        client.connect(connectOpsFn.get());
+    }
+
+    public void fillBuffer(SourceBuilder.SourceBuffer<T> buf) {
+        callback.consume(buf::add);
+    }
+
+    public void close() throws MqttException {
+        client.disconnect();
+        client.close();
+    }
+
+    class SourceCallback<T> implements MqttCallbackExtended {
+
+        private final BlockingQueue<T> queue;
+        private final List<T> tempBuffer;
+        private final BiFunctionEx<String, MqttMessage, T> mapToItemFn;
+
+        SourceCallback(BiFunctionEx<String, MqttMessage, T> mapToItemFn) {
+            this.queue = new ArrayBlockingQueue<>(CAPACITY);
+            this.tempBuffer = new ArrayList<>(CAPACITY);
+            this.mapToItemFn = mapToItemFn;
+        }
+
+        @Override
+        public void connectComplete(boolean reconnect, String serverURI) {
+            logger.info("Connection(reconnect=" + reconnect + ") to " + serverURI +
+                    " complete. Subscribing to topics: " + subscriptions);
+            String[] topics = subscriptions.stream().map(Subscription::getTopic).toArray(String[]::new);
+            int[] qos = subscriptions.stream().mapToInt(s -> s.getQualityOfService().getQos()).toArray();
+            try {
+                client.subscribe(topics, qos);
+            } catch (MqttException e) {
+                logger.severe("Exception during subscribing, topics: " + subscriptions, e);
+                throw ExceptionUtil.rethrow(e);
+            }
+        }
+
+        @Override
+        public void connectionLost(Throwable cause) {
+            logger.warning(cause);
+        }
+
+        @Override
+        public void messageArrived(String topic, MqttMessage message) {
+            queue.offer(mapToItemFn.apply(topic, message));
+        }
+
+        @Override
+        public void deliveryComplete(IMqttDeliveryToken token) {
+        }
+
+        public void consume(Consumer<T> consumer) {
+            queue.drainTo(tempBuffer);
+            tempBuffer.forEach(consumer);
+            tempBuffer.clear();
+        }
+    }
 }

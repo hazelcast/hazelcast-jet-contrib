@@ -55,6 +55,11 @@ public class MqttSinkTest extends JetTestSupport {
         client.connect();
     }
 
+    @Test
+    public void t() {
+
+    }
+
     @After
     public void teardown() throws MqttException {
         client.disconnect();

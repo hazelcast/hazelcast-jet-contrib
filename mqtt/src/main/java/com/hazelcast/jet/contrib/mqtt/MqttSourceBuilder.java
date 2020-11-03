@@ -20,9 +20,6 @@ import com.hazelcast.function.BiFunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService;
 import com.hazelcast.jet.contrib.mqtt.impl.SourceContext;
-import com.hazelcast.jet.contrib.mqtt.impl.SourceContextImpl;
-import com.hazelcast.jet.core.Processor;
-import com.hazelcast.jet.impl.util.Util;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
@@ -34,14 +31,12 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.AT_LEAST_ONCE;
-import static com.hazelcast.jet.contrib.mqtt.impl.NoopSourceContextImpl.noopSourceContext;
 
 
 /**
  * See {@link MqttSources#builder()} and {@link MqttBaseBuilder}.
  *
  * @param <T> the type of the pipeline item.
- *
  * @since 4.3
  */
 public final class MqttSourceBuilder<T> extends MqttBaseBuilder<T> {
@@ -211,21 +206,11 @@ public final class MqttSourceBuilder<T> extends MqttBaseBuilder<T> {
         SupplierEx<MqttConnectOptions> connectOpsFn = connectOpsFn();
 
         SourceBuilder<SourceContext<T>>.Stream<T> builder = SourceBuilder
-                .stream("mqttSource",
-                        context -> {
-                            List<Subscription> localSubscriptions = localSubscriptions(context, subscriptionList);
-                            if (localSubscriptions.isEmpty()) {
-                                return noopSourceContext(localMapToItemFn);
-                            }
-                            return new SourceContextImpl<>(context, localBroker, localClientId,
-                                    localSubscriptions, connectOpsFn, localMapToItemFn);
-                        })
+                .stream("mqttSource", context -> new SourceContext<>(context, localBroker, localClientId,
+                        subscriptionList, connectOpsFn, localMapToItemFn))
                 .<T>fillBufferFn(SourceContext::fillBuffer)
                 .destroyFn(SourceContext::close);
 
-        if (subscriptionList.size() > 1) {
-            builder.distributed(1);
-        }
         return builder.build();
     }
 
@@ -244,13 +229,6 @@ public final class MqttSourceBuilder<T> extends MqttBaseBuilder<T> {
             return mapToItemFn;
         }
         return ((t, m) -> (T) m.getPayload());
-    }
-
-    private static List<Subscription> localSubscriptions(Processor.Context context, List<Subscription> subscriptionList) {
-        if (subscriptionList.size() == 1) {
-            return subscriptionList;
-        }
-        return Util.distributeObjects(context.totalParallelism(), subscriptionList).get(context.globalProcessorIndex());
     }
 
 }
