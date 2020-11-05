@@ -29,12 +29,12 @@ import javax.annotation.Nonnull;
 import static java.util.Objects.requireNonNull;
 
 /**
- * See {@link MqttSinks#builder()} and {@link MqttBaseBuilder}.
+ * See {@link MqttSinks#builder()} and {@link AbstractMqttBuilder}.
  *
  * @param <T> the type of the pipeline item.
  * @since 4.3
  */
-public final class MqttSinkBuilder<T> extends MqttBaseBuilder<T> {
+public final class MqttSinkBuilder<T> extends AbstractMqttBuilder<T, MqttSinkBuilder<T>> {
 
     private FunctionEx<T, MqttMessage> messageFn;
 
@@ -42,62 +42,8 @@ public final class MqttSinkBuilder<T> extends MqttBaseBuilder<T> {
     }
 
     /**
-     * See {@link MqttBaseBuilder#broker(String)}.
-     */
-    @Nonnull
-    @Override
-    public MqttSinkBuilder<T> broker(@Nonnull String broker) {
-        return (MqttSinkBuilder<T>) super.broker(broker);
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#clientId(String)}.
-     */
-    @Nonnull
-    @Override
-    public MqttSinkBuilder<T> clientId(@Nonnull String clientId) {
-        return (MqttSinkBuilder<T>) super.clientId(clientId);
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#autoReconnect()}.
-     */
-    @Nonnull
-    @Override
-    public MqttSinkBuilder<T> autoReconnect() {
-        return (MqttSinkBuilder<T>) super.autoReconnect();
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#keepSession()}.
-     */
-    @Nonnull
-    @Override
-    public MqttSinkBuilder<T> keepSession() {
-        return (MqttSinkBuilder<T>) super.keepSession();
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#auth(String, char[])}.
-     */
-    @Nonnull
-    @Override
-    public MqttSinkBuilder<T> auth(@Nonnull String username, @Nonnull char[] password) {
-        return (MqttSinkBuilder<T>) super.auth(username, password);
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#connectOptionsFn(SupplierEx)}.
-     */
-    @Nonnull
-    @Override
-    public MqttSinkBuilder<T> connectOptionsFn(@Nonnull SupplierEx<MqttConnectOptions> connectOptionsFn) {
-        return (MqttSinkBuilder<T>) super.connectOptionsFn(connectOptionsFn);
-    }
-
-    /**
-     * Set the topic which the sink will publish to. This parameter is
-     * required.
+     * Set the topic which the sink will publish to. The topic should
+     * not contain any wildcards. This parameter is required.
      * <p>
      * For example, to publish to the house topic:
      * <pre>{@code
@@ -110,7 +56,7 @@ public final class MqttSinkBuilder<T> extends MqttBaseBuilder<T> {
     @Nonnull
     @Override
     public MqttSinkBuilder<T> topic(@Nonnull String topic) {
-        return (MqttSinkBuilder<T>) super.topic(topic);
+        return super.topic(topic);
     }
 
     /**

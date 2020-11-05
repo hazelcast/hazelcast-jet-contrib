@@ -34,72 +34,18 @@ import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.AT_LE
 
 
 /**
- * See {@link MqttSources#builder()} and {@link MqttBaseBuilder}.
+ * See {@link MqttSources#builder()} and {@link AbstractMqttBuilder}.
  *
  * @param <T> the type of the pipeline item.
  * @since 4.3
  */
-public final class MqttSourceBuilder<T> extends MqttBaseBuilder<T> {
+public final class MqttSourceBuilder<T> extends AbstractMqttBuilder<T, MqttSourceBuilder<T>> {
 
     private QualityOfService qualityOfService = AT_LEAST_ONCE;
     private Subscription[] subscriptions;
     private BiFunctionEx<String, MqttMessage, T> mapToItemFn;
 
     MqttSourceBuilder() {
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#broker(String)}.
-     */
-    @Nonnull
-    @Override
-    public MqttSourceBuilder<T> broker(@Nonnull String broker) {
-        return (MqttSourceBuilder<T>) super.broker(broker);
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#clientId(String)}.
-     */
-    @Nonnull
-    @Override
-    public MqttSourceBuilder<T> clientId(@Nonnull String clientId) {
-        return (MqttSourceBuilder<T>) super.clientId(clientId);
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#autoReconnect()}.
-     */
-    @Nonnull
-    @Override
-    public MqttSourceBuilder<T> autoReconnect() {
-        return (MqttSourceBuilder<T>) super.autoReconnect();
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#keepSession()}.
-     */
-    @Nonnull
-    @Override
-    public MqttSourceBuilder<T> keepSession() {
-        return (MqttSourceBuilder<T>) super.keepSession();
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#auth(String, char[])}.
-     */
-    @Nonnull
-    @Override
-    public MqttSourceBuilder<T> auth(@Nonnull String username, @Nonnull char[] password) {
-        return (MqttSourceBuilder<T>) super.auth(username, password);
-    }
-
-    /**
-     * See {@link MqttBaseBuilder#connectOptionsFn(SupplierEx)}.
-     */
-    @Nonnull
-    @Override
-    public MqttSourceBuilder<T> connectOptionsFn(@Nonnull SupplierEx<MqttConnectOptions> connectOptionsFn) {
-        return (MqttSourceBuilder<T>) super.connectOptionsFn(connectOptionsFn);
     }
 
     /**
@@ -120,7 +66,7 @@ public final class MqttSourceBuilder<T> extends MqttBaseBuilder<T> {
     @Nonnull
     @Override
     public MqttSourceBuilder<T> topic(@Nonnull String topic) {
-        return (MqttSourceBuilder<T>) super.topic(topic);
+        return super.topic(topic);
     }
 
     /**

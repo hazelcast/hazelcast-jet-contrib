@@ -28,7 +28,7 @@ import javax.annotation.Nonnull;
  *
  * @since 4.3
  */
-abstract class MqttBaseBuilder<T> {
+abstract class AbstractMqttBuilder<T, SELF extends AbstractMqttBuilder<T, SELF>> {
 
     private static final String LOCAL_BROKER = "tcp://localhost:1883";
 
@@ -54,9 +54,9 @@ abstract class MqttBaseBuilder<T> {
      * @param broker the address of the server to connect to, specified as a URI.
      */
     @Nonnull
-    public MqttBaseBuilder<T> broker(@Nonnull String broker) {
+    public SELF broker(@Nonnull String broker) {
         this.broker = broker;
-        return this;
+        return (SELF) this;
     }
 
     /**
@@ -74,9 +74,9 @@ abstract class MqttBaseBuilder<T> {
      * @param clientId the unique id of the client.
      */
     @Nonnull
-    public MqttBaseBuilder<T> clientId(@Nonnull String clientId) {
+    public SELF clientId(@Nonnull String clientId) {
         this.clientId = clientId;
-        return this;
+        return (SELF) this;
     }
 
     /**
@@ -84,9 +84,9 @@ abstract class MqttBaseBuilder<T> {
      * See {@link MqttSourceBuilder#topic} or {@link MqttSinkBuilder#topic}.
      */
     @Nonnull
-    public MqttBaseBuilder<T> topic(@Nonnull String topic) {
+    public SELF topic(@Nonnull String topic) {
         this.topic = topic;
-        return this;
+        return (SELF) this;
     }
 
     /**
@@ -105,9 +105,9 @@ abstract class MqttBaseBuilder<T> {
      * See {@link MqttConnectOptions#setAutomaticReconnect(boolean)}.
      */
     @Nonnull
-    public MqttBaseBuilder<T> autoReconnect() {
+    public SELF autoReconnect() {
         this.autoReconnect = true;
-        return this;
+        return (SELF) this;
     }
 
     /**
@@ -126,9 +126,9 @@ abstract class MqttBaseBuilder<T> {
      * See {@link MqttConnectOptions#setCleanSession(boolean)}.
      */
     @Nonnull
-    public MqttBaseBuilder<T> keepSession() {
+    public SELF keepSession() {
         this.keepSession = true;
-        return this;
+        return (SELF) this;
     }
 
     /**
@@ -150,10 +150,10 @@ abstract class MqttBaseBuilder<T> {
      * @param password the password as a character array.
      */
     @Nonnull
-    public MqttBaseBuilder<T> auth(@Nonnull String username, @Nonnull char[] password) {
+    public SELF auth(@Nonnull String username, @Nonnull char[] password) {
         this.username = username;
         this.password = password;
-        return this;
+        return (SELF) this;
     }
 
     /**
@@ -180,9 +180,9 @@ abstract class MqttBaseBuilder<T> {
      * @param connectOptionsFn the connection options function.
      */
     @Nonnull
-    public MqttBaseBuilder<T> connectOptionsFn(@Nonnull SupplierEx<MqttConnectOptions> connectOptionsFn) {
+    public SELF connectOptionsFn(@Nonnull SupplierEx<MqttConnectOptions> connectOptionsFn) {
         this.connectOptionsFn = connectOptionsFn;
-        return this;
+        return (SELF) this;
     }
 
     SupplierEx<MqttConnectOptions> connectOpsFn() {

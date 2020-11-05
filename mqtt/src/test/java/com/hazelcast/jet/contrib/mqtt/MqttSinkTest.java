@@ -55,11 +55,6 @@ public class MqttSinkTest extends JetTestSupport {
         client.connect();
     }
 
-    @Test
-    public void t() {
-
-    }
-
     @After
     public void teardown() throws MqttException {
         client.disconnect();
@@ -83,8 +78,8 @@ public class MqttSinkTest extends JetTestSupport {
                         }).build();
 
         p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
-         .rebalance()
-         .writeTo(sink);
+                .rebalance()
+                .writeTo(sink);
 
         jet.newJob(p).join();
 
