@@ -70,7 +70,7 @@ public class MqttSinkTest extends JetTestSupport {
         client = client(new SubscriberCallback((topic, mes) -> map.put(byteArrayToInt(mes.getPayload()), topic)));
 
         int itemCount = 2800;
-        int expectedItemLoss = 5;
+        int expectedItemLoss = 15;
 
         Pipeline p = Pipeline.create();
 
