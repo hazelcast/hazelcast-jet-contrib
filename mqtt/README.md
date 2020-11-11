@@ -96,13 +96,14 @@ connection options using the builder.
 
 Below is an example of a sink which publishes the messages to a topic
 with quality of service (QoS) `1` (`AT_LEAST_ONCE`). The sink enables
-auto re-connect.
+auto re-connect and retry messages.
 
 ```java
 Sink<String> sink = MqttSinks.builder()
         .topic("home/bathroom")
         .broker("tcp://localhost:1883")
         .autoReconnect()
+        .retryCount(10)
         .<String>messageFn(item -> {
             MqttMessage message = new MqttMessage(item.getBytes());
             message.setQos(1);

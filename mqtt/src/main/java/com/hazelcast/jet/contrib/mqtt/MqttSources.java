@@ -40,16 +40,9 @@ public final class MqttSources {
      * Returns a builder object which offers a step-by-step fluent API to build
      * a custom Mqtt {@link StreamSource source} for the Pipeline API.
      * <p>
-     * The source creates a
-     * <a href="https://www.eclipse.org/paho/clients/java/">Paho</a> client for
-     * each specified topic with memory persistence {@link ConcurrentMemoryPersistence}.
-     * Source generates a random client id if not provided and appends the
-     * global processor index to the generated/provided client id to make each
-     * created client unique, eg: `the-client-0`, `the-client-1`...
-     * <p>
-     * The source is not distributed if a single topic provided, otherwise
-     * topics are distributed among members. If you use wildcard in your topic
-     * it is still considered by the source as a single topic.
+     * The source is not distributed, it creates a
+     * <a href="https://www.eclipse.org/paho/clients/java/">Paho</a> client on
+     * one of the members with memory persistence {@link ConcurrentMemoryPersistence}.
      * <p>
      * The source is not re-playable from a certain offset thus it cannot
      * participate in snapshotting and not fault tolerant. But if you set
