@@ -26,8 +26,6 @@ import javax.annotation.Nonnull;
 
 /**
  * Contains factory methods for Mqtt sinks.
- *
- * @since 4.3
  */
 public final class MqttSinks {
 
@@ -59,7 +57,7 @@ public final class MqttSinks {
      * service value of the messages are {@link QualityOfService#AT_LEAST_ONCE}.
      * <p>
      * Useful for quick prototyping. See other methods
-     * {@link #publish(String, String, FunctionEx)} and {@link #builder()}.
+     * {@link #mqtt(String, String, FunctionEx)} and {@link #builder()}.
      * <p>
      * For example:
      * <pre>{@code
@@ -70,7 +68,7 @@ public final class MqttSinks {
      * @param <T>   the type of the pipeline item.
      */
     @Nonnull
-    public static <T> Sink<T> publish(String topic) {
+    public static <T> Sink<T> mqtt(String topic) {
         return MqttSinks.<T>builder().topic(topic).build();
     }
 
@@ -90,7 +88,7 @@ public final class MqttSinks {
      * @param <T>    the type of the pipeline item.
      */
     @Nonnull
-    public static <T> Sink<T> publish(@Nonnull String broker, @Nonnull String topic) {
+    public static <T> Sink<T> mqtt(@Nonnull String broker, @Nonnull String topic) {
         return MqttSinks.<T>builder().broker(broker).topic(topic).build();
     }
 
@@ -124,7 +122,7 @@ public final class MqttSinks {
      * @param <T>       the type of the pipeline item.
      */
     @Nonnull
-    public static <T> Sink<T> publish(
+    public static <T> Sink<T> mqtt(
             @Nonnull String broker,
             @Nonnull String topic,
             @Nonnull FunctionEx<T, MqttMessage> messageFn

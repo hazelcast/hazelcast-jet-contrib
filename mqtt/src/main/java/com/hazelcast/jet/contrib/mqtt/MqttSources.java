@@ -64,7 +64,7 @@ public final class MqttSources {
      * subscribes to the given topic with {@link QualityOfService#AT_LEAST_ONCE}.
      * <p>
      * Useful for quick prototyping. See other methods
-     * {@link #subscribe(String, Subscription, BiFunctionEx)} and
+     * {@link #mqtt(String, Subscription, BiFunctionEx)} and
      * {@link #builder()}
      * <p>
      * For example:
@@ -76,7 +76,7 @@ public final class MqttSources {
      *              wildcards.
      */
     @Nonnull
-    public static StreamSource<byte[]> subscribe(@Nonnull String topic) {
+    public static StreamSource<byte[]> mqtt(@Nonnull String topic) {
         return builder().topic(topic).build();
     }
 
@@ -93,7 +93,7 @@ public final class MqttSources {
      * @param topic  the topic which the source subscribes, may include wildcards.
      */
     @Nonnull
-    public static StreamSource<byte[]> subscribe(@Nonnull String broker, @Nonnull String topic) {
+    public static StreamSource<byte[]> mqtt(@Nonnull String broker, @Nonnull String topic) {
         return builder().broker(broker).topic(topic).build();
     }
 
@@ -123,7 +123,7 @@ public final class MqttSources {
      *                     items.
      * @param <T>          type of the pipeline items emitted to downstream.
      */
-    public static <T> StreamSource<T> subscribe(
+    public static <T> StreamSource<T> mqtt(
             @Nonnull String broker,
             @Nonnull Subscription subscription,
             @Nonnull BiFunctionEx<String, MqttMessage, T> mapToItemFn

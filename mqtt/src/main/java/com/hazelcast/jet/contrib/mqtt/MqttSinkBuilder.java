@@ -16,19 +16,19 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
-import com.hazelcast.function.BiFunctionEx;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.contrib.mqtt.impl.SinkContext;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SinkBuilder;
+import com.hazelcast.jet.retry.RetryStrategies;
+import com.hazelcast.jet.retry.RetryStrategy;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import javax.annotation.Nonnull;
 
-import static com.hazelcast.internal.util.Preconditions.checkNotNegative;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -39,15 +39,8 @@ import static java.util.Objects.requireNonNull;
  */
 public final class MqttSinkBuilder<T> extends AbstractMqttBuilder<T, MqttSinkBuilder<T>> {
 
-    /**
-     * Wait time before sending the message again.
-     * See {@link #retryCount(int).}
-     */
-    public static final long RETRY_WAIT_MILLIS = 250;
-
-    private int retryCount;
+    private RetryStrategy retryStrategy = RetryStrategies.never();
     private FunctionEx<T, MqttMessage> messageFn;
-    private BiFunctionEx<MqttException, Integer, Long> retryFn;
 
     MqttSinkBuilder() {
     }
@@ -71,54 +64,28 @@ public final class MqttSinkBuilder<T> extends AbstractMqttBuilder<T, MqttSinkBui
     }
 
     /**
-     * Set the retry count to publish a message. If sink encounters an
-     * {@link MqttException} while publishing a message, sink retries
-     * the message specified amount of time. The sink waits
-     * {@link #RETRY_WAIT_MILLIS} millisecond between each retry.
+     * Set the retry strategy to publish a message. If sink encounters
+     * an {@link MqttException} while publishing a message, sink
+     * retries the message using the specified strategy.
      * <p>
-     * For example, to retry sending the message twice:
+     * For example, to retry sending the message 5 times with an
+     * increasing wait time between each retry:
      * <pre>{@code
-     * builder.retryCount(2)
+     * RetryStrategy strategy = RetryStrategies.custom()
+     *         .maxAttempts(5)
+     *         .intervalFunction(attempt -> TimeUnit.SECONDS.toMillis(attempt))
+     *         .build();
+     *
+     * builder.retryStrategy(strategy)
      * }</pre>
      * <p>
-     * Default value is '0', meaning never retries.
-     * If {@link #retryFn(BiFunctionEx)} is set, this parameter
-     * is ignored.
+     * Default strategy is to never retry, See {@link RetryStrategies#never()}.
      *
-     * @param retryCount the retry count to publish a message.
+     * @param retryStrategy the retry strategy to publish a message.
      */
     @Nonnull
-    public MqttSinkBuilder<T> retryCount(int retryCount) {
-        checkNotNegative(retryCount, "Retry count cannot be negative");
-        this.retryCount = retryCount;
-        return this;
-    }
-
-    /**
-     * Set the retry function which accepts a {@link MqttException},
-     * current try count and returns the wait time (millisecond) before
-     * sending the message again. Any non-positive value means that the
-     * sink should not retry the message.
-     * <p>
-     * For example, to retry sending the message twice only if the
-     * the broker is not available, and not retry otherwise.
-     * <pre>{@code
-     * builder.retryFn((exception, tryCount) -> {
-     *  if(tryCount > 2) {
-     *      return 0;
-     *  }
-     *  if(exception.getReasonCode() != MqttException.REASON_CODE_BROKER_UNAVAILABLE) {
-     *     return 0;
-     *  }
-     *  return 200;
-     * })
-     * }</pre>
-     *
-     * @param retryFn the retry function
-     */
-    @Nonnull
-    public MqttSinkBuilder<T> retryFn(@Nonnull BiFunctionEx<MqttException, Integer, Long> retryFn) {
-        this.retryFn = retryFn;
+    public MqttSinkBuilder<T> retryStrategy(@Nonnull RetryStrategy retryStrategy) {
+        this.retryStrategy = retryStrategy;
         return this;
     }
 
@@ -165,9 +132,9 @@ public final class MqttSinkBuilder<T> extends AbstractMqttBuilder<T, MqttSinkBui
 
         SupplierEx<MqttConnectOptions> connectOpsFn = connectOpsFn();
         FunctionEx<T, MqttMessage> mesFn = mesFn();
-        BiFunctionEx<MqttException, Integer, Long> localRetryFn = retryFn();
+        RetryStrategy localRetryStrategy = retryStrategy;
         return SinkBuilder.sinkBuilder("mqttSink", context -> new SinkContext<>(
-                context, localBroker, localClientId, localTopic, connectOpsFn, localRetryFn, mesFn))
+                context, localBroker, localClientId, localTopic, connectOpsFn, localRetryStrategy, mesFn))
                 .<T>receiveFn(SinkContext::publish)
                 .destroyFn(SinkContext::close)
                 .build();
@@ -178,14 +145,6 @@ public final class MqttSinkBuilder<T> extends AbstractMqttBuilder<T, MqttSinkBui
             return messageFn;
         }
         return item -> new MqttMessage(item.toString().getBytes());
-    }
-
-    private BiFunctionEx<MqttException, Integer, Long> retryFn() {
-        if (retryFn != null) {
-            return retryFn;
-        }
-        int localRetryCount = retryCount;
-        return (exception, currentRetryCount) -> currentRetryCount < localRetryCount ? RETRY_WAIT_MILLIS : 0;
     }
 
 }

@@ -23,6 +23,7 @@ import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.TestSources;
+import com.hazelcast.jet.retry.RetryStrategies;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -65,16 +66,17 @@ public class MqttSinkTest extends JetTestSupport {
     }
 
     @Test
-    public void test_retryCount() throws MqttException {
+    public void test_retryStrategy() throws MqttException {
         ConcurrentHashMap<Integer, String> map = new ConcurrentHashMap<>();
         client = client(new SubscriberCallback((topic, mes) -> map.put(byteArrayToInt(mes.getPayload()), topic)));
 
         int itemCount = 2800;
-        int expectedItemLoss = 15;
+        int expectedItemLoss = 100;
 
         Pipeline p = Pipeline.create();
 
-        Sink<Integer> sink = MqttSinks.builder().broker(broker).topic("topic").retryCount(100).autoReconnect()
+        Sink<Integer> sink = MqttSinks.builder().broker(broker).topic("topic")
+                .retryStrategy(RetryStrategies.indefinitely(1000)).autoReconnect()
                 .<Integer>messageFn(item -> {
                     MqttMessage message = new MqttMessage(intToByteArray(item));
                     message.setQos(2);
@@ -89,6 +91,7 @@ public class MqttSinkTest extends JetTestSupport {
 
         assertTrueEventually(() -> assertTrue(map.size() > itemCount / 2));
 
+        System.out.println("restart container");
         mosquittoContainer.fixMappedPort();
         mosquittoContainer.stop();
         mosquittoContainer.start();

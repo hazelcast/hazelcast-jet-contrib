@@ -16,10 +16,11 @@
 
 package com.hazelcast.jet.contrib.mqtt.impl;
 
-import com.hazelcast.function.BiFunctionEx;
 import com.hazelcast.function.FunctionEx;
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.retry.IntervalFunction;
+import com.hazelcast.jet.retry.RetryStrategy;
 import com.hazelcast.logging.ILogger;
 import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
@@ -38,8 +39,8 @@ public class SinkContext<T> {
     private final ILogger logger;
     private final String topic;
     private final IMqttAsyncClient client;
+    private final RetryStrategy retryStrategy;
     private final FunctionEx<T, MqttMessage> messageFn;
-    private final BiFunctionEx<MqttException, Integer, Long> retryFn;
 
     public SinkContext(
             Processor.Context context,
@@ -47,36 +48,42 @@ public class SinkContext<T> {
             String clientId,
             String topic,
             SupplierEx<MqttConnectOptions> connectOpsFn,
-            BiFunctionEx<MqttException, Integer, Long> retryFn,
+            RetryStrategy retryStrategy,
             FunctionEx<T, MqttMessage> messageFn
     ) throws MqttException {
         this.logger = context.logger();
         this.topic = topic;
-        this.retryFn = retryFn;
+        this.retryStrategy = retryStrategy;
         this.messageFn = messageFn;
         this.client = client(context, broker, clientId, connectOpsFn.get());
     }
 
     public void publish(T item) throws MqttException, InterruptedException {
         MqttMessage message = messageFn.apply(item);
-        int tryCount = 0;
-        while (true) {
+        int maxAttempts = retryStrategy.getMaxAttempts();
+        IntervalFunction intervalFunction = retryStrategy.getIntervalFunction();
+        if (maxAttempts < 0) {
+            // try indefinitely
+            maxAttempts = Integer.MAX_VALUE;
+        } else if (maxAttempts < Integer.MAX_VALUE) {
+            // maxAttempts=0 means try once and don't retry again
+            // so we add the actual try to maxAttempts
+            maxAttempts++;
+        }
+
+        MqttException lastException = null;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 client.publish(topic, message).waitForCompletion(WAIT_TIMEOUT_MILLIS);
                 return;
             } catch (MqttException exception) {
-                long retryWaitTimeMillis = retryFn.apply(exception, tryCount);
-                if (retryWaitTimeMillis <= 0) {
-                    throw exception;
-                }
-                tryCount++;
-                logger.warning(
-                        String.format("Exception while publishing %s to %s, try count: %d", item, topic, tryCount),
-                        exception
-                );
-                MILLISECONDS.sleep(retryWaitTimeMillis);
+                lastException = exception;
+                logger.warning(String.format("Exception while publishing %s to %s, current attempt: %d",
+                        item, topic, attempt), exception);
+                MILLISECONDS.sleep(intervalFunction.waitAfterAttempt(attempt));
             }
         }
+        throw lastException;
     }
 
     public void close() throws MqttException {
