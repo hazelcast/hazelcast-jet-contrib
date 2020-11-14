@@ -91,7 +91,6 @@ public class MqttSinkTest extends JetTestSupport {
 
         assertTrueEventually(() -> assertTrue(map.size() > itemCount / 2));
 
-        System.out.println("restart container");
         mosquittoContainer.fixMappedPort();
         mosquittoContainer.stop();
         mosquittoContainer.start();
