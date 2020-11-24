@@ -76,7 +76,14 @@ public class MqttSinkTest extends JetTestSupport {
         Pipeline p = Pipeline.create();
 
         Sink<Integer> sink = MqttSinks.builder().broker(broker).topic("topic")
-                .retryStrategy(RetryStrategies.indefinitely(1000)).autoReconnect()
+                .connectOptionsFn(() -> {
+                    MqttConnectOptions options = new MqttConnectOptions();
+                    options.setMaxInflight(itemCount);
+                    options.setAutomaticReconnect(true);
+                    options.setCleanSession(false);
+                    return options;
+                })
+                .retryStrategy(RetryStrategies.indefinitely(1000))
                 .<Integer>messageFn(item -> {
                     MqttMessage message = new MqttMessage(intToByteArray(item));
                     message.setQos(2);
@@ -111,6 +118,11 @@ public class MqttSinkTest extends JetTestSupport {
 
         Sink<Integer> sink =
                 MqttSinks.builder().broker(broker).topic("topic")
+                        .connectOptionsFn(() -> {
+                            MqttConnectOptions options = new MqttConnectOptions();
+                            options.setMaxInflight(itemCount);
+                            return options;
+                        })
                         .<Integer>messageFn(item -> {
                             MqttMessage message = new MqttMessage(intToByteArray(item));
                             message.setQos(2);
@@ -167,6 +179,7 @@ public class MqttSinkTest extends JetTestSupport {
         @Override
         public void connectComplete(boolean reconnect, String serverURI) {
             try {
+                System.out.println("reconnect " + reconnect);
                 client.subscribe("topic", 2);
             } catch (MqttException exception) {
                 exception.printStackTrace();

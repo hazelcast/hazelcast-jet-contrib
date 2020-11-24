@@ -159,7 +159,7 @@ public class MqttSourceTest extends JetTestSupport {
         MqttAsyncClient client = new MqttAsyncClient(broker, newUnsecureUuidString(),
                 new ConcurrentMemoryPersistence());
         MqttConnectOptions options = new MqttConnectOptions();
-        options.setMaxInflight(300);
+        options.setMaxInflight(10000);
         options.setAutomaticReconnect(true);
         options.setCleanSession(false);
         client.connect(options).waitForCompletion();
