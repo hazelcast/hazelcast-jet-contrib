@@ -33,6 +33,7 @@ import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.hazelcast.jet.impl.util.Util.uncheckRun;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class PahoClientFaultToleranceTest extends JetTestSupport {
@@ -40,12 +41,11 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
 
-    private final MqttClientPersistence consumerPersistence;
+    private final String persistenceDir;
 
     {
         try {
-            consumerPersistence = new MqttDefaultFilePersistence(
-                    Files.createTempDirectory("mqtt").toString());
+            persistenceDir = Files.createTempDirectory("mqtt").toString();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -56,7 +56,7 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
         String topic = "topic";
         int messageCount = 10_000;
         MessageCountingCallback callback = new MessageCountingCallback();
-        MqttClient consumer = client("consumer", consumerPersistence);
+        MqttClient consumer = client("consumer", new MqttDefaultFilePersistence(persistenceDir));
         consumer.setCallback(callback);
         consumer.subscribe(topic, 2);
 
@@ -74,11 +74,14 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
         consumer.disconnect();
         consumer.close();
 
-        consumer = client("consumer", consumerPersistence);
+        consumer = client("consumer", new MqttDefaultFilePersistence(persistenceDir));
         consumer.setCallback(callback);
         consumer.subscribe(topic, 2);
 
-        assertEqualsEventually(messageCount, callback.counter);
+        assertTrueEventually(() -> {
+            System.out.println("messageCount=" + messageCount);
+            assertEquals(messageCount, callback.counter.get());
+        });
     }
 
     private MqttClient client(String clientId, MqttClientPersistence persistence) throws MqttException {
