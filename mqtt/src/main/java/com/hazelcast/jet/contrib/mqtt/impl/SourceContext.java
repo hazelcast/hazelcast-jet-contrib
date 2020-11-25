@@ -44,7 +44,7 @@ public class SourceContext<T> {
     private final ILogger logger;
     private final IMqttClient client;
     private final List<Subscription> subscriptions;
-    private final SourceCallback<T> callback;
+    private final SourceCallback callback;
 
     public SourceContext(
             Processor.Context context,
@@ -56,7 +56,7 @@ public class SourceContext<T> {
     ) throws MqttException {
         logger = context.logger();
         this.subscriptions = subscriptions;
-        callback = new SourceCallback<>(mapToItemFn);
+        callback = new SourceCallback(mapToItemFn);
         client = new MqttClient(broker, clientId, new ConcurrentMemoryPersistence());
         client.setCallback(callback);
         client.connect(connectOpsFn.get());
@@ -71,7 +71,7 @@ public class SourceContext<T> {
         client.close();
     }
 
-    class SourceCallback<T> implements MqttCallbackExtended {
+    class SourceCallback implements MqttCallbackExtended {
 
         private final BlockingQueue<T> queue;
         private final List<T> tempBuffer;
