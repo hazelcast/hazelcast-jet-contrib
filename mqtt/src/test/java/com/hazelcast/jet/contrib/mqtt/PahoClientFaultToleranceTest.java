@@ -79,7 +79,7 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
         consumer.subscribe(topic, 2);
 
         assertTrueEventually(() -> {
-            System.out.println("messageCount=" + messageCount);
+            logger.info("count so far: " + callback.counter.get());
             assertEquals(messageCount, callback.counter.get());
         });
     }
