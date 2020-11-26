@@ -27,6 +27,7 @@ import org.eclipse.paho.client.mqttv3.IMqttClient;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
@@ -44,22 +45,27 @@ public class SourceContext<T> {
     private final ILogger logger;
     private final IMqttClient client;
     private final List<Subscription> subscriptions;
-    private final SourceCallback<T> callback;
+    private final SourceCallback callback;
 
     public SourceContext(
             Processor.Context context,
             String broker,
             String clientId,
+            String mapName,
             List<Subscription> subscriptions,
             SupplierEx<MqttConnectOptions> connectOpsFn,
             BiFunctionEx<String, MqttMessage, T> mapToItemFn
     ) throws MqttException {
         logger = context.logger();
         this.subscriptions = subscriptions;
-        callback = new SourceCallback<>(mapToItemFn);
-        client = new MqttClient(broker, clientId, new ConcurrentMemoryPersistence());
+        callback = new SourceCallback(mapToItemFn);
+        client = new MqttClient(broker, clientId, persistence(context, mapName));
         client.setCallback(callback);
-        client.connect(connectOpsFn.get());
+        MqttConnectOptions options = connectOpsFn.get();
+        if (mapName != null) {
+            options.setCleanSession(false);
+        }
+        client.connect(options);
     }
 
     public void fillBuffer(SourceBuilder.SourceBuffer<T> buf) {
@@ -71,7 +77,14 @@ public class SourceContext<T> {
         client.close();
     }
 
-    class SourceCallback<T> implements MqttCallbackExtended {
+    private static MqttClientPersistence persistence(Processor.Context context, String mapName) {
+        if (mapName == null) {
+            return new ConcurrentMemoryPersistence();
+        }
+        return new IMapClientPersistence(context.jetInstance().getMap(mapName));
+    }
+
+    class SourceCallback implements MqttCallbackExtended {
 
         private final BlockingQueue<T> queue;
         private final List<T> tempBuffer;

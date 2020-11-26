@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
-import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
 import com.hazelcast.jet.core.JetTestSupport;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -24,10 +23,13 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.junit.Ignore;
+import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.hazelcast.jet.impl.util.Util.uncheckRun;
@@ -38,20 +40,25 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
 
-    private final ConcurrentMemoryPersistence persistence = new ConcurrentMemoryPersistence();
+    private String persistenceDir;
+
+    @Before
+    public void setup() throws IOException {
+        persistenceDir = Files.createTempDirectory("mqtt").toString();
+    }
 
     @Test
-    @Ignore
     public void test_keepSession() throws Exception {
         String topic = "topic";
-        int messageCount = 10_000;
+        String consumerName = randomString();
+        int messageCount = 5_000;
         MessageCountingCallback callback = new MessageCountingCallback();
-        MqttClient consumer = client("consumer");
+        MqttClient consumer = client(consumerName);
         consumer.setCallback(callback);
         consumer.subscribe(topic, 2);
 
         spawn(() -> uncheckRun(() -> {
-            MqttClient producer = client("producer");
+            MqttClient producer = client(randomString());
             for (int i = 0; i < messageCount; i++) {
                 producer.publish(topic, ("m-" + i).getBytes(), 2, false);
             }
@@ -64,7 +71,7 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
         consumer.disconnect();
         consumer.close();
 
-        consumer = client("consumer");
+        consumer = client(consumerName);
         consumer.setCallback(callback);
         consumer.subscribe(topic, 2);
 
@@ -72,6 +79,7 @@ public class PahoClientFaultToleranceTest extends JetTestSupport {
     }
 
     private MqttClient client(String clientId) throws MqttException {
+        MqttDefaultFilePersistence persistence = new MqttDefaultFilePersistence(persistenceDir);
         MqttClient client = new MqttClient(mosquittoContainer.connectionString(), clientId, persistence);
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(false);

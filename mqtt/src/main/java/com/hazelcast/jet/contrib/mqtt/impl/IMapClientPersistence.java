@@ -16,23 +16,20 @@
 
 package com.hazelcast.jet.contrib.mqtt.impl;
 
+import com.hazelcast.map.IMap;
 import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttPersistable;
-import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-/**
- * A variant of {@link MemoryPersistence} which uses
- * {@link ConcurrentMap} instead of {@link Hashtable}.
- */
-public class ConcurrentMemoryPersistence implements MqttClientPersistence {
+public class IMapClientPersistence implements MqttClientPersistence {
 
-    ConcurrentMap<String, MqttPersistable> data = new ConcurrentHashMap<>();
+    private final IMap<String, MqttPersistable> map;
+
+    public IMapClientPersistence(IMap<String, MqttPersistable> map) {
+        this.map = map;
+    }
 
     @Override
     public void open(String clientId, String serverURI) {
@@ -44,31 +41,31 @@ public class ConcurrentMemoryPersistence implements MqttClientPersistence {
 
     @Override
     public void put(String key, MqttPersistable persistable) {
-        data.put(key, persistable);
+        map.set(key, persistable);
     }
 
     @Override
     public MqttPersistable get(String key) {
-        return data.get(key);
+        return map.get(key);
     }
 
     @Override
     public void remove(String key) {
-        data.remove(key);
+        map.delete(key);
     }
 
     @Override
-    public Enumeration<String> keys() {
-        return Collections.enumeration(data.keySet());
+    public Enumeration keys() {
+        return Collections.enumeration(map.keySet());
     }
 
     @Override
     public void clear() {
-        data.clear();
+        map.clear();
     }
 
     @Override
     public boolean containsKey(String key) {
-        return data.containsKey(key);
+        return map.containsKey(key);
     }
 }

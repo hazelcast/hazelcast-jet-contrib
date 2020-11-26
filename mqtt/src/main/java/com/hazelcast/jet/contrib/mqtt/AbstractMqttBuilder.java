@@ -36,7 +36,6 @@ abstract class AbstractMqttBuilder<T, SELF extends AbstractMqttBuilder<T, SELF>>
     String clientId = UuidUtil.newUnsecureUuidString();
     String topic;
     boolean autoReconnect;
-    boolean keepSession;
     String username;
     char[] password;
     SupplierEx<MqttConnectOptions> connectOptionsFn;
@@ -111,27 +110,6 @@ abstract class AbstractMqttBuilder<T, SELF extends AbstractMqttBuilder<T, SELF>>
     }
 
     /**
-     * Set that the client and broker should remember state across restarts and
-     * reconnects.
-     * <p>
-     * For example:
-     * <pre>{@code
-     * builder.keepSession()
-     * }</pre>
-     * <p>
-     * By default the client and broker will not remember the state.
-     * If {@link #connectOptionsFn(SupplierEx)} is set, this parameter is
-     * ignored.
-     * <p>
-     * See {@link MqttConnectOptions#setCleanSession(boolean)}.
-     */
-    @Nonnull
-    public SELF keepSession() {
-        this.keepSession = true;
-        return (SELF) this;
-    }
-
-    /**
      * Set the username and the password to use for connection
      * <p>
      * For example:
@@ -172,7 +150,7 @@ abstract class AbstractMqttBuilder<T, SELF extends AbstractMqttBuilder<T, SELF>>
      * })
      * }</pre>
      * <p>
-     * If this parameter is set, {@link #autoReconnect()}, {@link #keepSession()}
+     * If this parameter is set, {@link #autoReconnect()}
      * and {@link #auth(String, char[])} will be ignored.
      * <p>
      * See {@link MqttConnectOptions} for default values.
@@ -192,10 +170,8 @@ abstract class AbstractMqttBuilder<T, SELF extends AbstractMqttBuilder<T, SELF>>
         String user = username;
         char[] pass = password;
         boolean localAutoReconnect = autoReconnect;
-        boolean cleanSession = !keepSession;
         return () -> {
             MqttConnectOptions ops = new MqttConnectOptions();
-            ops.setCleanSession(cleanSession);
             ops.setAutomaticReconnect(localAutoReconnect);
             ops.setUserName(user);
             if (pass != null) {

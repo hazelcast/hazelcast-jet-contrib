@@ -42,6 +42,7 @@ import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.AT_LE
 public final class MqttSourceBuilder<T> extends AbstractMqttBuilder<T, MqttSourceBuilder<T>> {
 
     private QualityOfService qualityOfService = AT_LEAST_ONCE;
+    private String mapName;
     private Subscription[] subscriptions;
     private BiFunctionEx<String, MqttMessage, T> mapToItemFn;
 
@@ -119,6 +120,29 @@ public final class MqttSourceBuilder<T> extends AbstractMqttBuilder<T, MqttSourc
     }
 
     /**
+     * Set that the client and broker should remember state across
+     * restarts and reconnects. The state is persisted to the
+     * {@link com.hazelcast.map.IMap} with the specified name.
+     * <p>
+     * For example:
+     * <pre>{@code
+     * builder.persistSession("mqtt-source-map")
+     * }</pre>
+     * <p>
+     * By default the client and broker will not remember the state. If
+     * this parameter is set, the source ignores the value of
+     * {@link MqttConnectOptions#isCleanSession()} specified via
+     * {@link #connectOptionsFn(SupplierEx)}.
+     * <p>
+     * See {@link MqttConnectOptions#setCleanSession(boolean)}.
+     */
+    @Nonnull
+    public MqttSourceBuilder<T> persistSession(@Nonnull String mapName) {
+        this.mapName = mapName;
+        return this;
+    }
+
+    /**
      * Set the function to map {@link MqttMessage} to a pipeline item.
      * <p>
      * For example, to convert each message to a string:
@@ -147,13 +171,14 @@ public final class MqttSourceBuilder<T> extends AbstractMqttBuilder<T, MqttSourc
     public StreamSource<T> build() {
         String localBroker = broker;
         String localClientId = clientId;
+        String localMapName = mapName;
         List<Subscription> subscriptionList = subscriptionList();
         BiFunctionEx<String, MqttMessage, T> localMapToItemFn = mapFn();
         SupplierEx<MqttConnectOptions> connectOpsFn = connectOpsFn();
 
         SourceBuilder<SourceContext<T>>.Stream<T> builder = SourceBuilder
                 .stream("mqttSource", context -> new SourceContext<>(context, localBroker, localClientId,
-                        subscriptionList, connectOpsFn, localMapToItemFn))
+                        localMapName, subscriptionList, connectOpsFn, localMapToItemFn))
                 .<T>fillBufferFn(SourceContext::fillBuffer)
                 .destroyFn(SourceContext::close);
 
