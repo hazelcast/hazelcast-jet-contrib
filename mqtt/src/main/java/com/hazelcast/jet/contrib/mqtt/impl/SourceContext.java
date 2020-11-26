@@ -116,8 +116,8 @@ public class SourceContext<T> {
         }
 
         @Override
-        public void messageArrived(String topic, MqttMessage message) {
-            queue.offer(mapToItemFn.apply(topic, message));
+        public void messageArrived(String topic, MqttMessage message) throws InterruptedException {
+            queue.put(mapToItemFn.apply(topic, message));
         }
 
         @Override
