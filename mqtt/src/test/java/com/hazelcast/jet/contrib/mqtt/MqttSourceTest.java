@@ -17,10 +17,8 @@
 package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.collection.IList;
-import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
-import com.hazelcast.jet.contrib.mqtt.impl.IMapClientPersistence;
-import com.hazelcast.jet.core.JetTestSupport;
+import com.hazelcast.jet.SimpleTestInClusterSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
@@ -29,6 +27,7 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -38,23 +37,24 @@ import static com.hazelcast.jet.core.JobStatus.RUNNING;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class MqttSourceTest extends JetTestSupport {
+public class MqttSourceTest extends SimpleTestInClusterSupport {
 
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
 
-    private JetInstance jet;
     private MqttClient client;
     private String broker;
     private IList<byte[]> sinkList;
     private Job job;
 
+    @BeforeClass
+    public static void beforeClass() {
+        initialize(2, null);
+    }
+
     @Before
     public void setup() throws MqttException {
-        jet = createJetMember();
-        createJetMember();
-
-        sinkList = jet.getList("sinkList");
+        sinkList = instance().getList("sinkList");
 
         broker = mosquittoContainer.connectionString();
         client = createClient();
@@ -93,7 +93,7 @@ public class MqttSourceTest extends JetTestSupport {
                 .withoutTimestamps()
                 .writeTo(Sinks.list(sinkList));
 
-        job = jet.newJob(p);
+        job = instance().newJob(p);
 
         assertEqualsEventually(sinkList::size, 1);
         client.publish(topic, "message1".getBytes(), 2, false);
@@ -127,7 +127,7 @@ public class MqttSourceTest extends JetTestSupport {
                 .withoutTimestamps()
                 .writeTo(Sinks.list(sinkList));
 
-        job = jet.newJob(p);
+        job = instance().newJob(p);
 
         assertEqualsEventually(sinkList::size, subscriptions.length);
 
@@ -142,7 +142,7 @@ public class MqttSourceTest extends JetTestSupport {
 
     private MqttClient createClient() throws MqttException {
         String clientId = newUnsecureUuidString();
-        MqttClient client = new MqttClient(broker, clientId, new IMapClientPersistence(jet.getMap(clientId)));
+        MqttClient client = new MqttClient(broker, clientId);
         MqttConnectOptions options = new MqttConnectOptions();
         options.setMaxInflight(1_000);
         options.setAutomaticReconnect(true);

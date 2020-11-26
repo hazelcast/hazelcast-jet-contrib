@@ -16,10 +16,8 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
-import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.Job;
+import com.hazelcast.jet.SimpleTestInClusterSupport;
 import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.TestSources;
@@ -30,6 +28,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,19 +43,21 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.junit.Assert.assertTrue;
 
-public class MqttSinkTest extends JetTestSupport {
+public class MqttSinkTest extends SimpleTestInClusterSupport {
 
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
 
-    private JetInstance jet;
     private MqttClient client;
     private String broker;
 
+    @BeforeClass
+    public static void beforeClass() {
+        initialize(2, null);
+    }
+
     @Before
     public void setup() {
-        jet = createJetMember();
-        createJetMember();
         broker = mosquittoContainer.connectionString();
     }
 
@@ -70,7 +71,7 @@ public class MqttSinkTest extends JetTestSupport {
     @Ignore
     public void test_retryStrategy() throws MqttException {
         ConcurrentHashMap<Integer, String> map = new ConcurrentHashMap<>();
-        client = client();
+        client = mqttClient();
         client.subscribe("topic", 2, (topic, message) -> map.put(payload(message), topic));
 
         int itemCount = 1000;
@@ -95,7 +96,7 @@ public class MqttSinkTest extends JetTestSupport {
                 .rebalance()
                 .writeTo(sink);
 
-        Job job = jet.newJob(p);
+        instance().newJob(p);
 
         assertTrueEventually(() -> assertTrue(map.size() > itemCount / 2));
 
@@ -141,12 +142,12 @@ public class MqttSinkTest extends JetTestSupport {
                 .rebalance()
                 .writeTo(sink);
 
-        jet.newJob(p).join();
+        instance().newJob(p).join();
 
         assertEqualsEventually(itemCount, counter);
     }
 
-    private MqttClient client() throws MqttException {
+    private MqttClient mqttClient() throws MqttException {
         MqttClient client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
         MqttConnectOptions connectOptions = new MqttConnectOptions();
         connectOptions.setAutomaticReconnect(true);
