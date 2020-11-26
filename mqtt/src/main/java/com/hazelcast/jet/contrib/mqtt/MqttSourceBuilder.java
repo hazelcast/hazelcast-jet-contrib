@@ -157,8 +157,8 @@ public final class MqttSourceBuilder<T> extends AbstractMqttBuilder<T, MqttSourc
      * @param <T_NEW>     the type of the pipeline item
      */
     @Nonnull
-    @SuppressWarnings("unchecked")
     public <T_NEW> MqttSourceBuilder<T_NEW> mapToItemFn(@Nonnull BiFunctionEx<String, MqttMessage, T_NEW> mapToItemFn) {
+        @SuppressWarnings("unchecked")
         MqttSourceBuilder<T_NEW> newThis = (MqttSourceBuilder<T_NEW>) this;
         newThis.mapToItemFn = mapToItemFn;
         return newThis;

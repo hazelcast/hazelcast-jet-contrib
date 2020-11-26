@@ -55,7 +55,7 @@ public class IMapClientPersistence implements MqttClientPersistence {
     }
 
     @Override
-    public Enumeration keys() {
+    public Enumeration<String> keys() {
         return Collections.enumeration(map.keySet());
     }
 
