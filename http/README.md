@@ -1,4 +1,4 @@
-# HTTP(S) Listener Source
+# HTTP(S) Listener Connector
 
 A Hazelcast Jet source for listening HTTP(S) requests, and a sink which
 clients can connect and listen the items using either websocket or
@@ -55,7 +55,7 @@ compile group: 'com.hazelcast.jet.contrib', name: 'http', version: ${version}
 
 ### Usage
 
-#### HTTP Source
+#### HTTP Listener Source
 
 HTTP Listener Source creates HTTP listener on each Hazelcast Jet member
 on user configured host and port.
@@ -78,7 +78,7 @@ p.readFrom(HttpListenerSources.httpListener(8080, Employee.class))
 Http Listener Sink for Websocket creates a listener for websocket
 connections on one of the Hazelcast Jet members. The sink converts each
 item to string using the provided `toStringFn` and sends to connected
-websocket clients. 
+websocket clients. The sink uses `Object#toString` by default.   
 
 
 Below is an example pipeline which generates 5 items per second and
@@ -108,7 +108,7 @@ for an example implementation with Undertow WebSocket Client.
 Http Listener Sink for Server-Sent Events creates a listener for
 http connections on one of the Hazelcast Jet members. The sink converts
 each item to string using the provided `toStringFn` and sends to
-connected http clients. 
+connected http clients. The sink uses `Object#toString` by default.
 
 Below is an example pipeline which generates 5 items per second and
 publishes those items with the http server using SSE. After the job has
