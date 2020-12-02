@@ -17,61 +17,61 @@
 package com.hazelcast.jet.contrib.mqtt;
 
 import com.hazelcast.collection.IList;
-import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.SimpleTestInClusterSupport;
 import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
-import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
 import static com.hazelcast.jet.contrib.mqtt.Subscription.QualityOfService.EXACTLY_ONCE;
-import static com.hazelcast.jet.core.JobStatus.RUNNING;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class MqttSourceTest extends JetTestSupport {
+public class MqttSourceTest extends SimpleTestInClusterSupport {
 
     @Rule
     public MosquittoContainer mosquittoContainer = new MosquittoContainer();
 
-    private JetInstance jet;
-    private IMqttAsyncClient client;
+    private MqttClient client;
     private String broker;
     private IList<byte[]> sinkList;
+    private Job job;
+
+    @BeforeClass
+    public static void beforeClass() {
+        initialize(2, null);
+    }
 
     @Before
     public void setup() throws MqttException {
-        jet = createJetMember();
-        createJetMember();
-
-        sinkList = jet.getList("sinkList");
+        sinkList = instance().getList(randomString());
 
         broker = mosquittoContainer.connectionString();
         client = createClient();
 
-        client.publish("topic1", "retain".getBytes(), 2, true).waitForCompletion();
-        client.publish("topic2", "retain".getBytes(), 2, true).waitForCompletion();
-        client.publish("topic3", "retain".getBytes(), 2, true).waitForCompletion();
+        client.publish("topic1", "retain".getBytes(), 2, true);
+        client.publish("topic2", "retain".getBytes(), 2, true);
+        client.publish("topic3", "retain".getBytes(), 2, true);
     }
 
     @After
     public void teardown() throws MqttException {
-        client.disconnect().waitForCompletion();
-        client.close();
+        if (job != null) {
+            job.cancel();
+        }
+        if (client != null) {
+            client.disconnect();
+            client.close();
+        }
     }
 
     @Test
@@ -92,30 +92,22 @@ public class MqttSourceTest extends JetTestSupport {
                 .withoutTimestamps()
                 .writeTo(Sinks.list(sinkList));
 
-        Job job = jet.newJob(p);
+        job = instance().newJob(p);
 
         assertEqualsEventually(sinkList::size, 1);
-        client.publish(topic, "message1".getBytes(), 2, false).waitForCompletion();
+        client.publish(topic, "message1".getBytes(), 2, false);
         assertEqualsEventually(sinkList::size, 2);
 
-        mosquittoContainer.fixMappedPort();
-        mosquittoContainer.stop();
-        assertEquals(RUNNING, job.getStatus());
-        mosquittoContainer.start();
+        mosquittoContainer.restart();
 
-        assertTrueEventually(() -> {
-            if (client.isConnected()) {
-                client.publish(topic, "message2".getBytes(), 2, false).waitForCompletion();
-            }
-            assertTrue(sinkList.size() > 2);
-        });
-
-        job.cancel();
+        assertTrueEventually(() -> assertTrue(client.isConnected()));
+        client.publish(topic, "message2".getBytes(), 2, false);
+        assertTrueEventually(() -> assertTrue(sinkList.size() > 2));
     }
 
     @Test
     public void test() throws MqttException {
-        int messageCount = 6000;
+        int messageCount = 100;
         Subscription[] subscriptions = new Subscription[]{
                 Subscription.of("topic1", EXACTLY_ONCE),
                 Subscription.of("topic2", EXACTLY_ONCE),
@@ -131,38 +123,26 @@ public class MqttSourceTest extends JetTestSupport {
                 .withoutTimestamps()
                 .writeTo(Sinks.list(sinkList));
 
-        Job job = jet.newJob(p);
+        job = instance().newJob(p);
 
         assertEqualsEventually(sinkList::size, subscriptions.length);
 
-        List<IMqttDeliveryToken> list = new ArrayList<>();
-        for (int i = 0; i < messageCount / 100; i++) {
-            for (Subscription subscription : subscriptions) {
-                for (int j = 0; j < 100; j++) {
-                    IMqttDeliveryToken token = client.publish(subscription.getTopic(),
-                            ("message" + i).getBytes(), subscription.getQualityOfService().getQos(), false);
-                    list.add(token);
-                }
+        for (int i = 0; i < messageCount; i++) {
+            for (Subscription sub : subscriptions) {
+                client.publish(sub.getTopic(), ("message" + i).getBytes(), sub.getQualityOfService().getQos(), false);
             }
-            for (IMqttDeliveryToken token : list) {
-                token.waitForCompletion();
-            }
-            list.clear();
         }
 
         assertEqualsEventually(sinkList::size, (messageCount + 1) * subscriptions.length);
-
-        job.cancel();
     }
 
-    private MqttAsyncClient createClient() throws MqttException {
-        MqttAsyncClient client = new MqttAsyncClient(broker, newUnsecureUuidString(),
-                new ConcurrentMemoryPersistence());
+    private MqttClient createClient() throws MqttException {
+        MqttClient client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
         MqttConnectOptions options = new MqttConnectOptions();
-        options.setMaxInflight(300);
+        options.setMaxInflight(1000);
         options.setAutomaticReconnect(true);
         options.setCleanSession(false);
-        client.connect(options).waitForCompletion();
+        client.connect(options);
         return client;
     }
 }

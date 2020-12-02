@@ -18,7 +18,6 @@ package com.hazelcast.jet.contrib.mqtt.impl;
 
 import org.eclipse.paho.client.mqttv3.MqttClientPersistence;
 import org.eclipse.paho.client.mqttv3.MqttPersistable;
-import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import java.util.Collections;
@@ -33,64 +32,43 @@ import java.util.concurrent.ConcurrentMap;
  */
 public class ConcurrentMemoryPersistence implements MqttClientPersistence {
 
-    ConcurrentMap<String, MqttPersistable> data;
+    private final ConcurrentMap<String, MqttPersistable> data = new ConcurrentHashMap<>();
 
     @Override
     public void open(String clientId, String serverURI) {
-        data = new ConcurrentHashMap<>();
     }
 
     @Override
     public void close() {
-        if (data != null) {
-            data.clear();
-        }
     }
 
     @Override
-    public void put(String key, MqttPersistable persistable) throws MqttPersistenceException {
-        checkIsOpen();
+    public void put(String key, MqttPersistable persistable) {
         data.put(key, persistable);
     }
 
     @Override
-    public MqttPersistable get(String key) throws MqttPersistenceException {
-        checkIsOpen();
+    public MqttPersistable get(String key) {
         return data.get(key);
     }
 
     @Override
-    public void remove(String key) throws MqttPersistenceException {
-        checkIsOpen();
+    public void remove(String key) {
         data.remove(key);
     }
 
     @Override
-    public Enumeration<String> keys() throws MqttPersistenceException {
-        checkIsOpen();
+    public Enumeration<String> keys() {
         return Collections.enumeration(data.keySet());
     }
 
     @Override
-    public void clear() throws MqttPersistenceException {
-        checkIsOpen();
+    public void clear() {
         data.clear();
     }
 
     @Override
-    public boolean containsKey(String key) throws MqttPersistenceException {
-        checkIsOpen();
+    public boolean containsKey(String key) {
         return data.containsKey(key);
-    }
-
-    /**
-     * Checks whether the persistence has been opened.
-     *
-     * @throws MqttPersistenceException if the persistence has not been opened.
-     */
-    private void checkIsOpen() throws MqttPersistenceException {
-        if (data == null) {
-            throw new MqttPersistenceException();
-        }
     }
 }

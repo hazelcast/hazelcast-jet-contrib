@@ -87,7 +87,11 @@ public class SinkContext<T> {
     }
 
     public void close() throws MqttException {
-        client.disconnect().waitForCompletion();
+        try {
+            client.disconnect().waitForCompletion();
+        } catch (MqttException exception) {
+            logger.warning("Exception when disconnecting", exception);
+        }
         client.close();
     }
 

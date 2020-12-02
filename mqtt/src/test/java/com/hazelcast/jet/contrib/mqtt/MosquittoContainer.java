@@ -16,7 +16,10 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
+import com.github.dockerjava.api.DockerClient;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.ToxiproxyContainer.ContainerProxy;
 import org.testcontainers.utility.MountableFile;
 
 import java.util.Collections;
@@ -56,27 +59,26 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
         return "tcp://" + getContainerIpAddress() + ":" + getMappedPort(PORT);
     }
 
-    /**
-     * Sets the default port {@link #PORT} as the bind port.
-     */
-    public MosquittoContainer withDefaultPort() {
-        setPortBindings(Collections.singletonList(PORT + ":" + PORT));
-        return this;
-    }
-
-    /**
-     * Sets the current mapped port as the bind port. This is useful if you
-     * want to fix the port through a restart (stop/start).
-     */
-    public void fixMappedPort() {
+    public void restart() {
+        // fix the port number
         setPortBindings(Collections.singletonList(getMappedPort(PORT) + ":" + PORT));
+        // graceful stop
+        executeStopCommand();
+        // terminate
+        stop();
+        // start
+        start();
     }
 
-    public String host() {
-        return getContainerIpAddress();
+    /**
+     * Executes a graceful stop command
+     */
+    private void executeStopCommand() {
+        DockerClient dockerClient = DockerClientFactory.instance().client();
+        dockerClient.stopContainerCmd(getContainerId()).exec();
     }
 
-    public int port() {
-        return getMappedPort(PORT);
+    public static String connectionString(ContainerProxy containerProxy) {
+        return "tcp://" + containerProxy.getContainerIpAddress() + ":" + containerProxy.getProxyPort();
     }
 }
