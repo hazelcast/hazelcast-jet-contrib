@@ -101,8 +101,10 @@ public class MqttSourceTest extends SimpleTestInClusterSupport {
         mosquittoContainer.restart();
 
         assertTrueEventually(() -> assertTrue(client.isConnected()));
-        client.publish(topic, "message2".getBytes(), 2, false);
-        assertTrueEventually(() -> assertTrue(sinkList.size() > 2));
+        assertTrueEventually(() -> {
+            client.publish(topic, "message2".getBytes(), 2, false);
+            assertTrue(sinkList.size() > 2);
+        });
     }
 
     @Test
