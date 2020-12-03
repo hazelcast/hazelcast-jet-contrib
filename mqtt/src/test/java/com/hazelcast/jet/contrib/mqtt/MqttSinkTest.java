@@ -16,24 +16,23 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
-import com.hazelcast.function.BiConsumerEx;
-import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.Job;
+import com.hazelcast.jet.SimpleTestInClusterSupport;
 import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
-import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.test.TestSources;
 import com.hazelcast.jet.retry.RetryStrategies;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.MqttCallbackExtended;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.testcontainers.containers.Network;
+import org.testcontainers.containers.ToxiproxyContainer;
+import org.testcontainers.containers.ToxiproxyContainer.ContainerProxy;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,89 +42,124 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.junit.Assert.assertTrue;
 
-public class MqttSinkTest extends JetTestSupport {
+public class MqttSinkTest extends SimpleTestInClusterSupport {
 
-    @Rule
-    public MosquittoContainer mosquittoContainer = new MosquittoContainer();
-
-    private JetInstance jet;
+    private MosquittoContainer mosquitto;
     private MqttClient client;
-    private String broker;
+    private Job job;
 
-    @Before
-    public void setup() throws MqttException {
-        jet = createJetMember();
-        createJetMember();
-        broker = mosquittoContainer.connectionString();
+    @BeforeClass
+    public static void beforeClass() {
+        initialize(2, null);
     }
 
     @After
     public void teardown() throws MqttException {
-        client.disconnect();
-        client.close();
+        if (job != null) {
+            job.cancel();
+        }
+        if (client != null) {
+            try {
+                client.disconnect();
+            } catch (MqttException exception) {
+                logger.warning("Exception when disconnecting", exception);
+            }
+            client.close();
+        }
+        if (mosquitto != null) {
+            mosquitto.stop();
+        }
     }
 
     @Test
     public void test_retryStrategy() throws MqttException {
-        ConcurrentHashMap<Integer, String> map = new ConcurrentHashMap<>();
-        client = client(new SubscriberCallback((topic, mes) -> map.put(byteArrayToInt(mes.getPayload()), topic)));
+        try (
+                Network network = Network.newNetwork();
+                ToxiproxyContainer toxiproxy = initToxiproxy(network);
+        ) {
+            mosquitto = new MosquittoContainer().withNetwork(network);
+            mosquitto.start();
+            ContainerProxy proxy = toxiproxy.getProxy(mosquitto, MosquittoContainer.PORT);
+            String broker = MosquittoContainer.connectionString(proxy);
 
-        int itemCount = 2800;
-        int expectedItemLoss = 100;
+            ConcurrentHashMap<Integer, String> map = new ConcurrentHashMap<>();
+            client = mqttClient(broker);
+            client.subscribe("retry", 2, (topic, message) -> map.put(payload(message), topic));
 
-        Pipeline p = Pipeline.create();
+            int itemCount = 1000;
 
-        Sink<Integer> sink = MqttSinks.builder().broker(broker).topic("topic")
-                .retryStrategy(RetryStrategies.indefinitely(1000)).autoReconnect()
-                .<Integer>messageFn(item -> {
-                    MqttMessage message = new MqttMessage(intToByteArray(item));
-                    message.setQos(2);
-                    return message;
-                }).build();
+            Pipeline p = Pipeline.create();
+            Sink<Integer> sink =
+                    MqttSinks.builder()
+                            .broker(broker)
+                            .topic("retry")
+                            .connectOptionsFn(() -> {
+                                MqttConnectOptions options = new MqttConnectOptions();
+                                options.setAutomaticReconnect(true);
+                                options.setCleanSession(false);
+                                return options;
+                            })
+                            .retryStrategy(RetryStrategies.indefinitely(1000))
+                            .messageFn(MqttSinkTest::message)
+                            .build();
 
-        p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
-                .rebalance()
-                .writeTo(sink);
+            p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
+                    .rebalance()
+                    .writeTo(sink);
 
-        jet.newJob(p);
+            job = instance().newJob(p);
 
-        assertTrueEventually(() -> assertTrue(map.size() > itemCount / 2));
+            assertTrueEventually(() -> assertTrue(map.size() > itemCount / 2));
 
-        mosquittoContainer.fixMappedPort();
-        mosquittoContainer.stop();
-        mosquittoContainer.start();
+            proxy.setConnectionCut(true);
+            sleepSeconds(1);
+            proxy.setConnectionCut(false);
 
-        assertTrueEventually(() -> assertTrue(map.size() > itemCount - expectedItemLoss));
+            assertTrueEventually(() -> assertTrue(client.isConnected()));
+            client.subscribe("retry", 2, (topic, message) -> map.put(payload(message), topic));
+
+            assertEqualsEventually(map::size, itemCount);
+        }
     }
 
     @Test
     public void test() throws MqttException {
+        mosquitto = new MosquittoContainer();
+        mosquitto.start();
+        String broker = mosquitto.connectionString();
         client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
         client.connect();
 
-        int itemCount = 2800;
+        int itemCount = 100;
         AtomicInteger counter = new AtomicInteger();
-        client.subscribe("topic", 2, (topic, message) -> counter.incrementAndGet());
+        client.subscribe("topic", 0, (topic, message) -> counter.incrementAndGet());
 
         Pipeline p = Pipeline.create();
 
         Sink<Integer> sink =
-                MqttSinks.builder().broker(broker).topic("topic")
-                        .<Integer>messageFn(item -> {
-                            MqttMessage message = new MqttMessage(intToByteArray(item));
-                            message.setQos(2);
-                            return message;
-                        }).build();
+                MqttSinks.builder()
+                        .broker(broker)
+                        .topic("topic")
+                        .messageFn(MqttSinkTest::message)
+                        .build();
 
         p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
                 .rebalance()
                 .writeTo(sink);
 
-        jet.newJob(p).join();
+        instance().newJob(p).join();
 
         assertEqualsEventually(itemCount, counter);
     }
 
+    private MqttClient mqttClient(String broker) throws MqttException {
+        MqttClient client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
+        MqttConnectOptions connectOptions = new MqttConnectOptions();
+        connectOptions.setAutomaticReconnect(true);
+        connectOptions.setCleanSession(false);
+        client.connect(connectOptions);
+        return client;
+    }
 
     private static byte[] intToByteArray(int value) {
         return new byte[]{
@@ -135,7 +169,7 @@ public class MqttSinkTest extends JetTestSupport {
                 (byte) value};
     }
 
-    static int byteArrayToInt(byte[] data) {
+    private static int byteArrayToInt(byte[] data) {
         int val = 0;
         for (int i = 0; i < 4; i++) {
             val = val << 8;
@@ -144,46 +178,20 @@ public class MqttSinkTest extends JetTestSupport {
         return val;
     }
 
-    private MqttClient client(SubscriberCallback callback) throws MqttException {
-        MqttClient client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
-        client.setCallback(callback);
-        callback.client = client;
-        MqttConnectOptions connectOptions = new MqttConnectOptions();
-        connectOptions.setAutomaticReconnect(true);
-        connectOptions.setCleanSession(false);
-        client.connect(connectOptions);
-        return client;
+    private static MqttMessage message(int value) {
+        MqttMessage message = new MqttMessage(intToByteArray(value));
+        message.setQos(2);
+        return message;
     }
 
-    private static final class SubscriberCallback implements MqttCallbackExtended {
-
-        private final BiConsumerEx<String, MqttMessage> messageConsumer;
-        private MqttClient client;
-
-        private SubscriberCallback(BiConsumerEx<String, MqttMessage> messageConsumer) {
-            this.messageConsumer = messageConsumer;
-        }
-
-        @Override
-        public void connectComplete(boolean reconnect, String serverURI) {
-            try {
-                client.subscribe("topic", 2);
-            } catch (MqttException exception) {
-                exception.printStackTrace();
-            }
-        }
-
-        @Override
-        public void connectionLost(Throwable cause) {
-        }
-
-        @Override
-        public void messageArrived(String topic, MqttMessage message) throws Exception {
-            messageConsumer.accept(topic, message);
-        }
-
-        @Override
-        public void deliveryComplete(IMqttDeliveryToken token) {
-        }
+    private static int payload(MqttMessage message) {
+        return byteArrayToInt(message.getPayload());
     }
+
+    private static ToxiproxyContainer initToxiproxy(Network network) {
+        ToxiproxyContainer toxiproxy = new ToxiproxyContainer().withNetwork(network);
+        toxiproxy.start();
+        return toxiproxy;
+    }
+
 }
