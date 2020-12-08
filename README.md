@@ -77,6 +77,10 @@ A Hazelcast Jet Listener Connector for listening incoming HTTP requests
 as a source and sending messages(websocket) or events(server-sent-event)
 to the listening clients as a sink.
 
+### [Reliable Topic Source Connector](reliabletopic) 
+
+A source connector for ingesting messages from Hazelcast Reliable Topic
+to Jet pipelines.
 
 ## Snapshot Releases
 

@@ -36,7 +36,7 @@ import java.util.stream.IntStream;
 
 
 public class ReliableTopicTest extends JetTestSupport {
-    private static final int ITEM_COUNT = 550_000;
+    private static final int ITEM_COUNT = 5_000;
     private JetInstance jet;
 
     @Before
@@ -69,6 +69,6 @@ public class ReliableTopicTest extends JetTestSupport {
 
         assertTrueEventually(() -> {
             Assert.assertEquals("The same number of items should be read from ITopic source", ITEM_COUNT, list.size());
-        }, 300);
+        }, 30);
     }
 }
