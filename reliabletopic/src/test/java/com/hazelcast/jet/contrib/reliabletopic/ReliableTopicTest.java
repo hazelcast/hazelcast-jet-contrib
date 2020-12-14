@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.junit.Assert.assertTrue;
 
 
 public class ReliableTopicTest extends JetTestSupport {
@@ -45,12 +46,11 @@ public class ReliableTopicTest extends JetTestSupport {
     }
 
     @Test
-    public void reliableTopicTest() {
+    public void reliableTopicSourceTest() {
         String topicName = randomName();
-        IList<Long> list = getList(jet);
-
-        final StreamSource<Long> topicSrc = ReliableTopicSource.<Integer, Long>topicSource(topicName,
-                msg -> Long.valueOf(msg.getMessageObject()));
+        IList<Integer> list = getList(jet);
+        int queueCapacity = 2048;
+        final StreamSource<Integer> topicSrc = ReliableTopicSource.reliableTopicSource(topicName, queueCapacity);
 
         List<Integer> intNumbers = IntStream.range(0, ITEM_COUNT).boxed().collect(Collectors.toList());
 
@@ -67,8 +67,11 @@ public class ReliableTopicTest extends JetTestSupport {
         assertJobStatusEventually(job, JobStatus.RUNNING);
         jet.newJob(p2).join();
 
-        assertTrueEventually(() -> {
-            Assert.assertEquals("The same number of items should be read from ITopic source", ITEM_COUNT, list.size());
-        }, 30);
+        assertTrueEventually(() -> Assert.assertEquals(
+                "The same number of items should be read from ITopic source",
+                ITEM_COUNT,
+                list.size()
+        ), 30);
+        intNumbers.forEach(item -> assertTrue(list.contains(item)));
     }
 }

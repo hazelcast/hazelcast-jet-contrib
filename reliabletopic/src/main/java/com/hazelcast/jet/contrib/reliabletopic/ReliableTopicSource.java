@@ -16,23 +16,24 @@
 
 package com.hazelcast.jet.contrib.reliabletopic;
 
-import com.hazelcast.function.FunctionEx;
 import com.hazelcast.jet.core.Processor.Context;
 import com.hazelcast.jet.pipeline.SourceBuilder;
 import com.hazelcast.jet.pipeline.StreamSource;
 import com.hazelcast.topic.Message;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayDeque;
 
-import java.util.Queue;
-
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 /**
  * Contains a method for creating a reliable topic stream sources.
  */
 public final class ReliableTopicSource {
+
+    private static final int DEFAULT_QUEUE_CAP = 1024;
 
     private ReliableTopicSource() {
     }
@@ -40,47 +41,55 @@ public final class ReliableTopicSource {
     /**
      * Creates a {@link StreamSource} which reads messages from
      * from a Hazelcast reliable topic with the specified name.
-     * @param topic       topic name to read from
-     * @param projectionFn built in mapping function of the source which can be
-     *                     used to map {@link Message} instances received
-     *                     from a reliable topic to an arbitrary type of output;
-     *                     it's included for convenience.
-     * @param <M> type of item inside a message.
-     * @param <T> type of emitted item after projection.
+     *
+     * @param topic             topic name to read from
+     * @param <T>               type of emitted item/object inside
+     *                          a message.
      * @return {@link StreamSource}
      */
-    public static <M, T> StreamSource<T> topicSource(
+    public static <T> StreamSource<T> reliableTopicSource(
+            @Nonnull String topic
+    ) {
+        return reliableTopicSource(topic, DEFAULT_QUEUE_CAP);
+    }
+
+    /**
+     * Creates a {@link StreamSource} which reads messages from
+     * from a Hazelcast reliable topic with the specified name.
+     *
+     * @param topic             topic name to read from
+     * @param queueCapacity     specifies the capacity of the blocking
+     *                          queue that is used to buffer items.
+     * @param <T>               type of emitted item/object inside
+     *                          a message.
+     * @return {@link StreamSource}
+     */
+    public static <T> StreamSource<T> reliableTopicSource(
             @Nonnull String topic,
-            @Nonnull FunctionEx<Message<M>, T> projectionFn
+            int queueCapacity
     ) {
         return SourceBuilder.timestampedStream("reliable-topic-source",
-                ctx -> new ITopicSourceContext<>(ctx, topic, projectionFn))
+                ctx -> new ITopicSourceContext<T>(ctx, topic, queueCapacity))
                 .<T>fillBufferFn(ITopicSourceContext::fillBuffer)
                 .build();
     }
 
-    private static final class ITopicSourceContext<M, T> {
-        private static final int QUEUE_CAP = 1024;
-        private static final int MAX_FILL_MESSAGES = 128;
 
-        private final Queue<Message<M>> queue = new ArrayDeque<>(QUEUE_CAP);
-        private final FunctionEx<Message<M>, T> projectionFn;
+    private static final class ITopicSourceContext<T> {
+        private static final int MAX_FILL_MESSAGES = 512;
+        private final List<Message<T>> tempBuffer = new ArrayList<>(MAX_FILL_MESSAGES);
+        private BlockingQueue<Message<T>> queue;
 
-        private ITopicSourceContext(Context ctx, String topic, @Nonnull FunctionEx<Message<M>, T> projectionFn) {
-            ctx.jetInstance().<M>getReliableTopic(topic).addMessageListener(queue::add);
-            this.projectionFn = projectionFn;
+        private ITopicSourceContext(Context ctx, String topic, int queueCapacity) {
+            queue = new ArrayBlockingQueue<>(queueCapacity);
+            ctx.jetInstance().getHazelcastInstance().getRingbuffer(topic);
+            ctx.jetInstance().<T>getReliableTopic(topic).addMessageListener(queue::add);
         }
 
         private void fillBuffer(SourceBuilder.TimestampedSourceBuffer<T> sourceBuffer) {
-            int count = 0;
-            while (!queue.isEmpty() && count++ < MAX_FILL_MESSAGES) {
-                Message<M> message = queue.poll();
-                long timestamp = message.getPublishTime();
-                T item = projectionFn.apply(message);
-                if (item != null) {
-                    sourceBuffer.add(item, timestamp);
-                }
-            }
+            queue.drainTo(tempBuffer, MAX_FILL_MESSAGES);
+            tempBuffer.forEach(message -> sourceBuffer.add(message.getMessageObject(), message.getPublishTime()));
+            tempBuffer.clear();
         }
     }
 }
