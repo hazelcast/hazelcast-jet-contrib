@@ -49,8 +49,7 @@ public class ReliableTopicTest extends JetTestSupport {
     public void reliableTopicSourceTest() {
         String topicName = randomName();
         IList<Integer> list = getList(jet);
-        int queueCapacity = 2048;
-        final StreamSource<Integer> topicSrc = ReliableTopicSource.reliableTopicSource(topicName, queueCapacity);
+        final StreamSource<Integer> topicSrc = ReliableTopicSource.reliableTopicSource(topicName);
 
         List<Integer> intNumbers = IntStream.range(0, ITEM_COUNT).boxed().collect(Collectors.toList());
 
