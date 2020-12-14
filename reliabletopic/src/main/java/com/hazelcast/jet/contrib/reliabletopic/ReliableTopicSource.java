@@ -68,7 +68,7 @@ public final class ReliableTopicSource {
             @Nonnull String topic,
             int queueCapacity
     ) {
-        return SourceBuilder.timestampedStream("reliable-topic-source",
+        return SourceBuilder.timestampedStream("streamReliableTopic(" + topic + ")",
                 ctx -> new ITopicSourceContext<T>(ctx, topic, queueCapacity))
                 .<T>fillBufferFn(ITopicSourceContext::fillBuffer)
                 .build();
