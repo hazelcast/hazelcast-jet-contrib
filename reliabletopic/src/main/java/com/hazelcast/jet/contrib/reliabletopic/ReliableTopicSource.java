@@ -40,7 +40,7 @@ public final class ReliableTopicSource {
 
     /**
      * Creates a {@link StreamSource} which reads messages from
-     * from a Hazelcast reliable topic with the specified name.
+     * from a Hazelcast Reliable Topic with the specified name.
      *
      * @param topic             topic name to read from
      * @param <T>               type of emitted item/object inside
@@ -55,7 +55,7 @@ public final class ReliableTopicSource {
 
     /**
      * Creates a {@link StreamSource} which reads messages from
-     * from a Hazelcast reliable topic with the specified name.
+     * from a Hazelcast Reliable Topic with the specified name.
      *
      * @param topic             topic name to read from
      * @param queueCapacity     specifies the capacity of the blocking
