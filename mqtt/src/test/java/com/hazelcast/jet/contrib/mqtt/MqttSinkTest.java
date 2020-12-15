@@ -16,6 +16,7 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
+import com.hazelcast.jet.JetException;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.SimpleTestInClusterSupport;
 import com.hazelcast.jet.contrib.mqtt.impl.ConcurrentMemoryPersistence;
@@ -27,6 +28,7 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.MqttSecurityException;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -38,8 +40,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.hazelcast.internal.util.UuidUtil.newUnsecureUuidString;
+import static com.hazelcast.jet.contrib.mqtt.SecuredMosquittoContainer.PASSWORD;
+import static com.hazelcast.jet.contrib.mqtt.SecuredMosquittoContainer.USERNAME;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.Assert.assertTrue;
 
 public class MqttSinkTest extends SimpleTestInClusterSupport {
@@ -150,6 +155,109 @@ public class MqttSinkTest extends SimpleTestInClusterSupport {
         instance().newJob(p).join();
 
         assertEqualsEventually(itemCount, counter);
+    }
+
+    @Test
+    public void testSecured() throws MqttException {
+        mosquitto = new SecuredMosquittoContainer();
+        mosquitto.start();
+        String broker = mosquitto.connectionString();
+        client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setUserName(USERNAME);
+        options.setPassword(PASSWORD.toCharArray());
+        client.connect(options);
+
+        int itemCount = 100;
+        AtomicInteger counter = new AtomicInteger();
+        client.subscribe("topic", 0, (topic, message) -> counter.incrementAndGet());
+
+        Pipeline p = Pipeline.create();
+
+        Sink<Integer> sink
+                = MqttSinks.builder()
+                        .broker(broker)
+                        .topic("topic")
+                        .auth(USERNAME, PASSWORD.toCharArray())
+                        .messageFn(MqttSinkTest::message)
+                        .build();
+
+        p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
+                .rebalance()
+                .writeTo(sink);
+
+        instance().newJob(p).join();
+
+        assertEqualsEventually(itemCount, counter);
+    }
+
+    @Test
+    public void testAccessWithoutPassword() throws MqttException {
+        mosquitto = new SecuredMosquittoContainer();
+        mosquitto.start();
+        String broker = mosquitto.connectionString();
+        client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setUserName(USERNAME);
+        options.setPassword(PASSWORD.toCharArray());
+        client.connect(options);
+
+        int itemCount = 100;
+        AtomicInteger counter = new AtomicInteger();
+        client.subscribe("topic", 0, (topic, message) -> counter.incrementAndGet());
+
+        Pipeline p = Pipeline.create();
+
+        Sink<Integer> sink
+                = MqttSinks.builder()
+                        .broker(broker)
+                        .topic("topic")
+                        .messageFn(MqttSinkTest::message)
+                        .build();
+
+        p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
+                .rebalance()
+                .writeTo(sink);
+
+        assertThatThrownBy(() -> instance().newJob(p).join())
+                .hasCauseInstanceOf(JetException.class)
+                .hasRootCauseInstanceOf(MqttSecurityException.class)
+                .hasMessageContaining("Not authorized to connect");
+    }
+
+    @Test
+    public void testWrongPassword() throws MqttException {
+        mosquitto = new SecuredMosquittoContainer();
+        mosquitto.start();
+        String broker = mosquitto.connectionString();
+        client = new MqttClient(broker, newUnsecureUuidString(), new ConcurrentMemoryPersistence());
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setUserName(USERNAME);
+        options.setPassword(PASSWORD.toCharArray());
+        client.connect(options);
+
+        int itemCount = 100;
+        AtomicInteger counter = new AtomicInteger();
+        client.subscribe("topic", 0, (topic, message) -> counter.incrementAndGet());
+
+        Pipeline p = Pipeline.create();
+
+        Sink<Integer> sink
+                = MqttSinks.builder()
+                        .broker(broker)
+                        .topic("topic")
+                        .auth(USERNAME, "wrongPassword".toCharArray())
+                        .messageFn(MqttSinkTest::message)
+                        .build();
+
+        p.readFrom(TestSources.items(range(0, itemCount).boxed().collect(toList())))
+                .rebalance()
+                .writeTo(sink);
+
+        assertThatThrownBy(() -> instance().newJob(p).join())
+                .hasCauseInstanceOf(JetException.class)
+                .hasRootCauseInstanceOf(MqttSecurityException.class)
+                .hasMessageContaining("Not authorized to connect");
     }
 
     private MqttClient mqttClient(String broker) throws MqttException {
