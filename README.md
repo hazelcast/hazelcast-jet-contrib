@@ -1,15 +1,15 @@
 # hazelcast-jet-contrib
 
-This repository includes various community supported and incubating 
+This repository includes various community supported and incubating
 modules for [Hazelcast Jet](https://github.com/hazelcast/hazelcast-jet).
 
 As a general guideline, the following types of modules are encouraged
 in this repository:
 
 * Various connectors, including both sources and sinks
-* [Context factories](https://docs.hazelcast.org/docs/jet/3.0/javadoc/com/hazelcast/jet/pipeline/ContextFactory.html).
+* [Service Factories](https://jet-start.sh/javadoc/4.3/com/hazelcast/jet/pipeline/ServiceFactory.html).
 that potentially integrate with other systems.
-* Custom [aggregations](https://docs.hazelcast.org/docs/jet/3.0/javadoc/com/hazelcast/jet/aggregate/AggregateOperation.html).
+* Custom [aggregations](https://jet-start.sh/javadoc/4.3/com/hazelcast/jet/aggregate/AggregateOperation.html).
 These should be generic enough that they should be reusable in other
  pipelines.
 
@@ -29,12 +29,12 @@ To publish project modules to the Maven Local repository, use the command
 
 ## List of modules
 
-### [InfluxDb Connector](influxdb) 
+### [InfluxDb Connector](influxdb)
 
 A Hazelcast Jet Connector for InfluxDb which enables Hazelcast Jet
 pipelines to read/write data points from/to InfluxDb.
 
-### [Probabilistic Aggregations](probabilistic) 
+### [Probabilistic Aggregations](probabilistic)
 
 A collection of probabilistic aggregations such as HyperLogLog.
 
@@ -42,22 +42,22 @@ A collection of probabilistic aggregations such as HyperLogLog.
 
 Hazelcast Jet connectors for various Redis data structures.
 
-### [MongoDB Connector](mongodb) 
+### [MongoDB Connector](mongodb)
 
 A Hazelcast Jet connector for MongoDB for querying/inserting objects
 from/to MongoDB.
 
-### [Kafka Connect Connector](kafka-connect) 
+### [Kafka Connect Connector](kafka-connect)
 
 A generic Kafka Connect source provides ability to plug any Kafka
 Connect source for data ingestion to Jet pipelines.
 
-### [Twitter Connector](twitter) 
+### [Twitter Connector](twitter)
 
-A Hazelcast Jet connector for consuming data from Twitter stream 
+A Hazelcast Jet connector for consuming data from Twitter stream
 sources in Jet pipelines.
 
-### [Pulsar Connector](pulsar) 
+### [Pulsar Connector](pulsar)
 
 A Hazelcast Jet connector for consuming/producing messages from/to Apache Pulsar topics.
 
@@ -71,7 +71,7 @@ JDBC database with Jet's fault tolerance.
 A Spring Boot Starter for Hazelcast Jet which auto-configures Hazelcast
 Jet if found on the classpath.
 
-### [HTTP(S) Listener Connector](http) 
+### [HTTP(S) Listener Connector](http)
 
 A Hazelcast Jet Listener Connector for listening incoming HTTP requests
 as a source and sending messages(websocket) or events(server-sent-event)
@@ -80,10 +80,10 @@ to the listening clients as a sink.
 
 ## Snapshot Releases
 
-To access snapshot builds add the following `dependency` and 
+To access snapshot builds add the following `dependency` and
 `repository` declarations to `dependencies` and `repositories` sections
 in your `pom.xml` respectively.
-              
+
 ```xml
 <dependency>
   <groupId>com.hazelcast.jet.contrib</groupId>
@@ -117,7 +117,7 @@ To contribute:
 * see [README Template](https://github.com/hazelcast/hazelcast-jet-contrib/blob/master/templates/README.template.md)
 * complete the [Hazelcast Contributor Agreement](https://hazelcast.atlassian.net/wiki/display/COM/Hazelcast+Contributor+Agreement)
 
-Submit your contribution as a pull request on GitHub. 
+Submit your contribution as a pull request on GitHub.
 
 ## License
 
