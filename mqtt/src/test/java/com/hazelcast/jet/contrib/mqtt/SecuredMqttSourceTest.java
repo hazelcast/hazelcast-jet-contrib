@@ -21,7 +21,6 @@ import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
 import com.hazelcast.jet.pipeline.StreamSource;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttSecurityException;
 import org.junit.Rule;
 import org.junit.Test;
@@ -53,7 +52,7 @@ public class SecuredMqttSourceTest extends AbstractMqttSourceTest {
     }
 
     @Test
-    public void accessWithoutPassword() throws MqttException {
+    public void accessWithoutPassword() {
         Pipeline p = Pipeline.create();
         MqttSourceBuilder<byte[]> builder = MqttSources.builder()
                 .broker(broker)
@@ -72,11 +71,11 @@ public class SecuredMqttSourceTest extends AbstractMqttSourceTest {
     }
 
     @Test
-    public void accessWithWrongPassword() throws MqttException {
+    public void accessWithWrongPassword() {
         Pipeline p = Pipeline.create();
         MqttSourceBuilder<byte[]> builder = MqttSources.builder()
                 .broker(broker)
-                .auth(USERNAME, "wrongPassword".toCharArray())
+                .auth(USERNAME, "wrongPassword" .toCharArray())
                 .topic("topic1")
                 .qualityOfService(EXACTLY_ONCE);
         StreamSource<byte[]> source = builder.build();

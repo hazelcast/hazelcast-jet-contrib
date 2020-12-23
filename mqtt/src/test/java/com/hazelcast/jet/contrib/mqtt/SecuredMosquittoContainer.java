@@ -18,8 +18,6 @@ package com.hazelcast.jet.contrib.mqtt;
 
 import org.testcontainers.utility.MountableFile;
 
-import static com.hazelcast.jet.contrib.mqtt.MosquittoContainer.PORT;
-
 public class SecuredMosquittoContainer extends MosquittoContainer {
 
     public static final String USERNAME = "myUser";
@@ -34,9 +32,12 @@ public class SecuredMosquittoContainer extends MosquittoContainer {
 
     @Override
     protected void configure() {
-        addExposedPort(PORT);
+        super.configure();
         withCopyFileToContainer(MountableFile.forClasspathResource(PWD_FILE), "/");
-        withCopyFileToContainer(MountableFile.forClasspathResource(SECURED_CONFIG_FILE), "/")
-                .withCommand("mosquitto", "-c", SECURED_CONFIG_FILE);
+    }
+
+    @Override
+    protected String configFile() {
+        return SECURED_CONFIG_FILE;
     }
 }

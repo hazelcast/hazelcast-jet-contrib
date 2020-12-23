@@ -43,13 +43,18 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
     @Override
     protected void configure() {
         addExposedPort(PORT);
-        withCopyFileToContainer(MountableFile.forClasspathResource(CONFIG_FILE), "/")
-                .withCommand("mosquitto", "-c", CONFIG_FILE);
+        String configFile = configFile();
+        withCopyFileToContainer(MountableFile.forClasspathResource(configFile), "/")
+                .withCommand("mosquitto", "-c", configFile);
     }
 
     @Override
     public Set<Integer> getLivenessCheckPortNumbers() {
         return Collections.singleton(getMappedPort(PORT));
+    }
+
+    protected String configFile() {
+        return CONFIG_FILE;
     }
 
     /**
@@ -59,6 +64,11 @@ public class MosquittoContainer extends GenericContainer<MosquittoContainer> {
         return "tcp://" + getContainerIpAddress() + ":" + getMappedPort(PORT);
     }
 
+    /**
+     * Fixes currently mapped port, executes a graceful stop command on
+     * the container, stops  and removes the container, and starts the
+     * container.
+     */
     public void restart() {
         // fix the port number
         setPortBindings(Collections.singletonList(getMappedPort(PORT) + ":" + PORT));
