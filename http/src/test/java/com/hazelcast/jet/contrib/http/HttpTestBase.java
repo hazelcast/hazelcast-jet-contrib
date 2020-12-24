@@ -18,6 +18,7 @@ package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.function.SupplierEx;
 import com.hazelcast.jet.JetInstance;
+import com.hazelcast.jet.config.JetConfig;
 import com.hazelcast.jet.contrib.http.domain.User;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.json.JsonUtil;
@@ -95,7 +96,7 @@ public class HttpTestBase extends JetTestSupport {
 
     @Before
     public void setup() {
-        jet = createJetMember();
+        jet = createJetMember(jetConfig());
         httpClient = HttpClients.createDefault();
         httpsClient = HttpClients
                 .custom()
@@ -140,5 +141,9 @@ public class HttpTestBase extends JetTestSupport {
             }
         }
         throw new AssertionError("Failed to execute the post");
+    }
+
+    static JetConfig jetConfig() {
+        return new JetConfig().configureHazelcast(config -> config.getMetricsConfig().setCollectionFrequencySeconds(1));
     }
 }
