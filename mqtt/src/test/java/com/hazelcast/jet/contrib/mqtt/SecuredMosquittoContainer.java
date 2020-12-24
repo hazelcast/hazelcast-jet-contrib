@@ -16,15 +16,28 @@
 
 package com.hazelcast.jet.contrib.mqtt;
 
-import org.junit.Rule;
+import org.testcontainers.utility.MountableFile;
 
-public class MqttSourceTest extends AbstractMqttSourceTest {
+public class SecuredMosquittoContainer extends MosquittoContainer {
 
-    @Rule
-    public MosquittoContainer mosquittoContainer = new MosquittoContainer();
+    public static final String USERNAME = "myUser";
+    public static final String PASSWORD = "myPassword";
+
+    private static final String SECURED_CONFIG_FILE = "mosquitto_secured.conf";
+    private static final String PWD_FILE = "passwordfile";
+
+    public SecuredMosquittoContainer() {
+        super();
+    }
 
     @Override
-    public MosquittoContainer getContainter() {
-        return mosquittoContainer;
+    protected void configure() {
+        super.configure();
+        withCopyFileToContainer(MountableFile.forClasspathResource(PWD_FILE), "/");
+    }
+
+    @Override
+    protected String configFile() {
+        return SECURED_CONFIG_FILE;
     }
 }
