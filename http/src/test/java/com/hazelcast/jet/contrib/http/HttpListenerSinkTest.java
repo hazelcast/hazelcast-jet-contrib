@@ -21,6 +21,7 @@ import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.core.metrics.JobMetrics;
 import com.hazelcast.jet.core.metrics.Measurement;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
@@ -57,6 +58,7 @@ import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
 import static com.hazelcast.jet.core.metrics.MetricNames.RECEIVED_COUNT;
+import static com.hazelcast.jet.core.metrics.MetricTags.SINK;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
@@ -559,8 +561,10 @@ public class HttpListenerSinkTest extends HttpTestBase {
     }
 
     void assertReceivedCountEventually(int expected) {
-        assertTrueEventually(() -> assertEquals(expected,
-                job.getMetrics().get(RECEIVED_COUNT).stream().mapToLong(Measurement::value).sum()));
+        assertTrueEventually(() -> {
+            JobMetrics jobMetrics = job.getMetrics().filter(SINK, "true");
+            assertEquals(expected, jobMetrics.get(RECEIVED_COUNT).stream().mapToLong(Measurement::value).sum());
+        });
     }
 
     static class QueueSourceContext {
