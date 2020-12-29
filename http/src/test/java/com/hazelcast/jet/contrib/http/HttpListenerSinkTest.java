@@ -18,8 +18,11 @@ package com.hazelcast.jet.contrib.http;
 
 import com.hazelcast.collection.IQueue;
 import com.hazelcast.jet.Job;
+import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JobStatus;
 import com.hazelcast.jet.core.Processor;
+import com.hazelcast.jet.core.metrics.JobMetrics;
+import com.hazelcast.jet.core.metrics.Measurement;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sink;
 import com.hazelcast.jet.pipeline.SourceBuilder;
@@ -54,6 +57,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 
+import static com.hazelcast.jet.core.metrics.MetricNames.RECEIVED_COUNT;
+import static com.hazelcast.jet.core.metrics.MetricTags.SINK;
 import static com.launchdarkly.eventsource.ReadyState.OPEN;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
@@ -71,7 +76,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
     @Before
     public void setUp() throws Exception {
-        createJetMember();
+        createJetMember(jetConfig());
         Xnio xnio = Xnio.getInstance(HttpListenerSinkTest.class.getClassLoader());
         worker = xnio.createWorker(OptionMap.builder()
                 .set(Options.WORKER_IO_THREADS, 2)
@@ -107,13 +112,14 @@ public class HttpListenerSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
         postMessages(sourceQueue, messageCount);
+        assertReceivedCountEventually(messageCount);
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromWebSocket(webSocketAddress, queue);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -128,6 +134,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
         postMessages(sourceQueue, messageCount);
+        assertReceivedCountEventually(messageCount);
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -135,8 +142,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
-
+        assertSizeEventually(messageCount * 2, queue);
     }
 
     @Test
@@ -152,7 +158,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         // when
         int messageCount = 10;
         postMessages(sourceQueue, messageCount);
-
+        assertReceivedCountEventually(messageCount);
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -160,7 +166,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount + queueLimit, queue));
+        assertSizeEventually(messageCount + queueLimit, queue);
     }
 
     @Test
@@ -175,6 +181,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         postMessages(sourceQueue, messageCount);
+        assertReceivedCountEventually(messageCount);
 
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -182,7 +189,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -196,16 +203,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -220,16 +224,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -243,9 +244,6 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         assertTrue(webSocketAddress.endsWith("8091/"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -253,7 +251,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -267,9 +265,6 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         assertTrue(webSocketAddress.endsWith("/user"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -277,7 +272,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -291,16 +286,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String webSocketAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromWebSocket(webSocketAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
         assertEquals(messageCount, queue.stream().filter(s -> s.startsWith("MESSAGE-")).count());
     }
 
@@ -317,13 +309,14 @@ public class HttpListenerSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         postMessages(sourceQueue, messageCount);
+        assertReceivedCountEventually(messageCount);
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromSse(sseAddress, queue);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -339,6 +332,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         postMessages(sourceQueue, messageCount);
+        assertReceivedCountEventually(messageCount);
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -346,7 +340,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount * 2, queue));
+        assertSizeEventually(messageCount * 2, queue);
     }
 
     @Test
@@ -361,6 +355,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         int messageCount = 10;
 
         postMessages(sourceQueue, messageCount);
+        assertReceivedCountEventually(messageCount);
 
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -368,7 +363,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -382,16 +377,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -406,16 +398,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -429,9 +418,6 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         assertTrue(sseAddress.endsWith("8091/"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -439,7 +425,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -453,9 +439,6 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         assertTrue(sseAddress.endsWith("/user"));
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
@@ -463,7 +446,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
     }
 
     @Test
@@ -477,16 +460,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
         // when
         int messageCount = 10;
-
-        postMessages(sourceQueue, messageCount);
-
         String sseAddress = HttpListenerSinks.sinkAddress(jet, job);
         Collection<String> queue = new ArrayBlockingQueue<>(messageCount * 2);
         receiveFromSse(sseAddress, queue);
         postMessages(sourceQueue, messageCount);
 
         // test
-        assertTrueEventually(() -> assertSizeEventually(messageCount, queue));
+        assertSizeEventually(messageCount, queue);
         assertEquals(messageCount, queue.stream().filter(s -> s.startsWith("MESSAGE-")).count());
     }
 
@@ -561,8 +541,8 @@ public class HttpListenerSinkTest extends HttpTestBase {
         p.readFrom(queueSource(sourceQueue))
                 .withoutTimestamps()
                 .writeTo(sink);
-
-        job = jet.newJob(p);
+        JobConfig jobConfig = new JobConfig().setName(sourceQueue.getName());
+        job = jet.newJob(p, jobConfig);
         assertJobStatusEventually(job, JobStatus.RUNNING);
     }
 
@@ -578,7 +558,13 @@ public class HttpListenerSinkTest extends HttpTestBase {
         for (int i = 0; i < messageCount; i++) {
             sourceQueue.offer(String.format(pattern, i));
         }
-        assertEqualsEventually(sourceQueue::size, 0);
+    }
+
+    void assertReceivedCountEventually(int expected) {
+        assertTrueEventually(() -> {
+            JobMetrics jobMetrics = job.getMetrics().filter(SINK, "true");
+            assertEquals(expected, jobMetrics.get(RECEIVED_COUNT).stream().mapToLong(Measurement::value).sum());
+        });
     }
 
     static class QueueSourceContext {
