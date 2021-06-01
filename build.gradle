@@ -56,14 +56,12 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        jetVersion = '4.3'
-        hazelcastVersion = '4.0.3'
+        hazelcastVersion = '5.0-SNAPSHOT'
     }
 
     dependencies {
-        compile group: 'com.hazelcast.jet', name: 'hazelcast-jet', version: jetVersion
+        compile group: 'com.hazelcast', name: 'hazelcast', version: hazelcastVersion
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
-        testCompile "com.hazelcast.jet:hazelcast-jet-core:" + jetVersion + ":tests"
         testCompile "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
         testCompile "com.hazelcast:hazelcast-enterprise:" + hazelcastVersion + ":tests"
         testCompile "javax.cache:cache-api:1.1.0"

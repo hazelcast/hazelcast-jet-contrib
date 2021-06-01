@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.influxdb;
 
-import com.hazelcast.jet.JetInstance;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.contrib.influxdb.measurement.Cpu;
 import com.hazelcast.jet.pipeline.Pipeline;
@@ -52,11 +52,11 @@ public class InfluxDbSourceTest extends JetTestSupport {
             .withPassword(PASSWORD)
             .withNetwork(Network.newNetwork());
 
-    private JetInstance jet;
+    private HazelcastInstance hz;
 
     @Before
     public void setup() {
-        jet = createJetMember();
+        hz = createJetMember().getHazelcastInstance();
     }
 
     @Test
@@ -75,9 +75,9 @@ public class InfluxDbSourceTest extends JetTestSupport {
                         (name, tags, columns, row) -> tuple2(row.get(0), row.get(1))))
          .writeTo(Sinks.list("results"));
 
-        jet.newJob(p).join();
+        hz.getJet().newJob(p).join();
 
-        assertEquals(VALUE_COUNT, jet.getList("results").size());
+        assertEquals(VALUE_COUNT, hz.getList("results").size());
     }
 
     @Test
@@ -97,9 +97,9 @@ public class InfluxDbSourceTest extends JetTestSupport {
          .addTimestamps(cpu -> cpu.time.toEpochMilli(), 0)
          .writeTo(Sinks.list("results"));
 
-        jet.newJob(p).join();
+        hz.getJet().newJob(p).join();
 
-        assertEquals(VALUE_COUNT, jet.getList("results").size());
+        assertEquals(VALUE_COUNT, hz.getList("results").size());
     }
 
     private void fillData(InfluxDB influxDB) {

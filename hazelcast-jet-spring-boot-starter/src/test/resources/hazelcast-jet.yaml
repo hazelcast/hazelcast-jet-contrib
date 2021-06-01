@@ -1,3 +1,0 @@
-hazelcast-jet:
-  edge-defaults:
-    queue-size: 2048

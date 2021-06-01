@@ -17,7 +17,8 @@
 package com.hazelcast.jet.contrib.redis;
 
 import com.hazelcast.collection.IList;
-import com.hazelcast.jet.JetInstance;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sources;
@@ -49,21 +50,19 @@ public class RedisSinkTest extends JetTestSupport {
     private RedisURI uri;
     private StatefulRedisConnection<String, String> connection;
 
-    private JetInstance instance;
+    private HazelcastInstance instance;
 
     @Before
     public void setup() {
         client = container.newRedisClient();
         connection = client.connect();
         uri = RedisURI.create(container.connectionString());
-
-        instance = createJetMember();
+        instance = createJetMember().getHazelcastInstance();
     }
 
     @After
     public void teardown() {
-        terminateInstance(instance);
-
+        Hazelcast.shutdownAll();
         connection.close();
         client.shutdown();
     }
@@ -81,7 +80,7 @@ public class RedisSinkTest extends JetTestSupport {
         p.readFrom(Sources.map(map))
                 .writeTo(RedisSinks.hash("sink", uri, "hash"));
 
-        instance.newJob(p).join();
+        instance.getJet().newJob(p).join();
 
         RedisCommands<String, String> sync = connection.sync();
         assertEquals(itemCount, sync.hkeys("hash").size());
@@ -106,7 +105,7 @@ public class RedisSinkTest extends JetTestSupport {
                 .map(i -> ScoredValue.fromNullable(i, "foobar-" + i))
                 .writeTo(RedisSinks.sortedSet("sink", uri, "sortedSet"));
 
-        instance.newJob(p).join();
+        instance.getJet().newJob(p).join();
 
         RedisCommands<String, String> sync = connection.sync();
         long rangeSize = sync.zcount("sortedSet",
@@ -129,7 +128,7 @@ public class RedisSinkTest extends JetTestSupport {
         p.readFrom(Sources.list(list))
                 .writeTo(RedisSinks.stream("source", uri, "stream"));
 
-        instance.newJob(p).join();
+        instance.getJet().newJob(p).join();
 
         RedisCommands<String, String> sync = connection.sync();
         List<StreamMessage<String, String>> messages = sync.xread(XReadArgs.StreamOffset.from("stream", "0"));

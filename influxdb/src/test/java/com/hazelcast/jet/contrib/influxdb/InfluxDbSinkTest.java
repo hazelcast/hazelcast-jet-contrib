@@ -17,7 +17,7 @@
 package com.hazelcast.jet.contrib.influxdb;
 
 import com.hazelcast.collection.IList;
-import com.hazelcast.jet.JetInstance;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sources;
@@ -58,16 +58,16 @@ public class InfluxDbSinkTest extends JetTestSupport {
     @Rule
     public ExpectedException expected = ExpectedException.none();
 
-    private JetInstance jet;
+    private HazelcastInstance hz;
 
     @Before
     public void setup() {
-        jet = createJetMember();
+        hz = createJetMember().getHazelcastInstance();
     }
 
     @Test
     public void test_influxDbSink() {
-        IList<Integer> measurements = jet.getList("mem_usage");
+        IList<Integer> measurements = hz.getList("mem_usage");
         for (int i = 0; i < VALUE_COUNT; i++) {
             measurements.add(i);
         }
@@ -85,7 +85,7 @@ public class InfluxDbSinkTest extends JetTestSupport {
                             .build())
          .writeTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), DATABASE_NAME, USERNAME, PASSWORD));
 
-        jet.newJob(p).join();
+        hz.getJet().newJob(p).join();
 
         List<Result> results = db.query(new Query("SELECT * FROM mem_usage")).getResults();
         assertEquals(1, results.size());
@@ -98,7 +98,7 @@ public class InfluxDbSinkTest extends JetTestSupport {
 
     @Test
     public void test_influxDbSink_nonExistingDb() {
-        IList<Integer> measurements = jet.getList("mem_usage");
+        IList<Integer> measurements = hz.getList("mem_usage");
         IntStream.range(0, VALUE_COUNT).forEach(measurements::add);
         influxdbContainer.getNewInfluxDB();
 
@@ -112,6 +112,6 @@ public class InfluxDbSinkTest extends JetTestSupport {
          .writeTo(InfluxDbSinks.influxDb(influxdbContainer.getUrl(), "non-existing", USERNAME, PASSWORD));
 
         expected.expectMessage("database not found: \"non-existing\"");
-        jet.newJob(p).join();
+        hz.getJet().newJob(p).join();
     }
 }

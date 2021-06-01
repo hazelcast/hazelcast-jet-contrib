@@ -16,8 +16,8 @@
 
 package com.hazelcast.jet.contrib.twitter;
 
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.json.Json;
-import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.core.JetTestSupport;
 import com.hazelcast.jet.pipeline.BatchSource;
@@ -49,20 +49,20 @@ import static org.junit.Assert.fail;
 @Category(NightlyTest.class)
 public class TwitterSourceTest extends JetTestSupport {
 
-    private JetInstance jet;
+    private HazelcastInstance hz;
     private Properties credentials;
 
 
     @Before
     public void setup() {
-        jet = createJetMember();
+        hz = createJetMember().getHazelcastInstance();
         credentials = loadCredentials();
     }
 
     @Test
     public void testStream_withTermFilter() {
         Pipeline pipeline = Pipeline.create();
-        List<String> terms = new ArrayList<String>(Arrays.asList("BTC", "ETH"));
+        List<String> terms = new ArrayList<>(Arrays.asList("BTC", "ETH"));
         final StreamSource<String> twitterTestStream = TwitterSources.stream(
                 credentials, () -> new StatusesFilterEndpoint().trackTerms(terms));
         StreamStage<String> tweets = pipeline
@@ -74,7 +74,7 @@ public class TwitterSourceTest extends JetTestSupport {
 
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.", list.size(), 20)));
-        Job job = jet.newJob(pipeline);
+        Job job = hz.getJet().newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
             job.join();
@@ -89,7 +89,7 @@ public class TwitterSourceTest extends JetTestSupport {
     @Test
     public void testStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
-        List<Long> userIds = new ArrayList<Long>(
+        List<Long> userIds = new ArrayList<>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
         final StreamSource<String> twitterTestStream = TwitterSources.stream(credentials,
                 () -> new StatusesFilterEndpoint().followings(userIds));
@@ -102,7 +102,7 @@ public class TwitterSourceTest extends JetTestSupport {
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
                         list.size(), 15)));
-        Job job = jet.newJob(pipeline);
+        Job job = hz.getJet().newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
             job.join();
@@ -117,7 +117,7 @@ public class TwitterSourceTest extends JetTestSupport {
     @Test
     public void testTimestampedStream_termFilter() {
         Pipeline pipeline = Pipeline.create();
-        List<String> terms = new ArrayList<String>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
+        List<String> terms = new ArrayList<>(Arrays.asList("San Mateo", "Brno", "London", "Istanbul"));
 
         final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream(
                 credentials, () -> new StatusesFilterEndpoint().trackTerms(terms));
@@ -130,7 +130,7 @@ public class TwitterSourceTest extends JetTestSupport {
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 20 tweets in 1 min.",
                         list.size(), 20)));
-        Job job = jet.newJob(pipeline);
+        Job job = hz.getJet().newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
             job.join();
@@ -145,7 +145,7 @@ public class TwitterSourceTest extends JetTestSupport {
     @Test
     public void testTimestampedStream_userFilter() {
         Pipeline pipeline = Pipeline.create();
-        List<Long> userIds = new ArrayList<Long>(
+        List<Long> userIds = new ArrayList<>(
                 Arrays.asList(612473L, 759251L, 1367531L, 34713362L, 51241574L, 87818409L));
         final StreamSource<String> twitterTestStream = TwitterSources.timestampedStream(
                 credentials, () -> new StatusesFilterEndpoint().followings(userIds));
@@ -158,7 +158,7 @@ public class TwitterSourceTest extends JetTestSupport {
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 15 tweets in 1 min.",
                         list.size(), 15)));
-        Job job = jet.newJob(pipeline);
+        Job job = hz.getJet().newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
             job.join();
@@ -181,7 +181,7 @@ public class TwitterSourceTest extends JetTestSupport {
         tweets.writeTo(AssertionSinks.assertCollectedEventually(60,
                 list -> assertGreaterOrEquals("Emits at least 10 tweets in 1 minute.",
                         list.size(), 10)));
-        Job job = jet.newJob(pipeline);
+        Job job = hz.getJet().newJob(pipeline);
         sleepAtLeastSeconds(5);
         try {
             job.join();

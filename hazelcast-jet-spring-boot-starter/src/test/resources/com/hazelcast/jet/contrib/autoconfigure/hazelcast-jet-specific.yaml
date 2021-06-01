@@ -1,3 +1,0 @@
-hazelcast-jet:
-  properties:
-    foo: bar-yaml

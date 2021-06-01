@@ -17,7 +17,8 @@
 package com.hazelcast.jet.contrib.redis;
 
 import com.hazelcast.collection.IList;
-import com.hazelcast.jet.JetInstance;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JobConfig;
 import com.hazelcast.jet.core.JetTestSupport;
@@ -54,8 +55,8 @@ public class RedisSourceTest extends JetTestSupport {
     private RedisURI uri;
     private StatefulRedisConnection<String, String> connection;
 
-    private JetInstance instance;
-    private JetInstance instanceToShutDown;
+    private HazelcastInstance instance;
+    private HazelcastInstance instanceToShutDown;
 
     @Before
     public void setup() {
@@ -63,15 +64,13 @@ public class RedisSourceTest extends JetTestSupport {
         connection = client.connect();
         uri = RedisURI.create(container.connectionString());
 
-        instance = createJetMember();
-        instanceToShutDown = createJetMember();
+        instance = createJetMember().getHazelcastInstance();
+        instanceToShutDown = createJetMember().getHazelcastInstance();
     }
 
     @After
     public void teardown() {
-        terminateInstance(instance);
-        terminateInstance(instanceToShutDown);
-
+        Hazelcast.shutdownAll();
         connection.close();
         client.shutdown();
     }
@@ -85,7 +84,7 @@ public class RedisSourceTest extends JetTestSupport {
         p.readFrom(RedisSources.hash("source", uri, "hash"))
                 .writeTo(Sinks.map("map"));
 
-        instance.newJob(p).join();
+        instance.getJet().newJob(p).join();
 
         IMap<Object, Object> map = instance.getMap("map");
         assertTrueEventually(() -> assertEquals(elementCount, map.size()));
@@ -119,7 +118,7 @@ public class RedisSourceTest extends JetTestSupport {
         p.readFrom(RedisSources.sortedSet("source", uri, "sortedSet", rangeStart, rangeEnd))
                 .writeTo(Sinks.list("list"));
 
-        instance.newJob(p).join();
+        instance.getJet().newJob(p).join();
 
         IList<ScoredValue<String>> list = instance.getList("list");
         assertTrueEventually(() -> assertEquals(rangeEnd - rangeStart + 1, list.size()));
@@ -162,7 +161,7 @@ public class RedisSourceTest extends JetTestSupport {
         }
 
         Sink<Object> sink = SinkBuilder
-                .sinkBuilder("set", c -> c.jetInstance().getHazelcastInstance().getSet("set"))
+                .sinkBuilder("set", c -> c.hazelcastInstance().getSet("set"))
                 .receiveFn(Set::add)
                 .build();
 
@@ -172,9 +171,9 @@ public class RedisSourceTest extends JetTestSupport {
                 .withoutTimestamps()
                 .writeTo(sink);
 
-        Job job = instance.newJob(p);
+        Job job = instance.getJet().newJob(p);
 
-        Collection<Object> set = instance.getHazelcastInstance().getSet("set");
+        Collection<Object> set = instance.getSet("set");
         assertTrueEventually(() -> assertEquals(addCount * streamCount, set.size()));
 
         job.cancel();
@@ -196,7 +195,7 @@ public class RedisSourceTest extends JetTestSupport {
         }
 
         Sink<Object> sink = SinkBuilder
-                .sinkBuilder("set", c -> c.jetInstance().getHazelcastInstance().getSet("set"))
+                .sinkBuilder("set", c -> c.hazelcastInstance().getSet("set"))
                 .receiveFn(Set::add)
                 .build();
 
@@ -210,14 +209,14 @@ public class RedisSourceTest extends JetTestSupport {
         JobConfig config = new JobConfig();
         config.setProcessingGuarantee(EXACTLY_ONCE)
                 .setSnapshotIntervalMillis(3000);
-        Job job = instance.newJob(p, config);
+        Job job = instance.getJet().newJob(p, config);
 
         sleepSeconds(15);
         instanceToShutDown.shutdown();
         sleepSeconds(15);
-        instanceToShutDown = createJetMember();
+        instanceToShutDown = createJetMember().getHazelcastInstance();
 
-        Collection<Object> set = instance.getHazelcastInstance().getSet("set");
+        Collection<Object> set = instance.getSet("set");
         assertTrueEventually(() -> assertEquals(addCount * streamCount, set.size()));
 
         job.cancel();

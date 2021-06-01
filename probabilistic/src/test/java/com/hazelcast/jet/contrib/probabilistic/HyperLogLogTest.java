@@ -17,9 +17,9 @@
 package com.hazelcast.jet.contrib.probabilistic;
 
 import com.hazelcast.collection.IList;
-import com.hazelcast.jet.Jet;
-import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.config.JetConfig;
+import com.hazelcast.config.Config;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.pipeline.JournalInitialPosition;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.Sinks;
@@ -47,22 +47,22 @@ import static org.junit.Assert.assertTrue;
 
 public class HyperLogLogTest {
 
-    private JetInstance jet;
+    private HazelcastInstance hz;
 
     @Before
     public void setup() {
-        JetConfig jetConfig = new JetConfig();
-        jetConfig.getHazelcastConfig().getMapConfig("default")
-                 .getEventJournalConfig()
-                 .setEnabled(true)
-                 .setCapacity(50_000);
-        jet = Jet.newJetInstance(jetConfig);
+        Config config = new Config();
+        config.getMapConfig("default")
+                .getEventJournalConfig()
+                .setEnabled(true)
+                .setCapacity(50_000);
+        hz = Hazelcast.newHazelcastInstance(config);
     }
 
     @After
     public void tearDown() {
-        if (jet != null) {
-            jet.shutdown();
+        if (hz != null) {
+            hz.shutdown();
         }
     }
 
@@ -82,12 +82,12 @@ public class HyperLogLogTest {
                 .mapUsingService(hashingServiceFactory(), hashingFn())
                 .rollingAggregate(ProbabilisticAggregations.hyperLogLog())
                 .writeTo(Sinks.mapWithUpdating(targetMapName, e -> 0, (current, n) -> n));
-        jet.newJob(pipeline);
+        hz.getJet().newJob(pipeline);
 
-        IMap<Integer, Integer> sourceMap = jet.getMap(sourceMapName);
+        IMap<Integer, Integer> sourceMap = hz.getMap(sourceMapName);
         populateSourceMap(sourceMap, actualCardinality, totalItemCount);
 
-        IMap<Integer, Long> targetMap = jet.getMap(targetMapName);
+        IMap<Integer, Long> targetMap = hz.getMap(targetMapName);
         await().atMost(20, TimeUnit.SECONDS).untilAsserted(() -> {
             Long estimatedCardinality = targetMap.get(0);
             assertNotNull(estimatedCardinality);
@@ -103,7 +103,7 @@ public class HyperLogLogTest {
         String sourceListName = "sourceList";
         String targetListName = "targetList";
 
-        IList<Integer> sourceList = jet.getList(sourceListName);
+        IList<Integer> sourceList = hz.getList(sourceListName);
         populateSourceList(sourceList, actualCardinality, totalItemCount);
 
         Pipeline pipeline = Pipeline.create();
@@ -111,9 +111,9 @@ public class HyperLogLogTest {
                 .mapUsingService(hashingServiceFactory(), hashingFn())
                 .aggregate(hyperLogLog())
                 .writeTo(list(targetListName));
-        jet.newJob(pipeline).join();
+        hz.getJet().newJob(pipeline).join();
 
-        long estimatedCardinality = jet.<Long>getList(targetListName).get(0);
+        long estimatedCardinality = hz.<Long>getList(targetListName).get(0);
         assertEstimatedCardinalityPrecision(estimatedCardinality, actualCardinality, allowedErrorFactor);
     }
 

@@ -148,7 +148,7 @@ public class HttpListenerSourceTest extends HttpTestBase {
                 .writeTo(assertCollectedEventually(30,
                         list -> assertEquals(ITEM_COUNT - FILTER_OUT_BELOW, list.size())));
 
-        Job job = jet.newJob(p);
+        Job job = hz.getJet().newJob(p);
         assertJobStatusEventually(job, JobStatus.RUNNING);
         return job;
     }

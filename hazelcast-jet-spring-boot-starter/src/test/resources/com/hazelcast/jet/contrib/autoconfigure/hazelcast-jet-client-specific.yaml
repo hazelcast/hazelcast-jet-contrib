@@ -1,4 +1,0 @@
-hazelcast-client:
-  cluster-name: boot-starter
-  client-labels:
-    - explicit-yaml
