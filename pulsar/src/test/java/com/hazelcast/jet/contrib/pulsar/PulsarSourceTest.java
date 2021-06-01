@@ -16,7 +16,6 @@
 
 package com.hazelcast.jet.contrib.pulsar;
 
-import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
@@ -119,7 +118,10 @@ public class PulsarSourceTest extends PulsarTestSupport {
             assertTrue("Job was expected to complete with AssertionCompletedException, but completed with: "
                     + e.getCause(), errorMsg.contains(AssertionCompletedException.class.getName()));
         }
-        Hazelcast.shutdownAll();
+
+        for (HazelcastInstance instance : instances) {
+            instance.shutdown();
+        }
     }
 
     @Test
@@ -132,7 +134,7 @@ public class PulsarSourceTest extends PulsarTestSupport {
         integrationTest(ProcessingGuarantee.EXACTLY_ONCE);
     }
 
-    public void integrationTest(ProcessingGuarantee guarantee) throws InterruptedException {
+    public void integrationTest(ProcessingGuarantee guarantee) {
         HazelcastInstance[] instances = new HazelcastInstance[2];
         Arrays.setAll(instances, i -> createJetMember().getHazelcastInstance());
 
@@ -196,6 +198,5 @@ public class PulsarSourceTest extends PulsarTestSupport {
         // cancel the job
         job.cancel();
         assertTrueEventually(() -> Assert.assertTrue(job.getFuture().isDone()));
-        Hazelcast.shutdownAll();
     }
 }
