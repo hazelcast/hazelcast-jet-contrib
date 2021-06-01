@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
     compile 'org.influxdb:influxdb-java:2.15'
-    testCompile "org.testcontainers:influxdb:1.11.2"
+    testCompile "org.testcontainers:influxdb:${testContainersVersion}"
     testCompile "org.slf4j:slf4j-log4j12:1.7.26"
 }
 
@@ -16,6 +16,6 @@ jar {
 
 shadowJar {
     dependencies {
-        exclude(dependency('com.hazelcast.jet:hazelcast-jet'))
+        exclude(dependency('com.hazelcast:hazelcast'))
     }
 }

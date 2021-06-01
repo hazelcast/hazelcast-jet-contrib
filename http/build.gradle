@@ -16,7 +16,7 @@ jar {
 
 shadowJar {
     dependencies {
-        exclude(dependency('com.hazelcast.jet:hazelcast-jet'))
+        exclude(dependency('com.hazelcast:hazelcast'))
         exclude(dependency('com.google.code.findbugs:jsr305'))
     }
 }

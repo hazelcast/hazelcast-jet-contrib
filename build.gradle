@@ -32,6 +32,14 @@ subprojects {
                 snapshotsOnly()
             }
         }
+
+        maven {
+            url "https://repository.hazelcast.com/artifactory/snapshot/"
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+
         maven {
             url "https://repository.hazelcast.com/release"
         }
@@ -57,6 +65,7 @@ subprojects {
 
     ext {
         hazelcastVersion = '5.0-SNAPSHOT'
+        testContainersVersion = '1.15.3'
     }
 
     dependencies {
