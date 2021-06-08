@@ -57,7 +57,7 @@ public class RedisSinkTest extends JetTestSupport {
         client = container.newRedisClient();
         connection = client.connect();
         uri = RedisURI.create(container.connectionString());
-        instance = createJetMember().getHazelcastInstance();
+        instance = createHazelcastInstance();
     }
 
     @After

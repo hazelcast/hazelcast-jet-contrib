@@ -45,7 +45,7 @@ public class PulsarSinkTest extends PulsarTestSupport {
         p.readFrom(TestSources.items(numbers))
          .writeTo(pulsarSink);
 
-        createJetMember().newJob(p).join();
+        createHazelcastInstance().getJet().newJob(p).join();
         List<Double> list = consumeMessages(topicName, ITEM_COUNT);
 
         assertTrueEventually(() -> {

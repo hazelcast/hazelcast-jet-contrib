@@ -76,7 +76,7 @@ public class HttpListenerSinkTest extends HttpTestBase {
 
     @Before
     public void setUp() throws Exception {
-        createJetMember(config());
+        createHazelcastInstance(config());
         Xnio xnio = Xnio.getInstance(HttpListenerSinkTest.class.getClassLoader());
         worker = xnio.createWorker(OptionMap.builder()
                 .set(Options.WORKER_IO_THREADS, 2)

@@ -53,7 +53,7 @@ public class MongoDBSourceTest extends AbstractMongoDBTest {
 
     @Test
     public void testStream_whenServerDown() {
-        HazelcastInstance serverToShutdown = createJetMember().getHazelcastInstance();
+        HazelcastInstance serverToShutdown = createHazelcastInstance();
 
         int itemCount = 40_000;
 

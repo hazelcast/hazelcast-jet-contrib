@@ -62,7 +62,7 @@ public class InfluxDbSinkTest extends JetTestSupport {
 
     @Before
     public void setup() {
-        hz = createJetMember().getHazelcastInstance();
+        hz = createHazelcastInstance();
     }
 
     @Test

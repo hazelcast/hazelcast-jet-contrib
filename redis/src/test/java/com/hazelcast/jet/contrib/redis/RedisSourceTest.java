@@ -64,8 +64,8 @@ public class RedisSourceTest extends JetTestSupport {
         connection = client.connect();
         uri = RedisURI.create(container.connectionString());
 
-        instance = createJetMember().getHazelcastInstance();
-        instanceToShutDown = createJetMember().getHazelcastInstance();
+        instance = createHazelcastInstance();
+        instanceToShutDown = createHazelcastInstance();
     }
 
     @After
@@ -214,7 +214,7 @@ public class RedisSourceTest extends JetTestSupport {
         sleepSeconds(15);
         instanceToShutDown.shutdown();
         sleepSeconds(15);
-        instanceToShutDown = createJetMember().getHazelcastInstance();
+        instanceToShutDown = createHazelcastInstance();
 
         Collection<Object> set = instance.getSet("set");
         assertTrueEventually(() -> assertEquals(addCount * streamCount, set.size()));

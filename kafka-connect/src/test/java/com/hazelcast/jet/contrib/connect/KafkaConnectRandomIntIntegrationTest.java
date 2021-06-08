@@ -66,7 +66,7 @@ public class KafkaConnectRandomIntIntegrationTest extends JetTestSupport {
                                       .getPath()
         );
 
-        Job job = createJetMember().newJob(pipeline, jobConfig);
+        Job job = createHazelcastInstance().getJet().newJob(pipeline, jobConfig);
 
         sleepAtLeastSeconds(5);
 

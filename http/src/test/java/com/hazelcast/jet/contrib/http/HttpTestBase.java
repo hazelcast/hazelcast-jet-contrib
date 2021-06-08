@@ -96,7 +96,7 @@ public class HttpTestBase extends JetTestSupport {
 
     @Before
     public void setup() {
-        hz = createJetMember(config()).getHazelcastInstance();
+        hz = createHazelcastInstance(config());
         httpClient = HttpClients.createDefault();
         httpsClient = HttpClients
                 .custom()

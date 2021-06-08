@@ -55,7 +55,7 @@ public class TwitterSourceTest extends JetTestSupport {
 
     @Before
     public void setup() {
-        hz = createJetMember().getHazelcastInstance();
+        hz = createHazelcastInstance();
         credentials = loadCredentials();
     }
 

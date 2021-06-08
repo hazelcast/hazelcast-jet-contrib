@@ -56,7 +56,7 @@ public abstract class AbstractMongoDBTest extends JetTestSupport {
         startAtOperationTime = cursor.next().getClusterTime();
         cursor.close();
 
-        hz = createJetMember().getHazelcastInstance();
+        hz = createHazelcastInstance();
     }
 
     MongoCollection<Document> collection() {
