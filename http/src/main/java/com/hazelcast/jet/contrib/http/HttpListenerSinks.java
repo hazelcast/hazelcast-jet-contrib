@@ -16,7 +16,7 @@
 
 package com.hazelcast.jet.contrib.http;
 
-import com.hazelcast.jet.JetInstance;
+import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.contrib.http.impl.HttpListenerSinkContext;
 import com.hazelcast.jet.impl.util.ExceptionUtil;
@@ -36,7 +36,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
  * results of the pipeline.
  * <p>
  * Server addresses can be retrieved from
- * {@link #sinkAddress(JetInstance, Job)}.
+ * {@link #sinkAddress(HazelcastInstance, Job)}.
  */
 public final class HttpListenerSinks {
 
@@ -128,12 +128,12 @@ public final class HttpListenerSinks {
      * <p>
      * Returns the address of the Http Listener Sink server for the given job.
      *
-     * @param jet the Jet instance, either client or member
+     * @param hz the Hazelcast instance, either client or member
      * @param job the job which has the Http Listener Sink
      */
-    public static String sinkAddress(JetInstance jet, Job job) {
+    public static String sinkAddress(HazelcastInstance hz, Job job) {
         String observableName = HttpListenerSinkContext.getObservableNameByJobId(job.getId());
-        Ringbuffer<String> ringBuffer = jet.getHazelcastInstance().getRingbuffer(observableName);
+        Ringbuffer<String> ringBuffer = hz.getRingbuffer(observableName);
         CompletionStage<ReadResultSet<String>> stage = ringBuffer.readManyAsync(0, 1, 1, null);
         try {
             ReadResultSet<String> resultSet = stage.toCompletableFuture()

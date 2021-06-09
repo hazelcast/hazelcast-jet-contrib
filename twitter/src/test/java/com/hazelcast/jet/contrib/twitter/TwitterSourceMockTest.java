@@ -81,7 +81,7 @@ public class TwitterSourceMockTest extends JetTestSupport {
         tweets.writeTo(AssertionSinks.assertCollectedEventually(10,
                 list -> assertGreaterOrEquals("Emits at least 100 tweets in 1 min.",
                         list.size(), 100)));
-        Job job = createJetMember().newJob(pipeline);
+        Job job = createHazelcastInstance().getJet().newJob(pipeline);
 
         sleepAtLeastSeconds(5);
 
@@ -111,7 +111,7 @@ public class TwitterSourceMockTest extends JetTestSupport {
         tweets.writeTo(AssertionSinks.assertCollectedEventually(10,
                 list -> assertGreaterOrEquals("Emits at least 30 tweets in 10 secs.",
                         list.size(), 30)));
-        Job job = createJetMember().newJob(pipeline);
+        Job job = createHazelcastInstance().getJet().newJob(pipeline);
 
         sleepAtLeastSeconds(2);
 

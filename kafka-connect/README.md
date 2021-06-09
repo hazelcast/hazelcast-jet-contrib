@@ -85,7 +85,7 @@ pipeline.readFrom(KafkaConnectSources.connect(properties))
 JobConfig jobConfig = new JobConfig();
 jobConfig.addJarsInZip("/path/to/kafka-connect-rabbitmq-0.0.2-SNAPSHOT.zip");
 
-Job job = createJetMember().newJob(pipeline, jobConfig);
+Job job = createHazelcastInstance().getJet().newJob(pipeline, jobConfig);
 job.join();
 ```
 

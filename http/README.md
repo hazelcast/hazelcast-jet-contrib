@@ -83,20 +83,20 @@ websocket clients. The sink uses `Object#toString` by default.
 
 Below is an example pipeline which generates 5 items per second and
 publishes those items with the websocket server. After the job has been
-submitted, you can use `HttpListenerSinks.sinkAddress(JetInstance, Job)`
+submitted, you can use `HttpListenerSinks.sinkAddress(HazelcastInstance, Job)`
 static method to retrieve the server address. You can use that address
 with any websocket client to start streaming the results.
 
 ```java
-JetInstance jet = Jet.newJetInstance();
+HazelcastInstance hz = Hazelcast.newHazelcastInstance();
 
 Pipeline p = Pipeline.create();
 p.readFrom(TestSources.itemStream(5))
         .withoutTimestamps()
         .writeTo(HttpListenerSinks.websocket("/items", 8080));
 
-Job job = jet.newJob(p);
-String sinkAddress = HttpListenerSinks.sinkAddress(jet, job);
+Job job = hz.getJet().newJob(p);
+String sinkAddress = HttpListenerSinks.sinkAddress(hz, job);
 //sinkAddress: "ws://the-host:8080/items
 ```
 
@@ -112,21 +112,21 @@ connected http clients. The sink uses `Object#toString` by default.
 
 Below is an example pipeline which generates 5 items per second and
 publishes those items with the http server using SSE. After the job has
-been submitted, you can use `HttpListenerSinks.sinkAddress(JetInstance, Job)`
+been submitted, you can use `HttpListenerSinks.sinkAddress(HazelcastInstance, Job)`
 static method to retrieve the server address. You can use that address
 with any http client which has SSE support to start streaming the
 results.
 
 ```java
-JetInstance jet = Jet.newJetInstance();
+HazelcastInstance hz = Hazelcast.newHazelcastInstance();
 
 Pipeline p = Pipeline.create();
 p.readFrom(TestSources.itemStream(5))
         .withoutTimestamps()
         .writeTo(HttpListenerSinks.sse("/items", 8080));
 
-Job job = jet.newJob(p);
-String sinkAddress = HttpListenerSinks.sinkAddress(jet, job);
+Job job = hz.getJet().newJob(p);
+String sinkAddress = HttpListenerSinks.sinkAddress(hz, job);
 //sinkAddress: "http://the-host:8080/items
 ```
 

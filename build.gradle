@@ -32,6 +32,14 @@ subprojects {
                 snapshotsOnly()
             }
         }
+
+        maven {
+            url "https://repository.hazelcast.com/artifactory/snapshot/"
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+
         maven {
             url "https://repository.hazelcast.com/release"
         }
@@ -56,14 +64,13 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        jetVersion = '4.3'
-        hazelcastVersion = '4.0.3'
+        hazelcastVersion = '5.0-SNAPSHOT'
+        testContainersVersion = '1.15.3'
     }
 
     dependencies {
-        compile group: 'com.hazelcast.jet', name: 'hazelcast-jet', version: jetVersion
+        compile group: 'com.hazelcast', name: 'hazelcast', version: hazelcastVersion
         compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
-        testCompile "com.hazelcast.jet:hazelcast-jet-core:" + jetVersion + ":tests"
         testCompile "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
         testCompile "com.hazelcast:hazelcast-enterprise:" + hazelcastVersion + ":tests"
         testCompile "javax.cache:cache-api:1.1.0"

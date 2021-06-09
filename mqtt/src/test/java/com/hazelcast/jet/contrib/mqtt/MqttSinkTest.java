@@ -113,7 +113,7 @@ public class MqttSinkTest extends SimpleTestInClusterSupport {
                     .rebalance()
                     .writeTo(sink);
 
-            job = instance().newJob(p);
+            job = instance().getJet().newJob(p);
 
             assertTrueEventually(() -> assertTrue(map.size() > ITEM_COUNT / 2));
 
@@ -199,7 +199,7 @@ public class MqttSinkTest extends SimpleTestInClusterSupport {
                 .rebalance()
                 .writeTo(sink);
 
-        Job job = instance().newJob(p);
+        Job job = instance().getJet().newJob(p);
 
         assertFn.accept(counter, job);
     }

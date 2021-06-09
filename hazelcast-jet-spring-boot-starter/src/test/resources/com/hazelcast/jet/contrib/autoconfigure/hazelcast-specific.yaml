@@ -1,2 +1,0 @@
-hazelcast:
-  cluster-name: explicit-yaml-cluster

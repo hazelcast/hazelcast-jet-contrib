@@ -89,7 +89,7 @@ public class HttpListenerSinkContext<T> {
 
         undertow.start();
         String observableName = getObservableNameByJobId(context.jobId());
-        ringBuffer = context.jetInstance().getHazelcastInstance().getRingbuffer(observableName);
+        ringBuffer = context.hazelcastInstance().getRingbuffer(observableName);
         ringBuffer.add(sinkAddress(host, port, path, sinkType, sslContextFn != null));
     }
 

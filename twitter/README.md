@@ -85,8 +85,9 @@ Pipeline p = Pipeline.create();
 p.readFrom(streamSource)
  .withoutTimestamps()
  .writeTo(Sinks.logger());
-JetInstance jet = createJetMember();
-Job job = jet.newJob(p);
+
+HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+Job job = hz.getJet().newJob(p);
 job.join();
 ```
 
@@ -126,8 +127,9 @@ Pipeline p = Pipeline.create();
 p.readFrom(searchSource)
  .map(status -> "@" + status.getUser().getName() + " - " + status.getText())
  .writeTo(Sinks.logger);
-JetInstance jet = createJetMember();
-Job job = jet.newJob(p);
+
+HazelcastInstance hz = Hazelcast.newHazelcastInstance();
+Job job = hz.getJet().newJob(p);
 job.join(); 
 ```
 

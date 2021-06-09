@@ -64,7 +64,7 @@ public class SecuredMqttSourceTest extends AbstractMqttSourceTest {
                 .withoutTimestamps()
                 .writeTo(Sinks.logger());
 
-        assertThatThrownBy(() -> instance().newJob(p).join())
+        assertThatThrownBy(() -> instance().getJet().newJob(p).join())
                 .hasCauseInstanceOf(JetException.class)
                 .hasRootCauseInstanceOf(MqttSecurityException.class)
                 .hasMessageContaining("Not authorized to connect");
@@ -84,7 +84,7 @@ public class SecuredMqttSourceTest extends AbstractMqttSourceTest {
                 .withoutTimestamps()
                 .writeTo(Sinks.logger());
 
-        assertThatThrownBy(() -> instance().newJob(p).join())
+        assertThatThrownBy(() -> instance().getJet().newJob(p).join())
                 .hasCauseInstanceOf(JetException.class)
                 .hasRootCauseInstanceOf(MqttSecurityException.class)
                 .hasMessageContaining("Not authorized to connect");

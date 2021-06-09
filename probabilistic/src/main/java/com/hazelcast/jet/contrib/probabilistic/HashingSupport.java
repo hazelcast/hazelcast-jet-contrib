@@ -41,7 +41,7 @@ public final class HashingSupport {
      */
     public static ServiceFactory<HashingContext, HashingContext> hashingServiceFactory() {
         return ServiceFactory.withCreateContextFn(ctx -> {
-            SerializationServiceSupport support = (SerializationServiceSupport) ctx.jetInstance().getHazelcastInstance();
+            SerializationServiceSupport support = (SerializationServiceSupport) ctx.hazelcastInstance();
             SerializationService serializationService = support.getSerializationService();
             return new HashingContext(serializationService);
         }).withCreateServiceFn((ctx, hashingCtx) -> hashingCtx);

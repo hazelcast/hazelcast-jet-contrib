@@ -88,7 +88,7 @@ public abstract class AbstractMqttSourceTest extends SimpleTestInClusterSupport 
                 .withoutTimestamps()
                 .writeTo(Sinks.list(sinkList));
 
-        job = instance().newJob(p);
+        job = instance().getJet().newJob(p);
 
         assertEqualsEventually(sinkList::size, 1);
         client.publish(topic, "message1".getBytes(), 2, false);
@@ -122,7 +122,7 @@ public abstract class AbstractMqttSourceTest extends SimpleTestInClusterSupport 
                 .withoutTimestamps()
                 .writeTo(Sinks.list(sinkList));
 
-        job = instance().newJob(p);
+        job = instance().getJet().newJob(p);
 
         assertEqualsEventually(sinkList::size, subscriptions.length);
 
