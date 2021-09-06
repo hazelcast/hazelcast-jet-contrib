@@ -5,14 +5,12 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.query.impl.getters.Extractors;
-import com.hazelcast.sql.impl.SqlDataSerializerHook;
 import com.hazelcast.sql.impl.extract.QueryTarget;
 import com.hazelcast.sql.impl.extract.QueryTargetDescriptor;
 
 import java.io.IOException;
-import java.io.Serializable;
 
-public class JournalQueryTargetDescriptor implements QueryTargetDescriptor, Serializable, IdentifiedDataSerializable {
+public class JournalQueryTargetDescriptor implements QueryTargetDescriptor, IdentifiedDataSerializable {
     private QueryTargetDescriptor keyTargetDescriptor;
     private QueryTargetDescriptor valueTargetDescriptor;
 
@@ -50,11 +48,11 @@ public class JournalQueryTargetDescriptor implements QueryTargetDescriptor, Seri
 
     @Override
     public int getFactoryId() {
-        return SqlDataSerializerHook.F_ID;
+        return JournalQuerySerializableFactory.FACTORY_ID;
     }
 
     @Override
     public int getClassId() {
-        return SqlDataSerializerHook.JOURNAL_QUERY_TARGET_DESCRIPTOR;
+        return JournalQuerySerializableFactory.JOURNAL_QUERY_TARGET_DESCRIPTOR;
     }
 }
