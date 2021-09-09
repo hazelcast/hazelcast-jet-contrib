@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 public class IMapJournalConnector implements SqlConnector {
-    public static final String TYPE_NAME = "IMAP_JOURNAL";
+    public static final String TYPE_NAME = "IMapJournal";
 
     private static final IMapJournalMetadataResolvers METADATA_RESOLVERS = new IMapJournalMetadataResolvers(
             KvMetadataJavaResolver.INSTANCE

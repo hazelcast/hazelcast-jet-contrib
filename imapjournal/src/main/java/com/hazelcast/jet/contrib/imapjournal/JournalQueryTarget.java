@@ -34,9 +34,10 @@ public class JournalQueryTarget implements QueryTarget {
 
     @Override
     public QueryExtractor createExtractor(String path, QueryDataType type) {
-        if (path.startsWith("__key")) {
+        if (path.startsWith("__key.")) {
+            return keyTarget.createExtractor(path.replace("__key.", ""), type);
+        } else if (path.startsWith("__key")) {
             return keyTarget.createExtractor(null, type);
-            // TODO: Handle "__key.**"
         } else if (path.startsWith("old_")) {
             return oldValueTarget.createExtractor(path.replace("old_", ""), type);
         } else if (path.startsWith("old")) {
@@ -47,9 +48,6 @@ public class JournalQueryTarget implements QueryTarget {
             return newValueTarget.createExtractor(null, type);
         } else if (path.startsWith("type")) {
             return () -> type.convert(targets[1]);
-        } else if (path.startsWith("this")) {
-            // TODO: Remove this
-            return () -> new Object();
         } else {
             throw new IllegalArgumentException("Unexpected path");
         }

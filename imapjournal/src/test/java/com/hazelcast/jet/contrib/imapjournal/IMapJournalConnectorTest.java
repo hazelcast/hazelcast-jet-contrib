@@ -33,6 +33,7 @@ import java.util.List;
 
 @Category({QuickTest.class, ParallelJVMTest.class})
 public class IMapJournalConnectorTest extends SqlTestSupport {
+    private static final String MAP_NAME_PREFIX = "map";
 
     private static SqlService sqlService;
 
@@ -44,10 +45,7 @@ public class IMapJournalConnectorTest extends SqlTestSupport {
                 .setTimeToLiveSeconds(100);
         Config config = new Config();
         config.getJetConfig().setEnabled(true);
-        config.getMapConfig("map1").setEventJournalConfig(journalConfig);
-        config.getMapConfig("map2").setEventJournalConfig(journalConfig);
-        config.getMapConfig("map3").setEventJournalConfig(journalConfig);
-        config.getMapConfig("map4").setEventJournalConfig(journalConfig);
+        config.getMapConfig(MAP_NAME_PREFIX + "*").setEventJournalConfig(journalConfig);
 
         initialize(2, config);
 
@@ -55,12 +53,12 @@ public class IMapJournalConnectorTest extends SqlTestSupport {
     }
 
     @Test
-    public void test() {
-        String mapName = "map1";
+    public void test_int_varchar() {
+        String mapName = MAP_NAME_PREFIX + 1;
         IMap<Integer, String> map = instance().getMap(mapName);
 
         sqlService.execute("CREATE MAPPING " + " " + mapName + " "
-                + "TYPE IMAP_JOURNAL "
+                + "TYPE IMapJournal "
                 + "OPTIONS ("
                 + "'keyFormat'='int', "
                 + "'valueFormat'='varchar'"
@@ -79,17 +77,16 @@ public class IMapJournalConnectorTest extends SqlTestSupport {
             map.delete(i);
             expectedRows.add(new Row(i, "Updated Value " + i, null, "REMOVED"));
         }
-
         assertRowsEventuallyInAnyOrder("SELECT __key, \"old\", \"new\", type FROM " + mapName, expectedRows);
     }
 
     @Test
-    public void test2() {
-        String mapName = "map2";
+    public void test_varchar_int() {
+        String mapName = MAP_NAME_PREFIX + 2;
         IMap<String, Integer> map = instance().getMap(mapName);
 
         sqlService.execute("CREATE MAPPING " + " " + mapName + " "
-                + "TYPE IMAP_JOURNAL "
+                + "TYPE IMapJournal "
                 + "OPTIONS ("
                 + "'keyFormat'='varchar', "
                 + "'valueFormat'='int'"
@@ -110,46 +107,15 @@ public class IMapJournalConnectorTest extends SqlTestSupport {
         }
 
         assertRowsEventuallyInAnyOrder("SELECT __key, \"old\", \"new\", type FROM " + mapName, expectedRows);
-
     }
 
     @Test
-    public void test3() {
-        String mapName = "map3";
-        IMap<String, Integer> map = instance().getMap(mapName);
-
-        sqlService.execute("CREATE MAPPING " + " " + mapName + " "
-                + "TYPE IMAP_JOURNAL "
-                + "OPTIONS ("
-                + "'keyFormat'='varchar', "
-                + "'valueFormat'='int'"
-                + ")");
-
-        List<Row> expectedRows = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            map.set("Key " + i, i);
-            expectedRows.add(new Row("Key " + i, null, i, "ADDED"));
-        }
-        for (int i = 0; i < 10; i++) {
-            map.set("Key " + i, i + 1);
-            expectedRows.add(new Row("Key " + i, i, i + 1, "UPDATED"));
-        }
-        for (int i = 0; i < 10; i++) {
-            map.delete("Key " + i);
-            expectedRows.add(new Row("Key " + i, i + 1, null, "REMOVED"));
-        }
-
-        assertRowsEventuallyInAnyOrder("SELECT __key, \"old\", \"new\", type FROM " + mapName, expectedRows);
-
-    }
-
-    @Test
-    public void test4() {
-        String mapName = "map4";
+    public void test_object() {
+        String mapName = MAP_NAME_PREFIX + 3;
         IMap<String, Person> map = instance().getMap(mapName);
 
         sqlService.execute("CREATE MAPPING " + " " + mapName + " "
-                + "TYPE IMAP_JOURNAL "
+                + "TYPE IMapJournal "
                 + "OPTIONS ("
                 + "'keyFormat'='java', "
                 + "'keyJavaClass'='" + String.class.getName() + "', "
@@ -171,8 +137,7 @@ public class IMapJournalConnectorTest extends SqlTestSupport {
             expectedRows.add(new Row("Name " + i, i + 1, null, "REMOVED"));
         }
 
-        assertRowsEventuallyInAnyOrder("SELECT __key, old_age + 100, new_age * 100, type FROM " + mapName, expectedRows);
-
+        assertRowsEventuallyInAnyOrder("SELECT __key, old_age, new_age, type FROM " + mapName, expectedRows);
     }
 
     public static class Person implements Serializable {

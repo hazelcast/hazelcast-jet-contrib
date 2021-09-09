@@ -10,9 +10,6 @@ dependencies {
     compile group: 'com.hazelcast', name: 'hazelcast-sql', version: hazelcastVersion
     testCompile "com.hazelcast:hazelcast-sql:" + hazelcastVersion + ":tests"
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testImplementation 'org.assertj:assertj-core:3.20.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
-}
-
-test {
-    useJUnitPlatform()
 }

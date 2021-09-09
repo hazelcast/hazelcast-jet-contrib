@@ -9,14 +9,11 @@ import com.hazelcast.sql.impl.extract.QueryTarget;
 import com.hazelcast.sql.impl.extract.QueryTargetDescriptor;
 
 import java.io.IOException;
+import java.io.Serializable;
 
-public class JournalQueryTargetDescriptor implements QueryTargetDescriptor, IdentifiedDataSerializable {
+public class JournalQueryTargetDescriptor implements QueryTargetDescriptor, Serializable{
     private QueryTargetDescriptor keyTargetDescriptor;
     private QueryTargetDescriptor valueTargetDescriptor;
-
-    public JournalQueryTargetDescriptor() {
-        // No-op.
-    }
 
     public JournalQueryTargetDescriptor(
             QueryTargetDescriptor keyTargetDescriptor,
@@ -44,15 +41,5 @@ public class JournalQueryTargetDescriptor implements QueryTargetDescriptor, Iden
     public void readData(ObjectDataInput in) throws IOException {
         keyTargetDescriptor = in.readObject();
         valueTargetDescriptor = in.readObject();
-    }
-
-    @Override
-    public int getFactoryId() {
-        return JournalQuerySerializableFactory.FACTORY_ID;
-    }
-
-    @Override
-    public int getClassId() {
-        return JournalQuerySerializableFactory.JOURNAL_QUERY_TARGET_DESCRIPTOR;
     }
 }
