@@ -145,6 +145,7 @@ public class HttpTestBase extends JetTestSupport {
 
     static Config config() {
         Config cfg = new Config();
+        cfg.getJetConfig().setEnabled(true);
         cfg.getMetricsConfig().setCollectionFrequencySeconds(1);
         return cfg;
     }
