@@ -64,7 +64,7 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        hazelcastVersion = '5.0-SNAPSHOT'
+        hazelcastVersion = '5.0'
         testContainersVersion = '1.15.3'
     }
 
