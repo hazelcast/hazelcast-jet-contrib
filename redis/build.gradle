@@ -1,4 +1,4 @@
 dependencies {
-    compile group: 'io.lettuce', name: 'lettuce-core', version: '5.1.7.RELEASE'
-    testCompile group: 'org.testcontainers', name: 'testcontainers', version: testContainersVersion
+    implementation group: 'io.lettuce', name: 'lettuce-core', version: '5.1.7.RELEASE'
+    testImplementation group: 'org.testcontainers', name: 'testcontainers', version: testContainersVersion
 }

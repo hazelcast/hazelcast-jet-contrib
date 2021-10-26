@@ -6,7 +6,9 @@ buildscript {
     }
     repositories {
         mavenCentral()
-        jcenter()
+        maven {
+            url 'https://plugins.gradle.org/m2/'
+        }
     }
 }
 
@@ -18,7 +20,6 @@ subprojects {
     apply plugin: 'checkstyle'
     apply plugin: 'maven-publish'
     apply plugin: 'maven-publish-auth'
-    apply plugin: "maven"
     apply plugin: 'signing'
     apply plugin: 'net.researchgate.release'
     apply plugin: 'jacoco'
@@ -54,7 +55,6 @@ subprojects {
     }
 
     checkstyle {
-        configProperties('rootDir': rootDir)
         toolVersion = '8.18'
     }
 
@@ -64,19 +64,19 @@ subprojects {
     targetCompatibility = '1.8'
 
     ext {
-        hazelcastVersion = '5.0-SNAPSHOT'
+        hazelcastVersion = '5.0'
         testContainersVersion = '1.15.3'
     }
 
     dependencies {
-        compile group: 'com.hazelcast', name: 'hazelcast', version: hazelcastVersion
-        compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
-        testCompile "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
-        testCompile "com.hazelcast:hazelcast-enterprise:" + hazelcastVersion + ":tests"
-        testCompile "javax.cache:cache-api:1.1.0"
-        testCompile 'log4j:log4j:1.2.17'
-        testCompile 'junit:junit:4.12'
-        testCompile 'org.awaitility:awaitility:3.1.6'
+        implementation group: 'com.hazelcast', name: 'hazelcast', version: hazelcastVersion
+        implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+        testImplementation "com.hazelcast:hazelcast:" + hazelcastVersion + ":tests"
+        testImplementation "com.hazelcast:hazelcast-enterprise:" + hazelcastVersion + ":tests"
+        testImplementation "javax.cache:cache-api:1.1.0"
+        testImplementation 'log4j:log4j:1.2.17'
+        testImplementation 'junit:junit:4.12'
+        testImplementation 'org.awaitility:awaitility:3.1.6'
     }
 
     test {

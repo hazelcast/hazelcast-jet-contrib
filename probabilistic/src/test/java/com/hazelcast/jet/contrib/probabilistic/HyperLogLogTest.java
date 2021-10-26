@@ -52,6 +52,7 @@ public class HyperLogLogTest {
     @Before
     public void setup() {
         Config config = new Config();
+        config.getJetConfig().setEnabled(true);
         config.getMapConfig("default")
                 .getEventJournalConfig()
                 .setEnabled(true)

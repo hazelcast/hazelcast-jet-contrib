@@ -55,7 +55,7 @@
 
     <!-- Activation here is needed for IntelliJ CheckstyleIDEA plugin -->
     <module name="SuppressionFilter">
-        <property name="file" value="${rootDir}/config/checkstyle/suppressions.xml"/>
+        <property name="file" value="${config_loc}/suppressions.xml"/>
     </module>
 
     <!-- Enable the suppression annotation @SuppressWarnings("checkstyle:lowercasecheckname"} -->
@@ -97,7 +97,7 @@
     <!-- Checks for Headers                                -->
     <!-- See http://checkstyle.sf.net/config_header.html   -->
     <module name="Header">
-        <property name="headerFile" value="${rootDir}/config/checkstyle/ClassHeader.txt"/>
+        <property name="headerFile" value="${config_loc}/ClassHeader.txt"/>
         <property name="fileExtensions" value="java"/>
     </module>
 
